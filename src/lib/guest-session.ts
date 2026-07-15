@@ -85,6 +85,21 @@ export function getOrCreateGuestLead(): GuestLeadLocal | null {
   }
 }
 
+/** Ensures a guestSessionId exists for unlock/payment before lead capture. */
+export function ensureGuestSessionId(): string {
+  const existing = getOrCreateGuestLead();
+  if (existing?.guestSessionId) return existing.guestSessionId;
+  const guestSessionId = createGuestSessionId();
+  const stub: GuestLeadLocal = {
+    guestSessionId,
+    studentName: "",
+    school: "",
+    mobileNumber: "",
+  };
+  localStorage.setItem(GUEST_SESSION_KEY, JSON.stringify(stub));
+  return guestSessionId;
+}
+
 export function saveGuestLead(
   data: Omit<GuestLeadLocal, "guestSessionId"> & { guestSessionId?: string },
 ): GuestLeadLocal {
@@ -113,6 +128,11 @@ export function getGuestProgress(quizId: string): GuestProgressLocal | null {
   } catch {
     return null;
   }
+}
+
+export function clearGuestLead() {
+  if (typeof window === "undefined") return;
+  localStorage.removeItem(GUEST_SESSION_KEY);
 }
 
 export function clearGuestProgress() {

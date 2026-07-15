@@ -12,6 +12,7 @@ import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import { Spinner } from "@/components/ui/spinner";
 import { APP_CONFIG } from "@/config/app-config";
 
@@ -73,7 +74,7 @@ export function AccountRegisterForm({ accountType }: AccountRegisterFormProps) {
       toast.success(isTeacher ? "Teacher account created" : "Student account created", {
         description: "You can log in now.",
       });
-      router.push("/auth/v1/login");
+      router.push("/login");
     } catch (error) {
       toast.error("Registration failed", {
         description: error instanceof Error ? error.message : "Unexpected error",
@@ -128,10 +129,9 @@ export function AccountRegisterForm({ accountType }: AccountRegisterFormProps) {
           render={({ field, fieldState }) => (
             <Field className="gap-1.5" data-invalid={fieldState.invalid}>
               <FieldLabel htmlFor="register-password">Password</FieldLabel>
-              <Input
+              <PasswordInput
                 {...field}
                 id="register-password"
-                type="password"
                 placeholder="••••••••"
                 autoComplete="new-password"
                 aria-invalid={fieldState.invalid}
@@ -146,10 +146,9 @@ export function AccountRegisterForm({ accountType }: AccountRegisterFormProps) {
           render={({ field, fieldState }) => (
             <Field className="gap-1.5" data-invalid={fieldState.invalid}>
               <FieldLabel htmlFor="register-confirm-password">Confirm password</FieldLabel>
-              <Input
+              <PasswordInput
                 {...field}
                 id="register-confirm-password"
-                type="password"
                 placeholder="••••••••"
                 autoComplete="new-password"
                 aria-invalid={fieldState.invalid}

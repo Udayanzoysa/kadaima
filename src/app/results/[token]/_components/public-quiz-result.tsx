@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 
@@ -13,6 +14,7 @@ import { Progress } from "@/components/ui/progress";
 import { Spinner } from "@/components/ui/spinner";
 import { APP_CONFIG } from "@/config/app-config";
 import { useI18n } from "@/hooks/use-i18n";
+import { getClientCookie } from "@/lib/cookie.client";
 import { getGuestQuizCount } from "@/lib/guest-session";
 import { LOCALES } from "@/lib/i18n";
 import { safeJson } from "@/lib/safe-json";
@@ -28,9 +30,11 @@ export function PublicQuizResult() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [quizCount, setQuizCount] = useState(0);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
 
   useEffect(() => {
     setQuizCount(getGuestQuizCount());
+    setIsLoggedIn(Boolean(getClientCookie("session_token")));
     (async () => {
       try {
         const res = await fetch(`${APP_CONFIG.apiUrl}/public/quizzes/results/${token}`);
@@ -70,12 +74,20 @@ export function PublicQuizResult() {
   }
 
   const isPassed = attempt.isPassed;
+  const showRegisterCta = !isLoggedIn && quizCount >= 3;
 
   return (
     <div className="min-h-screen bg-[#f4f7f5] text-[#0b3d2e]">
       <header className="mx-auto flex max-w-3xl items-center justify-between px-4 py-5 md:px-6">
-        <Link href="/" className="font-[family-name:var(--font-nunito-sans)] text-lg font-extrabold">
-          {APP_CONFIG.name}
+        <Link href="/" className="inline-flex items-center">
+          <Image
+            src="/brand/kadaima-logo.png"
+            alt="Kadaima"
+            width={140}
+            height={36}
+            className="h-8 w-auto"
+            priority
+          />
         </Link>
         <div className="flex gap-1.5">
           {LOCALES.map((l) => (
@@ -93,14 +105,14 @@ export function PublicQuizResult() {
       </header>
 
       <main className="mx-auto flex max-w-3xl flex-col gap-6 px-4 pb-16 md:px-6">
-        {quizCount >= 3 && (
+        {showRegisterCta && (
           <div className="rounded-2xl border border-[#e8c96a] bg-[#fff8e1] px-5 py-4 text-sm">
             <p className="font-bold">Wow! You&apos;ve completed {quizCount} quizzes!</p>
             <p className="mt-1 text-[#0b3d2e]/70">
               Create a free permanent account to save your badges and compete on the school leaderboard.
             </p>
             <Button asChild className="mt-3 bg-[#0b3d2e] hover:bg-[#145a44]" size="sm">
-              <Link href="/auth/v1/register">Register now</Link>
+              <Link href="/student/register">Register now</Link>
             </Button>
           </div>
         )}
@@ -115,7 +127,7 @@ export function PublicQuizResult() {
           <h1 className="mt-3 font-[family-name:var(--font-nunito-sans)] text-2xl font-extrabold">
             {localize(attempt.quiz.title, locale)}
           </h1>
-          <p className="text-sm text-[#0b3d2e]/60">{attempt.quiz.course.title}</p>
+          <p className="text-sm text-[#0b3d2e]/60">{localize(attempt.quiz.course.title, locale)}</p>
           <p className="mt-4 text-sm text-[#0b3d2e]/60">Your score</p>
           <p className={cn("text-5xl font-extrabold", isPassed ? "text-emerald-600" : "text-red-500")}>
             {attempt.finalScore}%

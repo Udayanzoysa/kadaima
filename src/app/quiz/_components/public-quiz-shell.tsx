@@ -83,7 +83,7 @@ export function PublicQuizShell({
               <span className="max-w-[4.5rem] truncate">{localeMeta.label}</span>
             </button>
             <Link
-              href="/auth/v1/login"
+              href="/login"
               className="flex size-9 items-center justify-center rounded-full bg-[#2b7fff] text-xs font-bold text-white shadow-sm"
               aria-label="Account"
             >

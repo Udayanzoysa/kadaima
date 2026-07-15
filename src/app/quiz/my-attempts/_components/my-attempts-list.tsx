@@ -11,7 +11,8 @@ import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { APP_CONFIG } from "@/config/app-config";
 import { useI18n } from "@/hooks/use-i18n";
-import { getOrCreateGuestLead } from "@/lib/guest-session";
+import { getClientCookie } from "@/lib/cookie.client";
+import { ensureGuestSessionId, getOrCreateGuestLead } from "@/lib/guest-session";
 import { localize, type LocalizedText } from "@/types/quiz";
 
 import { PublicQuizShell } from "../../_components/public-quiz-shell";
@@ -37,29 +38,37 @@ interface CompletedAttempt {
   };
 }
 
+async function fetchCompletedAttempts(): Promise<CompletedAttempt[]> {
+  const token = getClientCookie("session_token");
+  if (token) {
+    const res = await fetch(`${APP_CONFIG.apiUrl}/quizzes/me/attempts`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (res.ok) return res.json();
+  }
+
+  const lead = getOrCreateGuestLead();
+  const guestSessionId = lead?.guestSessionId || ensureGuestSessionId();
+  if (!guestSessionId) return [];
+
+  const res = await fetch(
+    `${APP_CONFIG.apiUrl}/public/quizzes/my-attempts?guestSessionId=${encodeURIComponent(guestSessionId)}`,
+  );
+  if (!res.ok) throw new Error("Could not load your attempts.");
+  return res.json();
+}
+
 export function MyAttemptsList() {
   const router = useRouter();
   const { locale } = useI18n();
   const [items, setItems] = useState<CompletedAttempt[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [needsLead, setNeedsLead] = useState(false);
 
   useEffect(() => {
     (async () => {
-      const lead = getOrCreateGuestLead();
-      if (!lead) {
-        setNeedsLead(true);
-        setLoading(false);
-        return;
-      }
-
       try {
-        const res = await fetch(
-          `${APP_CONFIG.apiUrl}/public/quizzes/my-attempts?guestSessionId=${encodeURIComponent(lead.guestSessionId)}`,
-        );
-        if (!res.ok) throw new Error("Could not load your attempts.");
-        setItems(await res.json());
+        setItems(await fetchCompletedAttempts());
       } catch (err) {
         setError(err instanceof Error ? err.message : "Could not load your attempts.");
       } finally {
@@ -87,17 +96,13 @@ export function MyAttemptsList() {
           </div>
         )}
 
-        {needsLead && (
-          <EmptyState message="Complete a quiz to see your results here." cta="Browse quizzes" />
-        )}
-
         {error && (
           <div className="rounded-2xl border border-red-200 bg-red-50 px-5 py-4 text-sm text-red-700">
             {error}
           </div>
         )}
 
-        {!loading && !needsLead && !error && items.length === 0 && (
+        {!loading && !error && items.length === 0 && (
           <EmptyState message="No completed attempts yet." cta="Take a quiz" />
         )}
 
@@ -113,7 +118,7 @@ export function MyAttemptsList() {
               >
                 <div className="flex items-start justify-between gap-3">
                   <p className="text-[11px] font-semibold uppercase tracking-wider text-[#2b7fff]">
-                    {item.quiz.course.title}
+                    {localize(item.quiz.course.title, locale)}
                   </p>
                   <span
                     className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold ${

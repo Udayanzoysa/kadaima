@@ -13,8 +13,11 @@ export interface AnswerChoiceForm {
 export interface QuestionForm {
   id: string;
   questionText: LocalizedText;
+  type: QuestionType;
   points: number;
   sortOrder: number;
+  imageUrl: string | null;
+  config: QuestionConfig;
   choices: AnswerChoiceForm[];
 }
 
@@ -23,10 +26,14 @@ export interface QuizFormState {
   description: LocalizedText;
   coverImageUrl: string | null;
   courseId: string;
+  moduleId: string;
   durationMinutes: number;
   passingScorePercentage: number;
+  maxAttempts: number;
   status: "Draft" | "Published" | "Archived";
   shuffleQuestions: boolean;
+  requiresUnlock: boolean;
+  priceLkr: number | null;
   questions: QuestionForm[];
   /** Existing bank question IDs attached (edit / attach flow). */
   attachedQuestionIds: string[];
@@ -37,17 +44,39 @@ export const initialQuizFormState = (): QuizFormState => ({
   description: emptyLocalizedText(),
   coverImageUrl: null,
   courseId: "",
+  moduleId: "",
   durationMinutes: 30,
   passingScorePercentage: 70,
+  maxAttempts: 1,
   status: "Draft",
   shuffleQuestions: false,
+  requiresUnlock: false,
+  priceLkr: null,
   questions: [],
   attachedQuestionIds: [],
 });
 
 export interface Course {
   id: string;
-  title: string;
+  title: LocalizedText;
+  description?: LocalizedText | null;
+  status?: "Draft" | "Published" | "Archived";
+  createdAt?: string;
+  updatedAt?: string;
+  _count?: { quizzes: number; modules: number };
+}
+
+export type CourseStatus = "Draft" | "Published" | "Archived";
+
+export interface CourseModule {
+  id: string;
+  courseId: string;
+  title: LocalizedText;
+  description?: LocalizedText | null;
+  status: CourseStatus;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
 }
 
 // ---- Student-facing quiz-taking types ----
@@ -61,9 +90,13 @@ export interface QuizSummary {
   coverImageUrl?: string | null;
   durationMinutes: number;
   passingScorePercentage: number;
+  maxAttempts?: number;
   shuffleQuestions?: boolean;
+  requiresUnlock?: boolean;
+  priceLkr?: number | null;
   status: "Draft" | "Published" | "Archived";
   course: Course;
+  module?: { id: string; title: LocalizedText } | null;
   createdBy?: { id: string; email: string; name: string | null };
   _count: { questions: number; attempts: number };
 }
@@ -193,8 +226,12 @@ export interface AttemptDetail extends QuizAttempt {
   };
 }
 
-export function localize(text: LocalizedText | null | undefined, locale: SupportedLocale): string {
+export function localize(
+  text: LocalizedText | string | null | undefined,
+  locale: SupportedLocale,
+): string {
   if (!text) return "";
+  if (typeof text === "string") return text;
   return text[locale] || text.en || "";
 }
 

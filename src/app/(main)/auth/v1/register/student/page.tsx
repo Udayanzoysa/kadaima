@@ -19,13 +19,13 @@ export default function RegisterStudentV1() {
             <AccountRegisterForm accountType="student" />
             <p className="text-center text-muted-foreground text-xs">
               Teaching instead?{" "}
-              <Link prefetch={false} href="/auth/v1/register/teacher" className="text-primary">
+              <Link prefetch={false} href="/teacher/register" className="text-primary">
                 Register as a teacher
               </Link>
             </p>
             <p className="text-center text-muted-foreground text-xs">
               Already have an account?{" "}
-              <Link prefetch={false} href="/auth/v1/login" className="text-primary">
+              <Link prefetch={false} href="/login" className="text-primary">
                 Login
               </Link>
             </p>

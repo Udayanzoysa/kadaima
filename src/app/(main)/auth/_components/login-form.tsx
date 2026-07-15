@@ -14,6 +14,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Field, FieldContent, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { InputOTP, InputOTPGroup, InputOTPSeparator, InputOTPSlot } from "@/components/ui/input-otp";
+import { PasswordInput } from "@/components/ui/password-input";
 import { Spinner } from "@/components/ui/spinner";
 import { APP_CONFIG } from "@/config/app-config";
 import { setClientCookie } from "@/lib/cookie.client";
@@ -24,7 +25,14 @@ const formSchema = z.object({
   remember: z.boolean().optional(),
 });
 
-export function LoginForm() {
+interface LoginFormProps {
+  /** Where to go after login. Defaults to /admin. */
+  redirectTo?: string;
+  /** Called instead of navigating when provided (e.g. unlock modal). */
+  onSuccess?: () => void;
+}
+
+export function LoginForm({ redirectTo = "/admin", onSuccess }: LoginFormProps) {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [show2FA, setShow2FA] = useState(false);
@@ -39,6 +47,16 @@ export function LoginForm() {
       remember: false,
     },
   });
+
+  const finishLogin = (accessToken: string, remember?: boolean) => {
+    setClientCookie("session_token", accessToken, remember ? 30 : 7);
+    toast.success("Logged in successfully!");
+    if (onSuccess) {
+      onSuccess();
+      return;
+    }
+    router.push(redirectTo);
+  };
 
   const onSubmit = async (data: z.infer<typeof formSchema>) => {
     setIsSubmitting(true);
@@ -70,14 +88,13 @@ export function LoginForm() {
           description: "Please enter the TOTP code from your authenticator app.",
         });
       } else if (result.accessToken) {
-        setClientCookie("session_token", result.accessToken, data.remember ? 30 : 7);
-        toast.success("Logged in successfully!");
-        router.push("/admin");
+        finishLogin(result.accessToken, data.remember);
       } else {
         throw new Error("Invalid response schema from the authentication server.");
       }
     } catch (error) {
-      const errMsg = error instanceof Error ? error.message : "Please check your credentials and try again.";
+      const errMsg =
+        error instanceof Error ? error.message : "Please check your credentials and try again.";
       toast.error("Login failed", {
         description: errMsg,
       });
@@ -105,12 +122,12 @@ export function LoginForm() {
         throw new Error(result.message || "2FA verification failed.");
       }
 
-      // 2FA Verified! Set cookie and redirect
-      setClientCookie("session_token", result.accessToken, 7);
-      toast.success("MFA authentication successful!");
-      router.push("/admin");
+      finishLogin(result.accessToken, false);
     } catch (error) {
-      const errMsg = error instanceof Error ? error.message : "The verification code is incorrect or has expired.";
+      const errMsg =
+        error instanceof Error
+          ? error.message
+          : "The verification code is incorrect or has expired.";
       toast.error("Verification failed", {
         description: errMsg,
       });
@@ -199,10 +216,9 @@ export function LoginForm() {
           render={({ field, fieldState }) => (
             <Field className="gap-1.5" data-invalid={fieldState.invalid}>
               <FieldLabel htmlFor="login-password">Password</FieldLabel>
-              <Input
+              <PasswordInput
                 {...field}
                 id="login-password"
-                type="password"
                 placeholder="••••••••"
                 autoComplete="current-password"
                 aria-invalid={fieldState.invalid}

@@ -84,6 +84,10 @@ export function NavMain({ items }: NavMainProps) {
       return item.subItems.some((sub) => path.startsWith(sub.url));
     }
 
+    if (item.id === "courses") {
+      return path === item.url || path.startsWith(`${item.url}/`);
+    }
+
     return path === item.url;
   };
 

@@ -2,6 +2,8 @@ import { type NextRequest, NextResponse } from "next/server";
 
 const PUBLIC_PREFIXES = [
   "/auth",
+  "/login",
+  "/student",
   "/quiz",
   "/results",
   "/brand",
@@ -11,9 +13,35 @@ const PUBLIC_PREFIXES = [
 
 function isPublicPath(pathname: string) {
   if (pathname === "/") return true;
+  if (pathname === "/teacher/register" || pathname.startsWith("/teacher/register/")) {
+    return true;
+  }
   return PUBLIC_PREFIXES.some(
     (p) => pathname === p || pathname.startsWith(`${p}/`),
   );
+}
+
+function isAuthPage(pathname: string) {
+  return (
+    pathname === "/login" ||
+    pathname.startsWith("/login/") ||
+    pathname === "/student/register" ||
+    pathname.startsWith("/student/register/") ||
+    pathname === "/teacher/register" ||
+    pathname.startsWith("/teacher/register/") ||
+    pathname.startsWith("/auth/v1") ||
+    pathname.startsWith("/auth/v2") ||
+    pathname === "/auth" ||
+    pathname.startsWith("/auth/")
+  );
+}
+
+/** /teacher app routes — exclude public teacher registration */
+function isTeacherAppPath(pathname: string) {
+  if (pathname === "/teacher/register" || pathname.startsWith("/teacher/register/")) {
+    return false;
+  }
+  return pathname === "/teacher" || pathname.startsWith("/teacher/");
 }
 
 export function middleware(req: NextRequest) {
@@ -21,29 +49,21 @@ export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
   // Logged-in users on auth pages → admin home
-  if (
-    token &&
-    (pathname.startsWith("/auth/v1") ||
-      pathname.startsWith("/auth/v2") ||
-      pathname === "/auth" ||
-      pathname.startsWith("/auth/"))
-  ) {
+  if (token && isAuthPage(pathname)) {
     return NextResponse.redirect(new URL("/admin/default", req.url));
   }
 
-  // Protect admin / teacher / (legacy) dashboard
   const isProtected =
     pathname.startsWith("/admin") ||
-    pathname.startsWith("/teacher") ||
+    isTeacherAppPath(pathname) ||
     pathname.startsWith("/dashboard");
 
   if (!token && isProtected) {
-    return NextResponse.redirect(new URL("/auth/v1/login", req.url));
+    return NextResponse.redirect(new URL("/login", req.url));
   }
 
-  // Public home + quiz routes do not require auth
   if (!token && !isPublicPath(pathname) && isProtected) {
-    return NextResponse.redirect(new URL("/auth/v1/login", req.url));
+    return NextResponse.redirect(new URL("/login", req.url));
   }
 
   return NextResponse.next();

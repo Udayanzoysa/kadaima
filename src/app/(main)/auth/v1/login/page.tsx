@@ -33,11 +33,11 @@ export default function LoginV1() {
             <GoogleButton className="w-full" variant="outline" />
             <p className="text-center text-muted-foreground text-xs">
               Don&apos;t have an account?{" "}
-              <Link prefetch={false} href="register" className="text-primary">
+              <Link prefetch={false} href="/student/register" className="text-primary">
                 Register as student
               </Link>
               {" · "}
-              <Link prefetch={false} href="register/teacher" className="text-primary">
+              <Link prefetch={false} href="/teacher/register" className="text-primary">
                 Register as teacher
               </Link>
             </p>

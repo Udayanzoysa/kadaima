@@ -11,7 +11,8 @@ import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { APP_CONFIG } from "@/config/app-config";
 import { useI18n } from "@/hooks/use-i18n";
-import { getOrCreateGuestLead } from "@/lib/guest-session";
+import { getClientCookie } from "@/lib/cookie.client";
+import { ensureGuestSessionId, getOrCreateGuestLead } from "@/lib/guest-session";
 import { localize, type LocalizedText } from "@/types/quiz";
 
 import { PublicQuizShell } from "../../_components/public-quiz-shell";
@@ -41,29 +42,38 @@ function plainFromHtml(html: string | null | undefined) {
   return html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
 }
 
+async function fetchInProgress(): Promise<InProgressItem[]> {
+  const token = getClientCookie("session_token");
+  if (token) {
+    const res = await fetch(`${APP_CONFIG.apiUrl}/quizzes/me/in-progress`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (res.ok) return res.json();
+    // Fall through to guest if token invalid
+  }
+
+  const lead = getOrCreateGuestLead();
+  const guestSessionId = lead?.guestSessionId || ensureGuestSessionId();
+  if (!guestSessionId) return [];
+
+  const res = await fetch(
+    `${APP_CONFIG.apiUrl}/public/quizzes/in-progress?guestSessionId=${encodeURIComponent(guestSessionId)}`,
+  );
+  if (!res.ok) throw new Error("Could not load in-progress quizzes.");
+  return res.json();
+}
+
 export function InProgressList() {
   const router = useRouter();
   const { locale } = useI18n();
   const [items, setItems] = useState<InProgressItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [needsLead, setNeedsLead] = useState(false);
 
   useEffect(() => {
     (async () => {
-      const lead = getOrCreateGuestLead();
-      if (!lead) {
-        setNeedsLead(true);
-        setLoading(false);
-        return;
-      }
-
       try {
-        const res = await fetch(
-          `${APP_CONFIG.apiUrl}/public/quizzes/in-progress?guestSessionId=${encodeURIComponent(lead.guestSessionId)}`,
-        );
-        if (!res.ok) throw new Error("Could not load in-progress quizzes.");
-        setItems(await res.json());
+        setItems(await fetchInProgress());
       } catch (err) {
         setError(err instanceof Error ? err.message : "Could not load in-progress quizzes.");
       } finally {
@@ -91,20 +101,13 @@ export function InProgressList() {
           </div>
         )}
 
-        {needsLead && (
-          <EmptyState
-            message="Start a quiz first — we'll save your progress here if you leave mid-way."
-            cta="Browse quizzes"
-          />
-        )}
-
         {error && (
           <div className="rounded-2xl border border-red-200 bg-red-50 px-5 py-4 text-sm text-red-700">
             {error}
           </div>
         )}
 
-        {!loading && !needsLead && !error && items.length === 0 && (
+        {!loading && !error && items.length === 0 && (
           <EmptyState message="No quizzes in progress right now." cta="Start a quiz" />
         )}
 
@@ -125,7 +128,7 @@ export function InProgressList() {
                 className="flex flex-col rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
               >
                 <p className="text-[11px] font-semibold uppercase tracking-wider text-[#2b7fff]">
-                  {item.quiz.course.title}
+                  {localize(item.quiz.course.title, locale)}
                 </p>
                 <h2 className="mt-1.5 font-[family-name:var(--font-outfit)] text-lg font-semibold text-slate-900">
                   {localize(item.quiz.title, locale)}

@@ -24,10 +24,54 @@ const nextConfig = {
         destination: "/",
         permanent: false,
       },
+      // Auth URL cleanup
+      {
+        source: "/auth/v1/login",
+        destination: "/login",
+        permanent: false,
+      },
+      {
+        source: "/auth/v1/register/student",
+        destination: "/student/register",
+        permanent: false,
+      },
+      {
+        source: "/auth/v1/register/teacher",
+        destination: "/teacher/register",
+        permanent: false,
+      },
+      {
+        source: "/auth/v1/register",
+        destination: "/student/register",
+        permanent: false,
+      },
+      {
+        source: "/teacherregister",
+        destination: "/teacher/register",
+        permanent: false,
+      },
+      {
+        source: "/teacherregister/",
+        destination: "/teacher/register",
+        permanent: false,
+      },
     ];
   },
   async rewrites() {
     return [
+      {
+        source: "/login",
+        destination: "/auth/v1/login",
+      },
+      {
+        source: "/student/register",
+        destination: "/auth/v1/register/student",
+      },
+      // Must be before /teacher/:path* so register is not treated as dashboard
+      {
+        source: "/teacher/register",
+        destination: "/auth/v1/register/teacher",
+      },
       {
         source: "/admin",
         destination: "/dashboard/default",

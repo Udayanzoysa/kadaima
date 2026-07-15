@@ -46,7 +46,7 @@ export function PermissionGuard({ children }: { children: ReactNode }) {
   useEffect(() => {
     const token = getClientCookie("session_token");
     if (!token) {
-      router.push("/auth/v1/login");
+      router.push("/login");
       return;
     }
 
@@ -83,10 +83,11 @@ export function PermissionGuard({ children }: { children: ReactNode }) {
             "/admin/coming-soon",
           ];
 
-          // Quiz/question management — teachers + super admin
+          // Quiz/question/course management — teachers + super admin
           const isQuizAdminRoute =
             pathname.startsWith("/admin/quizzes/manage") ||
             pathname.startsWith("/admin/quizzes/new") ||
+            pathname.startsWith("/admin/courses") ||
             pathname === "/admin/questions" ||
             pathname.startsWith("/admin/questions/") ||
             /^\/admin\/quizzes\/[^/]+\/edit$/.test(pathname) ||
@@ -120,10 +121,11 @@ export function PermissionGuard({ children }: { children: ReactNode }) {
             return;
           }
 
-          // Users / Roles / Settings — super admin only (CASL manage all)
+          // Users / Roles / Payments / Settings — super admin only (CASL manage all)
           const isAdminOnlyRoute =
             pathname.startsWith("/admin/users") ||
             pathname.startsWith("/admin/roles") ||
+            pathname.startsWith("/admin/payments") ||
             pathname.startsWith("/admin/settings");
 
           if (isAdminOnlyRoute) {

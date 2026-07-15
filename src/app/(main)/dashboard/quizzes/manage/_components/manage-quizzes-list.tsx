@@ -8,7 +8,6 @@ import { useRouter } from "next/navigation";
 import { Archive, Pencil, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -27,12 +26,6 @@ type QuizStatus = QuizSummary["status"];
 function statusLabel(status: QuizStatus) {
   if (status === "Published") return "Public";
   return status;
-}
-
-function statusVariant(status: QuizStatus): "default" | "secondary" | "outline" {
-  if (status === "Published") return "default";
-  if (status === "Archived") return "secondary";
-  return "outline";
 }
 
 export function ManageQuizzesList() {
@@ -167,31 +160,36 @@ export function ManageQuizzesList() {
                 <tr key={quiz.id} className="border-b border-border last:border-0">
                   <td className="px-4 py-3">
                     <div className="font-medium">{localize(quiz.title, "en")}</div>
-                    {quiz.shuffleQuestions ? (
-                      <span className="text-muted-foreground text-xs">Shuffle on</span>
-                    ) : null}
+                    <div className="text-muted-foreground flex flex-wrap gap-2 text-xs">
+                      {quiz.shuffleQuestions ? <span>Shuffle on</span> : null}
+                      {quiz.requiresUnlock ? (
+                        <span>
+                          Locked
+                          {quiz.priceLkr != null ? ` · LKR ${Number(quiz.priceLkr).toFixed(0)}` : ""}
+                        </span>
+                      ) : null}
+                    </div>
                   </td>
-                  <td className="px-4 py-3 text-muted-foreground">{quiz.course?.title}</td>
+                  <td className="px-4 py-3 text-muted-foreground">
+                    {localize(quiz.course?.title, "en")}
+                  </td>
                   <td className="px-4 py-3">{quiz._count.questions}</td>
                   <td className="px-4 py-3">{quiz._count.attempts}</td>
                   <td className="px-4 py-3">
-                    <div className="flex items-center gap-2">
-                      <Badge variant={statusVariant(quiz.status)}>{statusLabel(quiz.status)}</Badge>
-                      <Select
-                        value={quiz.status}
-                        disabled={busyId === quiz.id}
-                        onValueChange={(val) => updateStatus(quiz.id, val as QuizStatus)}
-                      >
-                        <SelectTrigger className="h-8 w-[120px]">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="Draft">Draft</SelectItem>
-                          <SelectItem value="Published">Public</SelectItem>
-                          <SelectItem value="Archived">Archived</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
+                    <Select
+                      value={quiz.status}
+                      disabled={busyId === quiz.id}
+                      onValueChange={(val) => updateStatus(quiz.id, val as QuizStatus)}
+                    >
+                      <SelectTrigger className="h-8 w-[120px]">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Draft">Draft</SelectItem>
+                        <SelectItem value="Published">Public</SelectItem>
+                        <SelectItem value="Archived">Archived</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex flex-wrap gap-1">

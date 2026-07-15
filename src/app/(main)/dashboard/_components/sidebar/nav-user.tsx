@@ -34,7 +34,7 @@ export function NavUser({
   const handleLogout = () => {
     deleteClientCookie("session_token");
     toast.success("Logged out successfully");
-    router.push("/auth/v1/login");
+    router.push("/login");
   };
 
   return (

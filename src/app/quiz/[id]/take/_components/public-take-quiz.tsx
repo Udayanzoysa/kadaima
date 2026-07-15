@@ -1,10 +1,24 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
+import Image from "next/image";
 import { useParams, useRouter } from "next/navigation";
 
-import { AlertTriangle, CheckCircle2, Circle, Clock, Cloud, CloudOff } from "lucide-react";
+import {
+  AlertTriangle,
+  ArrowLeft,
+  ArrowRight,
+  CheckCircle2,
+  ChevronUp,
+  Circle,
+  Clock,
+  Cloud,
+  CloudOff,
+  LayoutGrid,
+  Lightbulb,
+  X,
+} from "lucide-react";
 import { toast } from "sonner";
 
 import { QuestionAnswerInput, QuestionPrompt, type AnswerValue } from "@/components/quiz/question-answer";
@@ -19,13 +33,13 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Spinner } from "@/components/ui/spinner";
 import { APP_CONFIG } from "@/config/app-config";
 import { useI18n } from "@/hooks/use-i18n";
 import { useResilientTimer, type HeartbeatResponse } from "@/hooks/use-resilient-timer";
+import { deleteClientCookie, getClientCookie } from "@/lib/cookie.client";
 import {
   clearGuestProgress,
   clearPendingSync,
@@ -42,6 +56,10 @@ import { safeJson } from "@/lib/safe-json";
 import { cn } from "@/lib/utils";
 import { type AttemptDetail, localize } from "@/types/quiz";
 
+const PRIMARY = "#0c4a6e";
+const SOFT = "#e8f1f8";
+const PAGE_BG = "#f5f7fa";
+
 export function PublicTakeQuiz() {
   const params = useParams<{ id: string }>();
   const quizId = params.id;
@@ -55,17 +73,28 @@ export function PublicTakeQuiz() {
   const [submitting, setSubmitting] = useState(false);
   const [online, setOnline] = useState(true);
   const [syncing, setSyncing] = useState(false);
+  const [isAuthed, setIsAuthed] = useState(false);
 
   const pageLoadTimeRef = useRef(Date.now());
   const answerTimestampsRef = useRef<Record<string, number>>({});
   const submittedRef = useRef(false);
   const startRequestedRef = useRef(false);
   const syncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isAuthedRef = useRef(false);
   const answersRef = useRef(answers);
   answersRef.current = answers;
 
+  const authHeaders = useCallback(() => {
+    const token = getClientCookie("session_token");
+    return token
+      ? { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }
+      : null;
+  }, []);
+
   const syncProgressToServer = useCallback(
     async (attemptId: string, nextAnswers: Record<string, AnswerValue>) => {
+      if (isAuthedRef.current) return true;
+
       const lead = getOrCreateGuestLead();
       if (!lead) return false;
 
@@ -114,6 +143,7 @@ export function PublicTakeQuiz() {
   );
 
   const flushPendingSync = useCallback(async () => {
+    if (isAuthedRef.current) return;
     const pending = getPendingSync();
     if (!pending || !navigator.onLine) return;
     setSyncing(true);
@@ -155,8 +185,9 @@ export function PublicTakeQuiz() {
       submittedRef.current = true;
       setSubmitting(true);
 
-      // Flush latest answers to server before final grade.
-      await syncProgressToServer(attemptId, answersRef.current);
+      if (!isAuthedRef.current) {
+        await syncProgressToServer(attemptId, answersRef.current);
+      }
 
       const responses = questions.map((q) => {
         const ans = answersRef.current[q.id];
@@ -171,11 +202,18 @@ export function PublicTakeQuiz() {
       });
 
       try {
-        const res = await fetch(`${APP_CONFIG.apiUrl}/public/quizzes/attempts/${attemptId}/submit`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ responses }),
-        });
+        const headers = authHeaders();
+        const res = isAuthedRef.current && headers
+          ? await fetch(`${APP_CONFIG.apiUrl}/grading/attempts/${attemptId}/submit`, {
+              method: "POST",
+              headers,
+              body: JSON.stringify({ responses }),
+            })
+          : await fetch(`${APP_CONFIG.apiUrl}/public/quizzes/attempts/${attemptId}/submit`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ responses }),
+            });
 
         if (!res.ok) {
           const err = await safeJson<{ message?: string }>(res);
@@ -184,8 +222,9 @@ export function PublicTakeQuiz() {
 
         const result = await safeJson<{ resultToken?: string }>(res);
         clearGuestProgress();
-        incrementGuestQuizCount();
+        if (!isAuthedRef.current) incrementGuestQuizCount();
         sessionStorage.removeItem(`guest_attempt_${quizId}`);
+        sessionStorage.removeItem(`auth_attempt_${quizId}`);
 
         if (!silent) toast.success("Quiz submitted!");
         if (result?.resultToken) {
@@ -199,7 +238,7 @@ export function PublicTakeQuiz() {
         toast.error(err instanceof Error ? err.message : "Failed to submit quiz.");
       }
     },
-    [quizId, router, syncProgressToServer],
+    [authHeaders, quizId, router, syncProgressToServer],
   );
 
   useEffect(() => {
@@ -208,9 +247,57 @@ export function PublicTakeQuiz() {
 
     (async () => {
       try {
-        const lead = getOrCreateGuestLead();
+        const token = getClientCookie("session_token");
+        if (token) {
+          const meRes = await fetch(`${APP_CONFIG.apiUrl}/auth/me`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          if (meRes.ok) {
+            isAuthedRef.current = true;
+            setIsAuthed(true);
 
-        if (!lead) {
+            const startRes = await fetch(`${APP_CONFIG.apiUrl}/quizzes/${quizId}/attempts`, {
+              method: "POST",
+              headers: {
+                Authorization: `Bearer ${token}`,
+                "Content-Type": "application/json",
+              },
+            });
+            if (!startRes.ok) {
+              const err = await safeJson<{ message?: string }>(startRes);
+              if (startRes.status === 401) {
+                deleteClientCookie("session_token");
+                throw new Error("Session expired. Please log in again.");
+              }
+              throw new Error(err?.message || `Unable to start this quiz (${startRes.status}).`);
+            }
+
+            const attemptDetail = await safeJson<AttemptDetail>(startRes);
+            if (!attemptDetail) throw new Error("Empty response from server.");
+
+            if (attemptDetail.status !== "In_Progress") {
+              if (attemptDetail.resultToken) {
+                router.replace(`/results/${attemptDetail.resultToken}`);
+                return;
+              }
+              throw new Error("You have already completed this quiz.");
+            }
+
+            sessionStorage.setItem(`auth_attempt_${quizId}`, attemptDetail.id);
+            const fromServer = mergeAnswersFromServer(attemptDetail.responses ?? [], {});
+            setAnswers(fromServer);
+            pageLoadTimeRef.current = Date.now();
+            setAttempt(attemptDetail);
+            return;
+          }
+
+          deleteClientCookie("session_token");
+        }
+
+        isAuthedRef.current = false;
+        setIsAuthed(false);
+        const lead = getOrCreateGuestLead();
+        if (!lead?.studentName || !lead.school || !lead.mobileNumber) {
           router.replace(`/quiz/${quizId}`);
           return;
         }
@@ -284,6 +371,19 @@ export function PublicTakeQuiz() {
       violationCount: number,
     ): Promise<HeartbeatResponse | null> => {
       if (!attempt) return null;
+
+      if (isAuthedRef.current) {
+        const headers = authHeaders();
+        if (!headers) return null;
+        const res = await fetch(`${APP_CONFIG.apiUrl}/quizzes/attempts/${attempt.id}/heartbeat`, {
+          method: "POST",
+          headers,
+          body: JSON.stringify({ status, secondsRemaining, violationCount }),
+        });
+        if (!res.ok) return null;
+        return safeJson<HeartbeatResponse>(res);
+      }
+
       const lead = getOrCreateGuestLead();
       if (!lead) return null;
 
@@ -303,7 +403,7 @@ export function PublicTakeQuiz() {
       if (!res.ok) return null;
       return safeJson<HeartbeatResponse>(res);
     },
-    [attempt],
+    [attempt, authHeaders],
   );
 
   const onViolation = useCallback(
@@ -353,20 +453,22 @@ export function PublicTakeQuiz() {
     answerTimestampsRef.current[questionId] = Date.now();
     setAnswers((prev) => {
       const updated = { ...prev, [questionId]: next };
-      const lead = getOrCreateGuestLead();
-      if (lead && attempt) {
-        saveGuestProgress({
-          guestSessionId: lead.guestSessionId,
-          currentQuizId: quizId,
-          attemptId: attempt.id,
-          answers: updated,
-          lastUpdated: new Date().toISOString(),
-        });
+      if (!isAuthedRef.current) {
+        const lead = getOrCreateGuestLead();
+        if (lead && attempt) {
+          saveGuestProgress({
+            guestSessionId: lead.guestSessionId,
+            currentQuizId: quizId,
+            attemptId: attempt.id,
+            answers: updated,
+            lastUpdated: new Date().toISOString(),
+          });
 
-        if (syncTimerRef.current) clearTimeout(syncTimerRef.current);
-        syncTimerRef.current = setTimeout(() => {
-          void syncProgressToServer(attempt.id, updated);
-        }, 500);
+          if (syncTimerRef.current) clearTimeout(syncTimerRef.current);
+          syncTimerRef.current = setTimeout(() => {
+            void syncProgressToServer(attempt.id, updated);
+          }, 500);
+        }
       }
       return updated;
     });
@@ -386,10 +488,34 @@ export function PublicTakeQuiz() {
   const unansweredCount = questions.length - answeredCount;
   const progressPercent = questions.length > 0 ? Math.round((answeredCount / questions.length) * 100) : 0;
   const isUrgent = timeLeft > 0 && timeLeft <= 60;
+  const [focusedQuestionId, setFocusedQuestionId] = useState<string | null>(null);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const focusClearTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const useExpandableMobileNav = questions.length >= 10;
+
+  const scrollToQuestion = useCallback((questionId: string, options?: { closeMobileNav?: boolean }) => {
+    const el = document.getElementById(`question-${questionId}`);
+    if (!el) return;
+    if (options?.closeMobileNav) setMobileNavOpen(false);
+    el.scrollIntoView({ behavior: "smooth", block: "center" });
+    setFocusedQuestionId(questionId);
+    if (focusClearTimerRef.current) clearTimeout(focusClearTimerRef.current);
+    focusClearTimerRef.current = setTimeout(() => setFocusedQuestionId(null), 1800);
+    const focusable = el.querySelector<HTMLElement>(
+      "input, textarea, button, [role='radio'], [tabindex]:not([tabindex='-1'])",
+    );
+    focusable?.focus({ preventScroll: true });
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (focusClearTimerRef.current) clearTimeout(focusClearTimerRef.current);
+    };
+  }, []);
 
   if (loading) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center gap-2 bg-[#070b14] text-white/70">
+      <div className="flex min-h-screen flex-col items-center justify-center gap-2 text-slate-500" style={{ background: PAGE_BG }}>
         <Spinner className="size-8" />
         Starting quiz...
       </div>
@@ -398,14 +524,14 @@ export function PublicTakeQuiz() {
 
   if (errorMessage || !attempt) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-[#070b14] px-4 text-center text-white">
-        <AlertTriangle className="size-10 text-[#5da7ff]" />
-        <p className="max-w-md text-sm">{errorMessage ?? "Unable to load this quiz."}</p>
+      <div className="flex min-h-screen flex-col items-center justify-center gap-4 px-4 text-center" style={{ background: PAGE_BG }}>
+        <AlertTriangle className="size-10" style={{ color: PRIMARY }} />
+        <p className="max-w-md text-sm text-slate-700">{errorMessage ?? "Unable to load this quiz."}</p>
         <div className="flex gap-2">
           <Button variant="secondary" onClick={() => router.push("/")}>
             Back to quizzes
           </Button>
-          <Button className="bg-[#5da7ff] text-[#070b14] hover:bg-[#7bb8ff]" onClick={() => window.location.reload()}>
+          <Button style={{ background: PRIMARY }} className="text-white hover:opacity-90" onClick={() => window.location.reload()}>
             Try again
           </Button>
         </div>
@@ -413,156 +539,417 @@ export function PublicTakeQuiz() {
     );
   }
 
+  const isQuestionAnswered = (q: (typeof questions)[number]) => {
+    const a = answers[q.id];
+    if (!a) return false;
+    return q.type === "MCQ" ? Boolean(a.choiceId) : Boolean(a.textResponse?.trim());
+  };
+
+  const submitDialog = (trigger: ReactNode) => (
+    <AlertDialog>
+      <AlertDialogTrigger asChild>{trigger}</AlertDialogTrigger>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Submit your answers?</AlertDialogTitle>
+          <AlertDialogDescription>
+            Once submitted, you cannot change your answers.
+            {unansweredCount > 0 && (
+              <span className="mt-2 flex items-center gap-1.5 text-amber-600">
+                <Circle className="size-3.5 fill-current" />
+                You have {unansweredCount} unanswered question(s).
+              </span>
+            )}
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogAction onClick={() => submitAttempt(attempt.id, questions)}>
+            Yes, submit
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+
+  const questionNavButtons = (opts: {
+    cols: string;
+    size?: string;
+    onPick?: (id: string) => void;
+  }) => (
+    <div className={cn("grid gap-2", opts.cols)}>
+      {questions.map((q, index) => {
+        const answered = isQuestionAnswered(q);
+        const isFocused = focusedQuestionId === q.id;
+        return (
+          <button
+            key={q.id}
+            type="button"
+            title={answered ? `Q${index + 1} answered` : `Go to Q${index + 1}`}
+            onClick={() => (opts.onPick ? opts.onPick(q.id) : scrollToQuestion(q.id))}
+            className={cn(
+              "flex items-center justify-center rounded-xl text-sm font-semibold transition",
+              opts.size ?? "aspect-square",
+              answered || isFocused
+                ? "bg-[#0c4a6e] text-white shadow-sm"
+                : "bg-[#e8f1f8] text-slate-600 hover:bg-[#d7e8f4]",
+              isFocused && !answered && "ring-2 ring-[#0c4a6e]/40 ring-offset-1",
+            )}
+          >
+            {answered && !isFocused ? <CheckCircle2 className="size-4" /> : index + 1}
+          </button>
+        );
+      })}
+    </div>
+  );
+
   return (
-    <div className="min-h-screen bg-[#f4f7f5] text-[#0b3d2e]">
-      <div className="sticky top-0 z-10 border-b border-[#0b3d2e]/10 bg-[#f4f7f5]/95 backdrop-blur-sm">
-        <div className="mx-auto flex max-w-3xl flex-wrap items-center justify-between gap-3 px-4 py-3 md:px-6">
-          <div>
-            <h1 className="font-[family-name:var(--font-outfit)] text-lg font-extrabold leading-tight md:text-xl">
-              {localize(attempt.quiz.title, locale)}
-            </h1>
-            <p className="text-xs text-[#0b3d2e]/60">{attempt.quiz.course.title}</p>
+    <div className="min-h-screen text-slate-900" style={{ background: PAGE_BG }}>
+      {/* Desktop header */}
+      <header className="sticky top-0 z-10 hidden border-b border-slate-200/80 bg-white/95 backdrop-blur-sm lg:block">
+        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-6 py-3.5">
+          <div className="flex min-w-0 items-center gap-4">
+            <Image
+              src="/brand/kadaima-logo.png"
+              alt="Kadaima"
+              width={120}
+              height={32}
+              className="h-7 w-auto shrink-0"
+              priority
+            />
+            <div className="min-w-0 border-l border-slate-200 pl-4">
+              <h1 className="truncate text-base font-bold" style={{ color: PRIMARY }}>
+                {localize(attempt.quiz.title, locale)}
+              </h1>
+              <p className="truncate text-xs text-slate-500">{localize(attempt.quiz.course.title, locale)}</p>
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            <Badge variant="outline" className="gap-1.5 border-[#0b3d2e]/20 text-xs">
-              {online ? <Cloud className="size-3.5" /> : <CloudOff className="size-3.5" />}
-              {!online ? "Saved locally" : syncing ? "Syncing…" : "Synced"}
-            </Badge>
+
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600">
+              {online ? <Cloud className="size-3.5" style={{ color: PRIMARY }} /> : <CloudOff className="size-3.5" />}
+              {isAuthed
+                ? "Signed in"
+                : !online
+                  ? "Saved locally"
+                  : syncing
+                    ? "Syncing…"
+                    : "Synced"}
+            </span>
             <div className="flex gap-1">
               {LOCALES.map((l) => (
-                <Button
+                <button
                   key={l.code}
-                  size="sm"
-                  variant={locale === l.code ? "default" : "outline"}
-                  className={locale === l.code ? "bg-[#0b3d2e]" : ""}
+                  type="button"
                   onClick={() => setLocale(l.code)}
+                  className={cn(
+                    "rounded-full px-2.5 py-1 text-[11px] font-semibold transition",
+                    locale === l.code ? "text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200",
+                  )}
+                  style={locale === l.code ? { background: PRIMARY } : undefined}
                 >
                   {l.label}
-                </Button>
+                </button>
               ))}
             </div>
-            <Badge
-              variant={isUrgent ? "destructive" : "secondary"}
-              className={cn("gap-1.5 font-mono text-sm tabular-nums", isUrgent && "animate-pulse")}
+            <span
+              className={cn(
+                "inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 font-mono text-sm font-semibold tabular-nums",
+                isUrgent ? "bg-red-100 text-red-700 animate-pulse" : "bg-[#e8f1f8] text-[#0c4a6e]",
+              )}
             >
               <Clock className="size-3.5" />
               {isActive ? formatTime() : `${formatTime()} ⏸`}
-            </Badge>
+            </span>
             {violationCount > 0 && (
-              <Badge variant="outline" className="border-amber-400 text-xs text-amber-800">
-                {violationCount}/3
-              </Badge>
+              <span className="inline-flex items-center rounded-full border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-700">
+                Violations: {violationCount}/3
+              </span>
             )}
           </div>
         </div>
-        <div className="mx-auto flex max-w-3xl items-center gap-3 px-4 pb-3 md:px-6">
-          <Progress value={progressPercent} className="h-1.5 flex-1" />
-          <span className="whitespace-nowrap text-xs text-[#0b3d2e]/60">
-            {answeredCount}/{questions.length} answered
+      </header>
+
+      {/* Mobile header */}
+      <header className="sticky top-0 z-10 border-b border-slate-200/80 bg-white lg:hidden">
+        <div className="flex items-center gap-2 px-3 py-2.5">
+          <button
+            type="button"
+            onClick={() => router.push(`/quiz/${quizId}`)}
+            className="flex size-9 shrink-0 items-center justify-center rounded-full text-slate-600 hover:bg-slate-100"
+            aria-label="Back"
+          >
+            <ArrowLeft className="size-5" />
+          </button>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-bold text-slate-900">Kadaima</p>
+            <p className="truncate text-[11px] text-slate-500">
+              {answeredCount} of {questions.length} answered
+            </p>
+          </div>
+          <span
+            className={cn(
+              "inline-flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1.5 font-mono text-xs font-bold tabular-nums",
+              isUrgent ? "bg-red-100 text-red-700" : "bg-[#e8f1f8] text-[#0c4a6e]",
+            )}
+          >
+            <Clock className="size-3.5" />
+            {isActive ? formatTime() : `${formatTime()} ⏸`}
           </span>
         </div>
-      </div>
+        <div className="px-3 pb-2">
+          <Progress value={progressPercent} className="h-1.5 [&>div]:bg-[#0c4a6e]" />
+        </div>
+      </header>
 
-      <main className="mx-auto flex max-w-3xl flex-col gap-4 px-4 py-6 md:px-6">
-        {questions.map((question, index) => {
-          const selected = answers[question.id];
-          const isAnswered =
-            question.type === "MCQ"
-              ? Boolean(selected?.choiceId)
-              : Boolean(selected?.textResponse?.trim());
-          return (
-            <section
-              key={question.id}
-              className={cn(
-                "rounded-2xl border bg-white p-5 shadow-sm",
-                isAnswered ? "border-[#0b3d2e]/30" : "border-[#0b3d2e]/10",
-              )}
-            >
-              <div className="mb-4 flex items-start justify-between gap-3">
-                <div className="flex min-w-0 flex-1 items-start gap-2">
-                  <Badge variant="outline" className="mt-0.5 shrink-0 border-[#0b3d2e]/20">
-                    Q{index + 1}
-                  </Badge>
-                  <div className="min-w-0 flex-1 space-y-1">
-                    <Badge variant="secondary" className="text-[10px] uppercase">
-                      {question.type.replace("_", " ")}
-                    </Badge>
-                    <QuestionPrompt question={question} locale={locale} />
-                  </div>
-                </div>
-                <Badge variant="secondary" className="shrink-0 text-xs">
-                  {question.points} pts
-                </Badge>
+      <div className="mx-auto grid max-w-7xl gap-6 px-4 py-5 md:px-6 lg:grid-cols-[minmax(0,1fr)_280px] lg:py-8">
+        <main
+          className={cn(
+            "flex min-w-0 flex-col gap-4 lg:pb-6",
+            useExpandableMobileNav ? "pb-24" : "pb-28",
+          )}
+        >
+          {/* Desktop progress card */}
+          <div className="hidden rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm lg:block">
+            <div className="mb-3 flex items-center gap-3">
+              <span
+                className="flex size-9 items-center justify-center rounded-xl"
+                style={{ background: SOFT, color: PRIMARY }}
+              >
+                <LayoutGrid className="size-4" />
+              </span>
+              <div>
+                <p className="text-sm font-bold text-slate-800">Current Progress</p>
+                <p className="text-xs text-slate-500">
+                  {answeredCount} of {questions.length} questions answered
+                </p>
               </div>
-              <QuestionAnswerInput
-                question={question}
-                locale={locale}
-                value={selected ?? {}}
-                onChange={(next) => handleAnswer(question.id, next)}
-                disabled={submitting}
-              />
-            </section>
-          );
-        })}
-
-        <section className="sticky bottom-4 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-[#0b3d2e]/10 bg-white p-4 shadow-lg">
-          <div className="flex flex-wrap gap-1.5">
-            {questions.map((q, index) => {
-              const a = answers[q.id];
-              const answered =
-                q.type === "MCQ" ? Boolean(a?.choiceId) : Boolean(a?.textResponse?.trim());
-              return (
-                <div
-                  key={q.id}
-                  className={cn(
-                    "flex size-7 items-center justify-center rounded-full border text-xs font-medium",
-                    answered
-                      ? "border-[#0b3d2e] bg-[#0b3d2e] text-white"
-                      : "border-[#0b3d2e]/20 text-[#0b3d2e]/50",
-                  )}
-                >
-                  {answered ? <CheckCircle2 className="size-3.5" /> : index + 1}
-                </div>
-              );
-            })}
+            </div>
+            <Progress value={progressPercent} className="h-2 [&>div]:bg-[#0c4a6e]" />
           </div>
 
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button size="lg" disabled={submitting} className="bg-[#0b3d2e] font-bold hover:bg-[#145a44]">
-                {submitting ? (
-                  <>
-                    <Spinner className="size-4" />
-                    Submitting...
-                  </>
-                ) : (
-                  "Submit quiz"
+          {questions.map((question, index) => {
+            const selected = answers[question.id];
+            const isAnswered = isQuestionAnswered(question);
+            const isFocused = focusedQuestionId === question.id;
+            return (
+              <section
+                key={question.id}
+                id={`question-${question.id}`}
+                className={cn(
+                  "scroll-mt-24 rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm transition lg:scroll-mt-28",
+                  "border-l-[3px] border-l-[#0c4a6e]",
+                  isFocused && "ring-2 ring-[#0c4a6e]/25 ring-offset-2",
+                  isAnswered && "bg-[#fafcfd]",
                 )}
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Submit your answers?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  Once submitted, you cannot change your answers.
-                  {unansweredCount > 0 && (
-                    <span className="mt-2 flex items-center gap-1.5 text-amber-600">
-                      <Circle className="size-3.5 fill-current" />
-                      You have {unansweredCount} unanswered question(s).
+              >
+                <div className="mb-3 flex items-start justify-between gap-3">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="rounded-lg bg-[#e8f1f8] px-2.5 py-1 text-xs font-bold text-[#0c4a6e]">
+                      Q{index + 1}
                     </span>
+                    <span className="rounded-lg bg-slate-100 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                      {question.type.replace("_", " ")}
+                    </span>
+                  </div>
+                  <span className="shrink-0 text-xs font-medium text-slate-500">
+                    {Number(question.points).toFixed(1)} Points
+                  </span>
+                </div>
+                <QuestionPrompt
+                  question={question}
+                  locale={locale}
+                  className="mb-4 [&_p]:text-base [&_p]:font-semibold [&_p]:text-slate-900 md:[&_p]:text-lg"
+                />
+                <QuestionAnswerInput
+                  question={question}
+                  locale={locale}
+                  value={selected ?? {}}
+                  onChange={(next) => handleAnswer(question.id, next)}
+                  disabled={submitting}
+                  appearance="exam"
+                />
+              </section>
+            );
+          })}
+        </main>
+
+        {/* Desktop sidebar */}
+        <aside className="hidden lg:block">
+          <div className="sticky top-24 flex max-h-[calc(100dvh-7rem)] flex-col gap-4">
+            <div className="flex min-h-0 flex-1 flex-col rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm">
+              <div className="mb-1 shrink-0 flex items-center gap-2">
+                <LayoutGrid className="size-4" style={{ color: PRIMARY }} />
+                <p className="text-sm font-bold text-slate-900">Question Navigator</p>
+              </div>
+              <p className="mb-4 shrink-0 text-xs text-slate-500">
+                {unansweredCount > 0
+                  ? `${unansweredCount} Questions Remaining`
+                  : "All questions answered"}
+              </p>
+              <div className="min-h-0 flex-1 overflow-y-auto pr-1">
+                {questionNavButtons({ cols: "grid-cols-5" })}
+              </div>
+
+              <div className="mt-4 shrink-0 border-t border-slate-100 pt-4">
+                {submitDialog(
+                  <Button
+                    size="lg"
+                    disabled={submitting}
+                    className="w-full gap-2 font-bold text-white hover:opacity-90"
+                    style={{ background: PRIMARY }}
+                  >
+                    {submitting ? (
+                      <>
+                        <Spinner className="size-4" />
+                        Submitting...
+                      </>
+                    ) : (
+                      <>
+                        Submit Quiz
+                        <ArrowRight className="size-4" />
+                      </>
+                    )}
+                  </Button>,
+                )}
+              </div>
+            </div>
+
+            <div className="flex shrink-0 gap-3 rounded-2xl border border-[#cfe3f0] bg-[#eef6fb] p-4">
+              <Lightbulb className="mt-0.5 size-5 shrink-0 text-[#0c4a6e]" />
+              <p className="text-xs leading-relaxed text-slate-600">
+                <span className="font-bold text-slate-800">Quick Tip: </span>
+                Don&apos;t leave any questions blank! Points are only awarded for correct answers.
+              </p>
+            </div>
+          </div>
+        </aside>
+      </div>
+
+      {/* Mobile / tablet navigator */}
+      <div className="fixed inset-x-0 bottom-0 z-20 lg:hidden">
+        {useExpandableMobileNav && mobileNavOpen && (
+          <button
+            type="button"
+            aria-label="Close question navigator"
+            className="absolute inset-x-0 bottom-full h-[100dvh] bg-black/30"
+            onClick={() => setMobileNavOpen(false)}
+          />
+        )}
+
+        <div className="bg-white shadow-[0_-10px_40px_rgba(15,23,42,0.12)]">
+          {useExpandableMobileNav ? (
+            <>
+              <div
+                className={cn(
+                  "overflow-hidden transition-[max-height] duration-300 ease-out",
+                  mobileNavOpen ? "max-h-[70dvh]" : "max-h-0",
+                )}
+              >
+                <div className="max-h-[70dvh] overflow-y-auto rounded-t-2xl px-4 pb-3 pt-2">
+                  <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-slate-300" />
+                  <div className="mb-4 flex items-center justify-between">
+                    <p className="text-base font-bold text-slate-900">Question Navigator</p>
+                    <button
+                      type="button"
+                      onClick={() => setMobileNavOpen(false)}
+                      className="flex size-8 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100"
+                      aria-label="Close"
+                    >
+                      <X className="size-5" />
+                    </button>
+                  </div>
+                  {questionNavButtons({
+                    cols: "grid-cols-5",
+                    onPick: (id) => scrollToQuestion(id, { closeMobileNav: true }),
+                  })}
+                  <div className="mt-5 pb-1">
+                    {submitDialog(
+                      <Button
+                        size="lg"
+                        disabled={submitting}
+                        className="w-full bg-slate-950 font-bold text-white hover:bg-slate-800"
+                      >
+                        {submitting ? <Spinner className="size-4" /> : "Submit Quiz"}
+                      </Button>,
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {!mobileNavOpen && (
+                <div className="flex items-center gap-2 px-3 py-2.5">
+                  <button
+                    type="button"
+                    onClick={() => setMobileNavOpen(true)}
+                    className="flex min-w-0 flex-1 items-center gap-3 rounded-2xl bg-[#e8f1f8] px-3 py-2.5 text-left"
+                    aria-expanded={false}
+                  >
+                    <span
+                      className="flex size-9 shrink-0 items-center justify-center rounded-full text-white"
+                      style={{ background: PRIMARY }}
+                    >
+                      <ChevronUp className="size-4" />
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block truncate text-sm font-bold text-slate-900">
+                        Question Navigator
+                      </span>
+                      <span className="block truncate text-[11px] text-slate-500">
+                        {answeredCount}/{questions.length} answered
+                        {unansweredCount > 0 ? ` · ${unansweredCount} left` : ""}
+                      </span>
+                    </span>
+                  </button>
+                  {submitDialog(
+                    <Button
+                      size="lg"
+                      disabled={submitting}
+                      className="shrink-0 bg-slate-950 font-bold text-white hover:bg-slate-800"
+                    >
+                      {submitting ? <Spinner className="size-4" /> : "Submit"}
+                    </Button>,
                   )}
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction onClick={() => submitAttempt(attempt.id, questions)}>
-                  Yes, submit
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
-        </section>
-      </main>
+                </div>
+              )}
+            </>
+          ) : (
+            <div className="flex items-center gap-3 border-t border-slate-200 p-3">
+              <div className="min-w-0 flex-1">
+                <p className="mb-1.5 text-[11px] font-medium text-slate-500">
+                  Tap a number · {answeredCount}/{questions.length}
+                </p>
+                <div className="flex gap-1.5 overflow-x-auto pb-0.5">
+                  {questions.map((q, index) => {
+                    const answered = isQuestionAnswered(q);
+                    return (
+                      <button
+                        key={q.id}
+                        type="button"
+                        onClick={() => scrollToQuestion(q.id)}
+                        className={cn(
+                          "flex size-9 shrink-0 items-center justify-center rounded-xl text-xs font-semibold",
+                          answered ? "bg-[#0c4a6e] text-white" : "bg-[#e8f1f8] text-slate-600",
+                        )}
+                      >
+                        {answered ? <CheckCircle2 className="size-3.5" /> : index + 1}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+              {submitDialog(
+                <Button
+                  size="lg"
+                  disabled={submitting}
+                  className="shrink-0 bg-slate-950 font-bold text-white hover:bg-slate-800"
+                >
+                  {submitting ? <Spinner className="size-4" /> : "Submit"}
+                </Button>,
+              )}
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

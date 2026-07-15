@@ -144,7 +144,7 @@ export function QuizList() {
                   <Target className="size-4" />
                   {t("student.passingScore")}: {quiz.passingScorePercentage}%
                 </div>
-                <Badge variant="outline">{quiz.course.title}</Badge>
+                <Badge variant="outline">{localize(quiz.course.title, locale)}</Badge>
               </CardContent>
               <CardFooter>
                 {isCompleted ? (

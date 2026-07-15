@@ -1,0 +1,287 @@
+"use client";
+
+import { useCallback, useEffect, useMemo, useState } from "react";
+
+import { ChevronLeft, ChevronRight, Library } from "lucide-react";
+import { toast } from "sonner";
+
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Spinner } from "@/components/ui/spinner";
+import { APP_CONFIG } from "@/config/app-config";
+import { getClientCookie } from "@/lib/cookie.client";
+import {
+  localize,
+  type BankQuestion,
+  type LocalizedText,
+  type SupportedLocale,
+} from "@/types/quiz";
+
+const PAGE_SIZE = 10;
+
+type PaginatedResponse = {
+  items: BankQuestion[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+};
+
+type Props = {
+  /** Already attached question IDs (hidden / disabled in picker). */
+  excludeIds: string[];
+  onAttach: (questions: BankQuestion[]) => void;
+};
+
+function LangBlock({
+  label,
+  text,
+}: {
+  label: string;
+  text: string;
+}) {
+  if (!text.trim()) {
+    return (
+      <div className="text-muted-foreground text-xs">
+        <span className="font-semibold uppercase tracking-wide">{label}</span>
+        <span className="ml-2 italic">—</span>
+      </div>
+    );
+  }
+  return (
+    <div className="text-xs leading-snug">
+      <span className="mr-2 font-semibold uppercase tracking-wide text-muted-foreground">
+        {label}
+      </span>
+      <span className="text-foreground">{text}</span>
+    </div>
+  );
+}
+
+export function AttachFromBankModal({ excludeIds, onAttach }: Props) {
+  const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [items, setItems] = useState<BankQuestion[]>([]);
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+  const [selected, setSelected] = useState<Map<string, BankQuestion>>(new Map());
+
+  const excludeSet = useMemo(() => new Set(excludeIds), [excludeIds]);
+
+  const load = useCallback(async (pageNum: number) => {
+    const token = getClientCookie("session_token");
+    if (!token) return;
+    setLoading(true);
+    try {
+      const res = await fetch(
+        `${APP_CONFIG.apiUrl}/questions?status=Published&page=${pageNum}&pageSize=${PAGE_SIZE}`,
+        { headers: { Authorization: `Bearer ${token}` } },
+      );
+      if (!res.ok) throw new Error("Failed to load question bank");
+      const data = (await res.json()) as PaginatedResponse | BankQuestion[];
+
+      if (Array.isArray(data)) {
+        const start = (pageNum - 1) * PAGE_SIZE;
+        const slice = data.slice(start, start + PAGE_SIZE);
+        setItems(slice);
+        setTotal(data.length);
+        setTotalPages(Math.max(1, Math.ceil(data.length / PAGE_SIZE)));
+        setPage(pageNum);
+      } else {
+        setItems(data.items ?? []);
+        setTotal(data.total ?? 0);
+        setTotalPages(data.totalPages ?? 1);
+        setPage(data.page ?? pageNum);
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to load bank");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!open) return;
+    setSelected(new Map());
+    setPage(1);
+    void load(1);
+  }, [open, load]);
+
+  const visibleIds = items.map((q) => q.id).filter((id) => !excludeSet.has(id));
+  const allVisibleSelected =
+    visibleIds.length > 0 && visibleIds.every((id) => selected.has(id));
+  const someVisibleSelected = visibleIds.some((id) => selected.has(id));
+
+  const toggleOne = (q: BankQuestion, checked: boolean) => {
+    if (excludeSet.has(q.id)) return;
+    setSelected((prev) => {
+      const next = new Map(prev);
+      if (checked) next.set(q.id, q);
+      else next.delete(q.id);
+      return next;
+    });
+  };
+
+  const toggleAllVisible = (checked: boolean) => {
+    setSelected((prev) => {
+      const next = new Map(prev);
+      for (const q of items) {
+        if (excludeSet.has(q.id)) continue;
+        if (checked) next.set(q.id, q);
+        else next.delete(q.id);
+      }
+      return next;
+    });
+  };
+
+  const handleAdd = () => {
+    const picked = [...selected.values()].filter((q) => !excludeSet.has(q.id));
+    if (!picked.length) {
+      toast.error("Select at least one question");
+      return;
+    }
+    onAttach(picked);
+    toast.success(`Attached ${picked.length} question${picked.length === 1 ? "" : "s"}`);
+    setOpen(false);
+  };
+
+  const textAt = (q: BankQuestion, lang: SupportedLocale) =>
+    localize(q.questionText as LocalizedText, lang);
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button type="button" variant="outline" size="sm">
+          <Library className="size-4" />
+          Attach from bank
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="flex max-h-[90vh] flex-col gap-0 overflow-hidden p-0 sm:max-w-2xl">
+        <DialogHeader className="shrink-0 border-b px-6 py-4">
+          <DialogTitle>Attach from question bank</DialogTitle>
+          <DialogDescription>
+            Select published questions (EN / SI / TA). Already attached items are disabled.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="flex shrink-0 items-center justify-between gap-3 border-b bg-muted/30 px-6 py-2">
+          <label className="flex items-center gap-2 text-sm">
+            <Checkbox
+              checked={
+                allVisibleSelected ? true : someVisibleSelected ? "indeterminate" : false
+              }
+              onCheckedChange={(v) => toggleAllVisible(v === true)}
+              disabled={visibleIds.length === 0}
+            />
+            Select page
+          </label>
+          <span className="text-muted-foreground text-xs">
+            {selected.size} selected
+            {total > 0 ? ` · ${total} in bank` : ""}
+          </span>
+        </div>
+
+        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
+          {loading && items.length === 0 ? (
+            <div className="flex h-40 items-center justify-center gap-2">
+              <Spinner className="size-5" />
+              <span className="text-muted-foreground text-sm">Loading…</span>
+            </div>
+          ) : items.length === 0 ? (
+            <p className="py-10 text-center text-muted-foreground text-sm">
+              No published questions in the bank.
+            </p>
+          ) : (
+            <ul className="space-y-2">
+              {items.map((q) => {
+                const attached = excludeSet.has(q.id);
+                const checked = selected.has(q.id);
+                return (
+                  <li
+                    key={q.id}
+                    className={`rounded-lg border px-3 py-3 ${
+                      attached ? "opacity-50" : checked ? "border-primary bg-primary/5" : ""
+                    }`}
+                  >
+                    <div className="flex gap-3">
+                      <Checkbox
+                        className="mt-1"
+                        checked={attached ? true : checked}
+                        disabled={attached || loading}
+                        onCheckedChange={(v) => toggleOne(q, v === true)}
+                        aria-label={`Select ${textAt(q, "en")}`}
+                      />
+                      <div className="min-w-0 flex-1 space-y-1.5">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <Badge variant="outline" className="text-[10px] uppercase">
+                            {q.type?.replace("_", " ") ?? "MCQ"}
+                          </Badge>
+                          <span className="text-muted-foreground text-xs">{q.points} pts</span>
+                          {attached && (
+                            <Badge variant="secondary" className="text-[10px]">
+                              Already attached
+                            </Badge>
+                          )}
+                        </div>
+                        <LangBlock label="EN" text={textAt(q, "en")} />
+                        <LangBlock label="SI" text={textAt(q, "si")} />
+                        <LangBlock label="TA" text={textAt(q, "ta")} />
+                      </div>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </div>
+
+        <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-t px-4 py-3">
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={page <= 1 || loading}
+              onClick={() => void load(page - 1)}
+            >
+              <ChevronLeft className="size-4" />
+              Prev
+            </Button>
+            <span className="tabular-nums text-xs">
+              Page {page} / {totalPages}
+            </span>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={page >= totalPages || loading}
+              onClick={() => void load(page + 1)}
+            >
+              Next
+              <ChevronRight className="size-4" />
+            </Button>
+          </div>
+          <DialogFooter className="m-0 gap-2 sm:space-x-0">
+            <Button type="button" variant="ghost" onClick={() => setOpen(false)}>
+              Cancel
+            </Button>
+            <Button type="button" onClick={handleAdd} disabled={selected.size === 0}>
+              Add {selected.size > 0 ? selected.size : ""} selected
+            </Button>
+          </DialogFooter>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}

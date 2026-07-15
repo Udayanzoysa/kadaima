@@ -118,6 +118,8 @@ interface QuestionAnswerProps {
   value: AnswerValue;
   onChange: (next: AnswerValue) => void;
   disabled?: boolean;
+  /** Solid selected options for public exam UI */
+  appearance?: "default" | "exam";
 }
 
 export function QuestionAnswerInput({
@@ -126,6 +128,7 @@ export function QuestionAnswerInput({
   value,
   onChange,
   disabled,
+  appearance = "default",
 }: QuestionAnswerProps) {
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
 
@@ -152,11 +155,13 @@ export function QuestionAnswerInput({
   }, [initialOrder]);
 
   if (question.type === "MCQ") {
+    const exam = appearance === "exam";
     return (
       <RadioGroup
         value={value.choiceId}
         onValueChange={(choiceId) => onChange({ choiceId })}
         disabled={disabled}
+        className={exam ? "gap-2.5" : undefined}
       >
         {question.choices.map((choice) => {
           const isSelected = value.choiceId === choice.id;
@@ -165,12 +170,26 @@ export function QuestionAnswerInput({
               key={choice.id}
               htmlFor={`${question.id}-${choice.id}`}
               className={cn(
-                "flex cursor-pointer items-center gap-3 rounded-lg border px-4 py-3 text-sm transition-colors",
-                isSelected ? "border-primary bg-primary/5" : "border-border hover:bg-muted/40",
+                "flex cursor-pointer items-center gap-3 rounded-xl border px-4 py-3.5 text-sm transition-colors",
+                exam
+                  ? isSelected
+                    ? "border-[#0c4a6e] bg-[#0c4a6e] text-white shadow-sm"
+                    : "border-slate-200 bg-white text-slate-800 hover:border-[#0c4a6e]/40 hover:bg-slate-50"
+                  : isSelected
+                    ? "border-primary bg-primary/5"
+                    : "border-border hover:bg-muted/40",
               )}
             >
-              <RadioGroupItem value={choice.id} id={`${question.id}-${choice.id}`} />
-              <span>{localize(choice.choiceText, locale)}</span>
+              <RadioGroupItem
+                value={choice.id}
+                id={`${question.id}-${choice.id}`}
+                className={cn(
+                  exam &&
+                    isSelected &&
+                    "border-white text-white data-[state=checked]:border-white data-[state=checked]:bg-white data-[state=checked]:text-[#0c4a6e]",
+                )}
+              />
+              <span className={cn(exam && "font-medium")}>{localize(choice.choiceText, locale)}</span>
             </label>
           );
         })}

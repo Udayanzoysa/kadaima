@@ -7,6 +7,12 @@ import { useRouter } from "next/navigation";
 import { Plus, Trash2, ImagePlus } from "lucide-react";
 import { toast } from "sonner";
 
+import {
+  createEmptyQuestion,
+  InlineQuestionFields,
+  toBankQuestionPayload,
+  validateInlineQuestion,
+} from "@/components/quiz/inline-question-fields";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -20,9 +26,9 @@ import { APP_CONFIG } from "@/config/app-config";
 import { getClientCookie } from "@/lib/cookie.client";
 import { LOCALES } from "@/lib/i18n";
 import {
-  type AnswerChoiceForm,
   type BankQuestion,
   type Course,
+  type CourseModule,
   type LocalizedText,
   type QuestionForm,
   type QuizFormState,
@@ -32,15 +38,13 @@ import {
   mediaUrl,
 } from "@/types/quiz";
 
+import { AttachFromBankModal } from "./attach-from-bank-modal";
+
 function plainTextFromHtml(html: string) {
   return html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
 }
 
 type ContentLang = "en" | "si" | "ta";
-
-function newId() {
-  return crypto.randomUUID();
-}
 
 const QUIZ_DRAFT_COVER_KEY = "quiz-draft-cover";
 
@@ -63,20 +67,6 @@ function writeDraftCover(url: string | null) {
   }
 }
 
-function createChoice(): AnswerChoiceForm {
-  return { id: newId(), choiceText: emptyLocalizedText(), isCorrect: false };
-}
-
-function createQuestion(sortOrder: number): QuestionForm {
-  return {
-    id: newId(),
-    questionText: emptyLocalizedText(),
-    points: 1,
-    sortOrder,
-    choices: [createChoice(), createChoice()],
-  };
-}
-
 interface QuizBuilderProps {
   quizId?: string;
 }
@@ -88,10 +78,12 @@ export function QuizBuilder({ quizId }: QuizBuilderProps) {
   const [activeLang, setActiveLang] = useState<ContentLang>("en");
   const [quizDetails, setQuizDetails] = useState<QuizFormState>(initialQuizFormState());
   const [courses, setCourses] = useState<Course[]>([]);
-  const [bankQuestions, setBankQuestions] = useState<BankQuestion[]>([]);
+  const [modules, setModules] = useState<CourseModule[]>([]);
+  const [loadingModules, setLoadingModules] = useState(false);
   const [attached, setAttached] = useState<BankQuestion[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [uploadingCover, setUploadingCover] = useState(false);
+  const [uploadingQuestionId, setUploadingQuestionId] = useState<string | null>(null);
   const [loadingCourses, setLoadingCourses] = useState(true);
   const [loadingQuiz, setLoadingQuiz] = useState(isEdit);
 
@@ -100,24 +92,30 @@ export function QuizBuilder({ quizId }: QuizBuilderProps) {
     if (!token) return;
     const headers = { Authorization: `Bearer ${token}` };
 
-    Promise.all([
-      fetch(`${APP_CONFIG.apiUrl}/quizzes/courses`, { headers }).then((res) =>
-        res.ok ? res.json() : [],
-      ),
-      fetch(`${APP_CONFIG.apiUrl}/questions?status=Published`, { headers }).then((res) =>
-        res.ok ? res.json() : [],
-      ),
-    ])
-      .then(([courseData, questionData]: [Course[], BankQuestion[]]) => {
-        setCourses(courseData);
-        setBankQuestions(questionData);
-      })
-      .catch(() => {
-        setCourses([]);
-        setBankQuestions([]);
-      })
+    fetch(`${APP_CONFIG.apiUrl}/quizzes/courses`, { headers })
+      .then((res) => (res.ok ? res.json() : []))
+      .then((courseData: Course[]) => setCourses(courseData))
+      .catch(() => setCourses([]))
       .finally(() => setLoadingCourses(false));
   }, []);
+
+  // Load modules for selected course
+  useEffect(() => {
+    if (!quizDetails.courseId) {
+      setModules([]);
+      return;
+    }
+    const token = getClientCookie("session_token");
+    if (!token) return;
+    setLoadingModules(true);
+    fetch(`${APP_CONFIG.apiUrl}/courses/${quizDetails.courseId}/modules`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((res) => (res.ok ? res.json() : []))
+      .then((data: CourseModule[]) => setModules(Array.isArray(data) ? data : []))
+      .catch(() => setModules([]))
+      .finally(() => setLoadingModules(false));
+  }, [quizDetails.courseId]);
 
   // Restore draft cover on Add Quiz (survives refresh before Create).
   useEffect(() => {
@@ -145,10 +143,14 @@ export function QuizBuilder({ quizId }: QuizBuilderProps) {
           description: data.description ?? emptyLocalizedText(),
           coverImageUrl: data.coverImageUrl ?? null,
           courseId: data.courseId ?? data.course?.id ?? "",
+          moduleId: data.moduleId ?? data.module?.id ?? "",
           durationMinutes: data.durationMinutes,
           passingScorePercentage: data.passingScorePercentage,
+          maxAttempts: data.maxAttempts ?? 1,
           status: data.status,
           shuffleQuestions: Boolean(data.shuffleQuestions),
+          requiresUnlock: Boolean(data.requiresUnlock),
+          priceLkr: data.priceLkr != null ? Number(data.priceLkr) : null,
           questions: [],
           attachedQuestionIds: (data.questions ?? []).map((q: { id: string }) => q.id),
         });
@@ -238,39 +240,10 @@ export function QuizBuilder({ quizId }: QuizBuilderProps) {
 
   const coverPreview = mediaUrl(quizDetails.coverImageUrl, APP_CONFIG.apiUrl);
 
-  const handleQuestionTextChange = (questionId: string, val: string) => {
-    setQuizDetails((prev) => ({
-      ...prev,
-      questions: prev.questions.map((q) =>
-        q.id === questionId
-          ? { ...q, questionText: { ...q.questionText, [activeLang]: val } }
-          : q,
-      ),
-    }));
-  };
-
-  const handleChoiceTextChange = (questionId: string, choiceId: string, val: string) => {
-    setQuizDetails((prev) => ({
-      ...prev,
-      questions: prev.questions.map((q) =>
-        q.id === questionId
-          ? {
-              ...q,
-              choices: q.choices.map((c) =>
-                c.id === choiceId
-                  ? { ...c, choiceText: { ...c.choiceText, [activeLang]: val } }
-                  : c,
-              ),
-            }
-          : q,
-      ),
-    }));
-  };
-
   const addQuestion = () => {
     setQuizDetails((prev) => ({
       ...prev,
-      questions: [...prev.questions, createQuestion(prev.questions.length)],
+      questions: [...prev.questions, createEmptyQuestion(prev.questions.length)],
     }));
   };
 
@@ -283,45 +256,51 @@ export function QuizBuilder({ quizId }: QuizBuilderProps) {
     }));
   };
 
-  const addChoice = (questionId: string) => {
+  const updateInlineQuestion = (questionId: string, next: QuestionForm) => {
     setQuizDetails((prev) => ({
       ...prev,
-      questions: prev.questions.map((q) =>
-        q.id === questionId ? { ...q, choices: [...q.choices, createChoice()] } : q,
-      ),
+      questions: prev.questions.map((q) => (q.id === questionId ? next : q)),
     }));
   };
 
-  const removeChoice = (questionId: string, choiceId: string) => {
-    setQuizDetails((prev) => ({
-      ...prev,
-      questions: prev.questions.map((q) =>
-        q.id === questionId
-          ? { ...q, choices: q.choices.filter((c) => c.id !== choiceId) }
-          : q,
-      ),
-    }));
+  const handleQuestionImageUpload = async (questionId: string, file: File) => {
+    const token = getClientCookie("session_token");
+    if (!token) return;
+    setUploadingQuestionId(questionId);
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      const res = await fetch(`${APP_CONFIG.apiUrl}/questions/upload-image`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: form,
+      });
+      if (!res.ok) throw new Error("Upload failed");
+      const data = (await res.json()) as { url?: string };
+      if (!data.url) throw new Error("No image URL returned");
+      setQuizDetails((prev) => ({
+        ...prev,
+        questions: prev.questions.map((q) =>
+          q.id === questionId ? { ...q, imageUrl: data.url! } : q,
+        ),
+      }));
+      toast.success("Question image uploaded");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Upload failed");
+    } finally {
+      setUploadingQuestionId(null);
+    }
   };
 
-  const setCorrectChoice = (questionId: string, choiceId: string) => {
-    setQuizDetails((prev) => ({
-      ...prev,
-      questions: prev.questions.map((q) =>
-        q.id === questionId
-          ? {
-              ...q,
-              choices: q.choices.map((c) => ({ ...c, isCorrect: c.id === choiceId })),
-            }
-          : q,
-      ),
-    }));
-  };
-
-  const attachFromBank = (questionId: string) => {
-    if (attached.some((q) => q.id === questionId)) return;
-    const found = bankQuestions.find((q) => q.id === questionId);
-    if (!found) return;
-    setAttached((prev) => [...prev, found]);
+  const attachFromBank = (questions: BankQuestion[]) => {
+    setAttached((prev) => {
+      const existing = new Set(prev.map((q) => q.id));
+      const next = [...prev];
+      for (const q of questions) {
+        if (!existing.has(q.id)) next.push(q);
+      }
+      return next;
+    });
   };
 
   const detachQuestion = (questionId: string) => {
@@ -338,15 +317,44 @@ export function QuizBuilder({ quizId }: QuizBuilderProps) {
     if (quizDetails.passingScorePercentage < 1 || quizDetails.passingScorePercentage > 100) {
       return t("quiz.validation.passingScoreRange");
     }
+    if (quizDetails.maxAttempts < 1 || quizDetails.maxAttempts > 50) {
+      return "Attempt count must be between 1 and 50.";
+    }
+    if (quizDetails.requiresUnlock && (!quizDetails.priceLkr || quizDetails.priceLkr <= 0)) {
+      return "Enter a price in LKR for locked quizzes.";
+    }
     const totalQuestions = quizDetails.questions.length + attached.length;
     if (totalQuestions === 0) return t("quiz.validation.questionRequired");
 
     for (const q of quizDetails.questions) {
-      if (q.choices.length < 2) return t("quiz.validation.choiceRequired");
-      if (!q.choices.some((c) => c.isCorrect)) return t("quiz.validation.correctRequired");
+      const qErr = validateInlineQuestion(q);
+      if (qErr) return qErr;
     }
     return null;
   }, [quizDetails, attached, t]);
+
+  const createBankQuestions = async (
+    headers: Record<string, string>,
+  ): Promise<string[]> => {
+    const status = quizDetails.status === "Published" ? "Published" : "Draft";
+    const createdIds: string[] = [];
+    for (const q of quizDetails.questions) {
+      const res = await fetch(`${APP_CONFIG.apiUrl}/questions`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify(toBankQuestionPayload(q, status)),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(
+          Array.isArray(err.message) ? err.message.join(", ") : err.message || "Failed to create question",
+        );
+      }
+      const created = await res.json();
+      createdIds.push(created.id);
+    }
+    return createdIds;
+  };
 
   const handleSubmit = async () => {
     const error = validate();
@@ -364,44 +372,30 @@ export function QuizBuilder({ quizId }: QuizBuilderProps) {
 
     setIsSubmitting(true);
     try {
-      if (isEdit && quizId) {
-        // Create any new inline questions in the bank first, then attach all IDs.
-        const createdIds: string[] = [];
-        for (const q of quizDetails.questions) {
-          const res = await fetch(`${APP_CONFIG.apiUrl}/questions`, {
-            method: "POST",
-            headers,
-            body: JSON.stringify({
-              questionText: q.questionText,
-              points: q.points,
-              status: quizDetails.status === "Published" ? "Published" : "Draft",
-              choices: q.choices.map((c) => ({
-                choiceText: c.choiceText,
-                isCorrect: c.isCorrect,
-              })),
-            }),
-          });
-          if (!res.ok) {
-            const err = await res.json().catch(() => ({}));
-            throw new Error(err.message || "Failed to create question");
-          }
-          const created = await res.json();
-          createdIds.push(created.id);
-        }
+      const createdIds = await createBankQuestions(headers);
+      const questionIds = [...attached.map((q) => q.id), ...createdIds];
 
-        const questionIds = [...attached.map((q) => q.id), ...createdIds];
+      if (questionIds.length === 0) {
+        throw new Error(t("quiz.validation.questionRequired"));
+      }
+
+      if (isEdit && quizId) {
         const res = await fetch(`${APP_CONFIG.apiUrl}/quizzes/${quizId}`, {
           method: "PUT",
           headers,
           body: JSON.stringify({
             courseId: quizDetails.courseId,
+            moduleId: quizDetails.moduleId || null,
             title: quizDetails.title,
             description: quizDetails.description,
             coverImageUrl: quizDetails.coverImageUrl,
             durationMinutes: quizDetails.durationMinutes,
             passingScorePercentage: quizDetails.passingScorePercentage,
+            maxAttempts: quizDetails.maxAttempts,
             status: quizDetails.status,
             shuffleQuestions: quizDetails.shuffleQuestions,
+            requiresUnlock: quizDetails.requiresUnlock,
+            priceLkr: quizDetails.requiresUnlock ? quizDetails.priceLkr : null,
             questionIds,
           }),
         });
@@ -414,31 +408,24 @@ export function QuizBuilder({ quizId }: QuizBuilderProps) {
         return;
       }
 
-      const payload = {
-        courseId: quizDetails.courseId,
-        title: quizDetails.title,
-        description: quizDetails.description,
-        coverImageUrl: quizDetails.coverImageUrl,
-        durationMinutes: quizDetails.durationMinutes,
-        passingScorePercentage: quizDetails.passingScorePercentage,
-        status: quizDetails.status,
-        shuffleQuestions: quizDetails.shuffleQuestions,
-        questionIds: attached.map((q) => q.id),
-        questions: quizDetails.questions.map((q) => ({
-          questionText: q.questionText,
-          sortOrder: q.sortOrder,
-          points: q.points,
-          choices: q.choices.map((c) => ({
-            choiceText: c.choiceText,
-            isCorrect: c.isCorrect,
-          })),
-        })),
-      };
-
       const res = await fetch(`${APP_CONFIG.apiUrl}/quizzes`, {
         method: "POST",
         headers,
-        body: JSON.stringify(payload),
+        body: JSON.stringify({
+          courseId: quizDetails.courseId,
+          moduleId: quizDetails.moduleId || null,
+          title: quizDetails.title,
+          description: quizDetails.description,
+          coverImageUrl: quizDetails.coverImageUrl,
+          durationMinutes: quizDetails.durationMinutes,
+          passingScorePercentage: quizDetails.passingScorePercentage,
+          maxAttempts: quizDetails.maxAttempts,
+          status: quizDetails.status,
+          shuffleQuestions: quizDetails.shuffleQuestions,
+          requiresUnlock: quizDetails.requiresUnlock,
+          priceLkr: quizDetails.requiresUnlock ? quizDetails.priceLkr : null,
+          questionIds,
+        }),
       });
 
       if (!res.ok) {
@@ -465,8 +452,6 @@ export function QuizBuilder({ quizId }: QuizBuilderProps) {
     if (lang === "si") return t("quiz.sinhala");
     return t("quiz.tamil");
   };
-
-  const availableBank = bankQuestions.filter((q) => !attached.some((a) => a.id === q.id));
 
   if (loadingQuiz) {
     return (
@@ -540,7 +525,9 @@ export function QuizBuilder({ quizId }: QuizBuilderProps) {
               <FieldLabel>{t("quiz.course")}</FieldLabel>
               <Select
                 value={quizDetails.courseId}
-                onValueChange={(val) => setQuizDetails((prev) => ({ ...prev, courseId: val }))}
+                onValueChange={(val) =>
+                  setQuizDetails((prev) => ({ ...prev, courseId: val, moduleId: "" }))
+                }
                 disabled={loadingCourses}
               >
                 <SelectTrigger>
@@ -549,11 +536,38 @@ export function QuizBuilder({ quizId }: QuizBuilderProps) {
                 <SelectContent>
                   {courses.map((course) => (
                     <SelectItem key={course.id} value={course.id}>
-                      {course.title}
+                      {localize(course.title, "en")}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
+            </Field>
+
+            <Field>
+              <FieldLabel>Module (optional)</FieldLabel>
+              <Select
+                value={quizDetails.moduleId || "__none__"}
+                onValueChange={(val) =>
+                  setQuizDetails((prev) => ({
+                    ...prev,
+                    moduleId: val === "__none__" ? "" : val,
+                  }))
+                }
+                disabled={!quizDetails.courseId || loadingModules}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select module" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">No module</SelectItem>
+                  {modules.map((mod) => (
+                    <SelectItem key={mod.id} value={mod.id}>
+                      {localize(mod.title, "en")}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <FieldDescription>Shown under the quiz title on the home page.</FieldDescription>
             </Field>
           </div>
 
@@ -614,7 +628,7 @@ export function QuizBuilder({ quizId }: QuizBuilderProps) {
             </FieldDescription>
           </Field>
 
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <Field>
               <FieldLabel>{t("quiz.duration")}</FieldLabel>
               <Input
@@ -649,6 +663,25 @@ export function QuizBuilder({ quizId }: QuizBuilderProps) {
             </Field>
 
             <Field>
+              <FieldLabel>Attempt count</FieldLabel>
+              <Input
+                type="number"
+                min={1}
+                max={50}
+                value={quizDetails.maxAttempts}
+                onChange={(e) =>
+                  setQuizDetails((prev) => ({
+                    ...prev,
+                    maxAttempts: Number(e.target.value),
+                  }))
+                }
+              />
+              <FieldDescription>
+                Total tries per student (e.g. 3 = three attempts).
+              </FieldDescription>
+            </Field>
+
+            <Field>
               <FieldLabel>{t("quiz.status")}</FieldLabel>
               <Select
                 value={quizDetails.status}
@@ -680,19 +713,64 @@ export function QuizBuilder({ quizId }: QuizBuilderProps) {
             />
             Shuffle question order for each attempt
           </label>
+
+          <div className="space-y-3 rounded-lg border border-border p-4">
+            <label className="flex items-center gap-2 text-sm font-medium">
+              <Checkbox
+                checked={quizDetails.requiresUnlock}
+                onCheckedChange={(checked) =>
+                  setQuizDetails((prev) => ({
+                    ...prev,
+                    requiresUnlock: checked === true,
+                    priceLkr: checked === true ? prev.priceLkr ?? 500 : null,
+                  }))
+                }
+              />
+              Requires unlock (payment verification)
+            </label>
+            {quizDetails.requiresUnlock && (
+              <Field>
+                <FieldLabel>Price (LKR)</FieldLabel>
+                <Input
+                  type="number"
+                  min={1}
+                  step={0.01}
+                  value={quizDetails.priceLkr ?? ""}
+                  onChange={(e) =>
+                    setQuizDetails((prev) => ({
+                      ...prev,
+                      priceLkr: e.target.value === "" ? null : Number(e.target.value),
+                    }))
+                  }
+                />
+                <FieldDescription>
+                  Students must unlock via PayHere (sandbox) before attempting.
+                </FieldDescription>
+              </Field>
+            )}
+          </div>
         </CardContent>
       </Card>
 
       <Card className="border-border">
-        <CardHeader>
-          <CardTitle>Attached bank questions</CardTitle>
-          <CardDescription>
-            Reuse questions from the bank. One question can belong to many quizzes.
-          </CardDescription>
+        <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-3">
+          <div>
+            <CardTitle>Attached bank questions</CardTitle>
+            <CardDescription>
+              Reuse questions from the bank. One question can belong to many quizzes.
+            </CardDescription>
+          </div>
+          <AttachFromBankModal
+            excludeIds={attached.map((q) => q.id)}
+            onAttach={attachFromBank}
+          />
         </CardHeader>
         <CardContent className="space-y-4">
           {attached.length === 0 ? (
-            <p className="text-muted-foreground text-sm">No bank questions attached yet.</p>
+            <p className="text-muted-foreground text-sm">
+              No bank questions attached yet. Use <strong>Attach from bank</strong> to pick
+              published questions.
+            </p>
           ) : (
             <ul className="space-y-2">
               {attached.map((q, index) => (
@@ -700,31 +778,30 @@ export function QuizBuilder({ quizId }: QuizBuilderProps) {
                   key={q.id}
                   className="flex items-start justify-between gap-3 rounded-md border border-border px-3 py-2"
                 >
-                  <span className="text-sm">
-                    <span className="text-muted-foreground">#{index + 1}</span>{" "}
-                    {localize(q.questionText as LocalizedText, "en")}
-                  </span>
+                  <div className="min-w-0 space-y-0.5 text-sm">
+                    <div>
+                      <span className="text-muted-foreground">#{index + 1}</span>{" "}
+                      <span className="font-medium">
+                        {localize(q.questionText as LocalizedText, "en")}
+                      </span>
+                    </div>
+                    {Boolean(localize(q.questionText as LocalizedText, "si")) && (
+                      <p className="text-muted-foreground text-xs">
+                        SI: {localize(q.questionText as LocalizedText, "si")}
+                      </p>
+                    )}
+                    {Boolean(localize(q.questionText as LocalizedText, "ta")) && (
+                      <p className="text-muted-foreground text-xs">
+                        TA: {localize(q.questionText as LocalizedText, "ta")}
+                      </p>
+                    )}
+                  </div>
                   <Button type="button" size="sm" variant="ghost" onClick={() => detachQuestion(q.id)}>
                     <Trash2 className="size-4" />
                   </Button>
                 </li>
               ))}
             </ul>
-          )}
-
-          {availableBank.length > 0 && (
-            <Select onValueChange={(val) => attachFromBank(val)}>
-              <SelectTrigger>
-                <SelectValue placeholder="Attach from question bank…" />
-              </SelectTrigger>
-              <SelectContent>
-                {availableBank.map((q) => (
-                  <SelectItem key={q.id} value={q.id}>
-                    {localize(q.questionText, "en")}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
           )}
         </CardContent>
       </Card>
@@ -766,51 +843,13 @@ export function QuizBuilder({ quizId }: QuizBuilderProps) {
                 </Button>
               </div>
 
-              <Input
-                value={question.questionText[activeLang]}
-                onChange={(e) => handleQuestionTextChange(question.id, e.target.value)}
-                placeholder={t("quiz.questionPlaceholder")}
+              <InlineQuestionFields
+                question={question}
+                activeLang={activeLang}
+                uploading={uploadingQuestionId === question.id}
+                onChange={(next) => updateInlineQuestion(question.id, next)}
+                onUploadImage={(file) => void handleQuestionImageUpload(question.id, file)}
               />
-
-              <div className="space-y-2">
-                <span className="font-medium text-sm">{t("quiz.answerChoices")}</span>
-                {question.choices.map((choice) => (
-                  <div key={choice.id} className="flex items-center gap-2">
-                    <Checkbox
-                      checked={choice.isCorrect}
-                      onCheckedChange={() => setCorrectChoice(question.id, choice.id)}
-                    />
-                    <Input
-                      className="flex-1"
-                      value={choice.choiceText[activeLang]}
-                      onChange={(e) =>
-                        handleChoiceTextChange(question.id, choice.id, e.target.value)
-                      }
-                      placeholder={t("quiz.choicePlaceholder")}
-                    />
-                    <span className="text-muted-foreground text-xs">{t("quiz.correct")}</span>
-                    {question.choices.length > 2 && (
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => removeChoice(question.id, choice.id)}
-                      >
-                        <Trash2 className="size-4" />
-                      </Button>
-                    )}
-                  </div>
-                ))}
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => addChoice(question.id)}
-                >
-                  <Plus className="size-4" />
-                  {t("quiz.addChoice")}
-                </Button>
-              </div>
             </div>
           ))}
         </CardContent>

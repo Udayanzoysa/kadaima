@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import Image from "next/image";
 import { useRouter } from "next/navigation";
@@ -19,11 +19,13 @@ import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { APP_CONFIG } from "@/config/app-config";
 import { useI18n } from "@/hooks/use-i18n";
-import { getOrCreateGuestLead } from "@/lib/guest-session";
+import { getClientCookie } from "@/lib/cookie.client";
+import { ensureGuestSessionId, getOrCreateGuestLead } from "@/lib/guest-session";
 import { cn } from "@/lib/utils";
 import { localize, mediaUrl, type LocalizedText } from "@/types/quiz";
 
 import { PublicQuizShell } from "./public-quiz-shell";
+import { QuizUnlockModal, type UnlockQuizTarget } from "./quiz-unlock-modal";
 
 interface PublicQuizCard {
   id: string;
@@ -32,8 +34,12 @@ interface PublicQuizCard {
   coverImageUrl?: string | null;
   durationMinutes: number;
   passingScorePercentage: number;
-  course: { id: string; title: string };
-  _count: { questions: number };
+  requiresUnlock?: boolean;
+  priceLkr?: number | null;
+  unlocked?: boolean;
+  course: { id: string; title: LocalizedText | string };
+  module?: { id: string; title: LocalizedText | string } | null;
+  _count: { questions: number; attempts?: number };
 }
 
 interface InProgressSummary {
@@ -42,70 +48,32 @@ interface InProgressSummary {
   totalQuestions: number;
 }
 
-/** Hardcoded upcoming challenges (placeholder until backend supports them). */
-const UPCOMING = [
-  {
-    id: "upcoming-1",
-    title: "ගණිත තර්කය",
-    titleEn: "Mathematical Logic",
-    tag: "PREMIUM",
-    tagTone: "bg-[#2b7fff]/10 text-[#2b7fff]",
-    subject: "MATHEMATICS",
-    subjectTone: "bg-teal-500/10 text-teal-700",
-    minutes: 15,
-    questions: 25,
-    students: "1.2k",
-    locked: true,
-    accent: "from-[#dbeafe] to-[#eff6ff]",
-  },
-  {
-    id: "upcoming-2",
-    title: "පරිසර අධ්‍යයනය",
-    titleEn: "Environmental Studies",
-    tag: "NEW",
-    tagTone: "bg-violet-500/10 text-violet-700",
-    subject: "ENVIRONMENT",
-    subjectTone: "bg-emerald-500/10 text-emerald-700",
-    minutes: 30,
-    questions: 25,
-    students: "860",
-    locked: false,
-    accent: "from-[#d1fae5] to-[#ecfdf5]",
-  },
-  {
-    id: "upcoming-3",
-    title: "Language Proficiency",
-    titleEn: "Language Proficiency",
-    tag: "POPULAR",
-    tagTone: "bg-fuchsia-500/10 text-fuchsia-700",
-    subject: "LANGUAGE",
-    subjectTone: "bg-sky-500/10 text-sky-700",
-    minutes: 25,
-    questions: 20,
-    students: "2.1k",
-    locked: false,
-    accent: "from-[#ede9fe] to-[#f5f3ff]",
-  },
-  {
-    id: "upcoming-4",
-    title: "Historical Contexts",
-    titleEn: "Historical Contexts",
-    tag: "RECOMMENDED",
-    tagTone: "bg-slate-500/10 text-slate-600",
-    subject: "HISTORY",
-    subjectTone: "bg-amber-500/10 text-amber-700",
-    minutes: 20,
-    questions: 18,
-    students: "540",
-    locked: true,
-    accent: "from-[#ffedd5] to-[#fff7ed]",
-  },
-] as const;
-
 function plainFromHtml(html: string | null | undefined) {
   if (!html) return "";
   return html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
 }
+
+function formatAttempts(count: number | undefined) {
+  const n = count ?? 0;
+  if (n >= 1000) return `${(n / 1000).toFixed(n >= 10000 ? 0 : 1).replace(/\.0$/, "")}k`;
+  return String(n);
+}
+
+function courseLabel(course: PublicQuizCard["course"], locale: string) {
+  return localize(course.title as LocalizedText, locale as "en" | "si" | "ta");
+}
+
+function moduleLabel(mod: PublicQuizCard["module"], locale: string) {
+  if (!mod) return null;
+  return localize(mod.title as LocalizedText, locale as "en" | "si" | "ta");
+}
+
+const ACCENTS = [
+  "from-[#dbeafe] to-[#eff6ff]",
+  "from-[#d1fae5] to-[#ecfdf5]",
+  "from-[#ede9fe] to-[#f5f3ff]",
+  "from-[#ffedd5] to-[#fff7ed]",
+] as const;
 
 export function PublicQuizCatalog() {
   const router = useRouter();
@@ -114,14 +82,58 @@ export function PublicQuizCatalog() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeIndex, setActiveIndex] = useState(0);
+  const [challengeIndex, setChallengeIndex] = useState(0);
   const [inProgressByQuiz, setInProgressByQuiz] = useState<Record<string, InProgressSummary>>({});
+  const [unlockTarget, setUnlockTarget] = useState<UnlockQuizTarget | null>(null);
+
+  const reloadQuizzes = async () => {
+    const guestSessionId = ensureGuestSessionId();
+    let userId = "";
+    const token = getClientCookie("session_token");
+    if (token) {
+      const meRes = await fetch(`${APP_CONFIG.apiUrl}/auth/me`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (meRes.ok) {
+        const me = await meRes.json();
+        if (me?.id) userId = `&userId=${encodeURIComponent(me.id)}`;
+      }
+    }
+    const res = await fetch(
+      `${APP_CONFIG.apiUrl}/public/quizzes?guestSessionId=${encodeURIComponent(guestSessionId)}${userId}`,
+    );
+    if (!res.ok) throw new Error("Could not load quizzes.");
+    setQuizzes(await res.json());
+  };
 
   useEffect(() => {
     (async () => {
       try {
-        const res = await fetch(`${APP_CONFIG.apiUrl}/public/quizzes`);
-        if (!res.ok) throw new Error("Could not load quizzes.");
-        setQuizzes(await res.json());
+        await reloadQuizzes();
+
+        const token = getClientCookie("session_token");
+        if (token) {
+          const progressRes = await fetch(`${APP_CONFIG.apiUrl}/quizzes/me/in-progress`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          if (progressRes.ok) {
+            const list = (await progressRes.json()) as Array<{
+              quizId: string;
+              answeredCount: number;
+              totalQuestions: number;
+            }>;
+            const map: Record<string, InProgressSummary> = {};
+            for (const item of list) {
+              map[item.quizId] = {
+                quizId: item.quizId,
+                answeredCount: item.answeredCount,
+                totalQuestions: item.totalQuestions,
+              };
+            }
+            setInProgressByQuiz(map);
+            return;
+          }
+        }
 
         const lead = getOrCreateGuestLead();
         if (lead) {
@@ -153,19 +165,50 @@ export function PublicQuizCatalog() {
     })();
   }, []);
 
+  const featured = useMemo(() => quizzes.slice(0, 3), [quizzes]);
+  const rest = useMemo(() => quizzes.slice(3), [quizzes]);
+  const byCourse = useMemo(() => {
+    const map = new Map<string, { courseId: string; courseTitle: string; items: PublicQuizCard[] }>();
+    for (const quiz of rest) {
+      const title = courseLabel(quiz.course, locale);
+      const existing = map.get(quiz.course.id);
+      if (existing) existing.items.push(quiz);
+      else map.set(quiz.course.id, { courseId: quiz.course.id, courseTitle: title, items: [quiz] });
+    }
+    return Array.from(map.values());
+  }, [rest, locale]);
+
+  const subtitleCourse = quizzes[0] ? courseLabel(quizzes[0].course, locale) : null;
+
   const activeQuiz = quizzes[activeIndex] ?? null;
   const goPrev = () => setActiveIndex((i) => (i <= 0 ? Math.max(quizzes.length - 1, 0) : i - 1));
   const goNext = () => setActiveIndex((i) => (i >= quizzes.length - 1 ? 0 : i + 1));
 
-  const startHref = activeQuiz
-    ? inProgressByQuiz[activeQuiz.id]
-      ? `/quiz/${activeQuiz.id}/take`
-      : `/quiz/${activeQuiz.id}`
-    : "/";
+  const needsUnlock = (quiz: PublicQuizCard) =>
+    Boolean(quiz.requiresUnlock) && quiz.unlocked !== true;
+
+  const startHref = (quiz: PublicQuizCard) =>
+    inProgressByQuiz[quiz.id] ? `/quiz/${quiz.id}/take` : `/quiz/${quiz.id}`;
+
+  const handlePrimary = (quiz: PublicQuizCard) => {
+    if (needsUnlock(quiz)) {
+      setUnlockTarget({
+        id: quiz.id,
+        title: localize(quiz.title, locale),
+        priceLkr: quiz.priceLkr ?? null,
+      });
+      return;
+    }
+    router.push(startHref(quiz));
+  };
 
   const descPlain = activeQuiz
     ? plainFromHtml(localize(activeQuiz.description, locale))
     : "";
+
+  const scrollToCourses = () => {
+    document.getElementById("quizzes-by-course")?.scrollIntoView({ behavior: "smooth" });
+  };
 
   return (
     <PublicQuizShell activeNav="Quiz">
@@ -227,11 +270,17 @@ export function PublicQuizCatalog() {
                 <div className="relative grid gap-6 md:grid-cols-[1.2fr_0.8fr] md:items-center">
                   <div>
                     <span className="inline-flex rounded-full bg-white/90 px-3 py-1 text-[11px] font-semibold tracking-wide text-[#2b7fff]">
-                      New Challenge
+                      {needsUnlock(activeQuiz) ? "Premium" : "New Challenge"}
                     </span>
                     <h1 className="mt-4 font-[family-name:var(--font-outfit)] text-2xl font-extrabold leading-tight tracking-tight md:text-4xl">
                       {localize(activeQuiz.title, locale)}
                     </h1>
+                    <p className="mt-2 text-sm text-white/85">
+                      {courseLabel(activeQuiz.course, locale)}
+                      {moduleLabel(activeQuiz.module, locale)
+                        ? ` · ${moduleLabel(activeQuiz.module, locale)}`
+                        : ""}
+                    </p>
                     <p className="mt-3 max-w-xl text-sm text-white/90 md:text-base">
                       {descPlain
                         ? descPlain.slice(0, 140) + (descPlain.length > 140 ? "…" : "")
@@ -259,10 +308,19 @@ export function PublicQuizCatalog() {
                       <Button
                         size="lg"
                         className="rounded-xl bg-white px-6 font-bold text-[#2b7fff] hover:bg-white/90"
-                        onClick={() => router.push(startHref)}
+                        onClick={() => handlePrimary(activeQuiz)}
                       >
-                        <Play className="size-4 fill-current" />
-                        {inProgressByQuiz[activeQuiz.id] ? "Resume" : "Start Now"}
+                        {needsUnlock(activeQuiz) ? (
+                          <>
+                            <Lock className="size-4" />
+                            Unlock
+                          </>
+                        ) : (
+                          <>
+                            <Play className="size-4 fill-current" />
+                            {inProgressByQuiz[activeQuiz.id] ? "Resume" : "Start Now"}
+                          </>
+                        )}
                       </Button>
                       <Button
                         size="lg"
@@ -297,7 +355,6 @@ export function PublicQuizCatalog() {
                   </div>
                 </div>
 
-                {/* Mobile carousel controls */}
                 {quizzes.length > 1 && (
                   <div className="relative mt-5 flex items-center justify-between md:mt-6">
                     <div className="flex gap-2 md:hidden">
@@ -337,7 +394,7 @@ export function PublicQuizCatalog() {
               </section>
             </div>
 
-            {/* Upcoming Challenges */}
+            {/* Upcoming Challenges — live data */}
             <section className="mt-10 md:mt-12">
               <div className="mb-5 flex items-end justify-between gap-3">
                 <div>
@@ -345,97 +402,225 @@ export function PublicQuizCatalog() {
                     Upcoming Challenges
                   </h2>
                   <p className="mt-1 text-sm text-slate-500">
-                    Personalized recommendations for your Grade 5 prep.
+                    {subtitleCourse
+                      ? `Recommended quizzes for ${subtitleCourse}.`
+                      : "Recommended quizzes for you."}
                   </p>
                 </div>
-                <button type="button" className="shrink-0 text-sm font-semibold text-[#2b7fff]">
-                  View All →
-                </button>
+                {byCourse.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={scrollToCourses}
+                    className="shrink-0 text-sm font-semibold text-[#2b7fff]"
+                  >
+                    View All →
+                  </button>
+                )}
               </div>
 
-              {/* Desktop: horizontal carousel-style row */}
-              <div className="hidden gap-4 md:grid md:grid-cols-2">
-                {UPCOMING.slice(0, 2).map((card) => (
-                  <UpcomingCard key={card.id} card={card} />
-                ))}
-              </div>
+              {featured.length > 0 && (
+                <div className="relative">
+                  {featured.length > 1 && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setChallengeIndex((i) =>
+                            i <= 0 ? featured.length - 1 : i - 1,
+                          )
+                        }
+                        className="absolute top-1/2 -left-1 z-10 hidden size-9 -translate-y-1/2 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-sm md:-left-3 md:flex"
+                        aria-label="Previous challenge"
+                      >
+                        <ChevronLeft className="size-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setChallengeIndex((i) =>
+                            i >= featured.length - 1 ? 0 : i + 1,
+                          )
+                        }
+                        className="absolute top-1/2 -right-1 z-10 hidden size-9 -translate-y-1/2 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-sm md:-right-3 md:flex"
+                        aria-label="Next challenge"
+                      >
+                        <ChevronRight className="size-4" />
+                      </button>
+                    </>
+                  )}
 
-              {/* Mobile: vertical list */}
-              <div className="flex flex-col gap-3 md:hidden">
-                {UPCOMING.map((card) => (
-                  <UpcomingMobileRow key={card.id} card={card} />
-                ))}
-              </div>
+                  {/* Desktop: show up to 3 in a row; carousel highlights active on smaller desktop */}
+                  <div className="hidden gap-4 md:grid md:grid-cols-3">
+                    {featured.map((quiz, i) => (
+                      <UpcomingCard
+                        key={quiz.id}
+                        quiz={quiz}
+                        locale={locale}
+                        accent={ACCENTS[i % ACCENTS.length]}
+                        locked={needsUnlock(quiz)}
+                        onPrimary={() => handlePrimary(quiz)}
+                      />
+                    ))}
+                  </div>
 
-              {/* Extra desktop cards */}
-              <div className="mt-4 hidden gap-4 md:grid md:grid-cols-2">
-                {UPCOMING.slice(2).map((card) => (
-                  <UpcomingCard key={card.id} card={card} />
-                ))}
-              </div>
+                  {/* Mobile carousel: one card at a time */}
+                  <div className="md:hidden">
+                    {featured[challengeIndex] && (
+                      <UpcomingCard
+                        quiz={featured[challengeIndex]}
+                        locale={locale}
+                        accent={ACCENTS[challengeIndex % ACCENTS.length]}
+                        locked={needsUnlock(featured[challengeIndex])}
+                        onPrimary={() => handlePrimary(featured[challengeIndex])}
+                      />
+                    )}
+                    {featured.length > 1 && (
+                      <div className="mt-3 flex items-center justify-center gap-2">
+                        {featured.map((q, i) => (
+                          <button
+                            key={q.id}
+                            type="button"
+                            aria-label={`Challenge ${i + 1}`}
+                            onClick={() => setChallengeIndex(i)}
+                            className={cn(
+                              "h-1.5 rounded-full transition-all",
+                              i === challengeIndex
+                                ? "w-6 bg-[#2b7fff]"
+                                : "w-1.5 bg-slate-300",
+                            )}
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
             </section>
+
+            {/* Remaining quizzes by course */}
+            {byCourse.length > 0 && (
+              <section id="quizzes-by-course" className="mt-12 scroll-mt-24 space-y-10">
+                {byCourse.map((group) => (
+                  <div key={group.courseId}>
+                    <h3 className="font-[family-name:var(--font-outfit)] text-lg font-bold text-slate-900">
+                      {group.courseTitle}
+                    </h3>
+                    <p className="mt-1 text-sm text-slate-500">
+                      {group.items.length} quiz{group.items.length === 1 ? "" : "zes"} in this course
+                    </p>
+                    <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                      {group.items.map((quiz, i) => (
+                        <UpcomingCard
+                          key={quiz.id}
+                          quiz={quiz}
+                          locale={locale}
+                          accent={ACCENTS[i % ACCENTS.length]}
+                          locked={needsUnlock(quiz)}
+                          onPrimary={() => handlePrimary(quiz)}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </section>
+            )}
           </>
         )}
       </main>
+
+      <QuizUnlockModal
+        open={Boolean(unlockTarget)}
+        onOpenChange={(open) => {
+          if (!open) setUnlockTarget(null);
+        }}
+        quiz={unlockTarget}
+        onUnlocked={async (quizId) => {
+          try {
+            await reloadQuizzes();
+          } catch {
+            /* ignore */
+          }
+          router.push(`/quiz/${quizId}`);
+        }}
+      />
     </PublicQuizShell>
   );
 }
 
-function UpcomingCard({ card }: { card: (typeof UPCOMING)[number] }) {
+function UpcomingCard({
+  quiz,
+  locale,
+  accent,
+  locked,
+  onPrimary,
+}: {
+  quiz: PublicQuizCard;
+  locale: string;
+  accent: string;
+  locked: boolean;
+  onPrimary: () => void;
+}) {
+  const title = localize(quiz.title, locale as "en" | "si" | "ta");
+  const category = courseLabel(quiz.course, locale);
+  const moduleName = moduleLabel(quiz.module, locale);
+  const initial = title.charAt(0).toUpperCase() || "?";
+
   return (
     <article className="flex gap-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:shadow-md">
       <div
         className={cn(
           "flex size-20 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br",
-          card.accent,
+          accent,
         )}
       >
-        <span className="text-2xl font-bold text-[#2b7fff]/70">
-          {card.titleEn.charAt(0)}
-        </span>
+        <span className="text-2xl font-bold text-[#2b7fff]/70">{initial}</span>
       </div>
       <div className="min-w-0 flex-1">
         <div className="flex items-start justify-between gap-2">
           <div className="flex flex-wrap gap-1.5">
-            <span className={cn("rounded-full px-2 py-0.5 text-[10px] font-bold uppercase", card.tagTone)}>
-              {card.tag}
-            </span>
-            <span
-              className={cn("rounded-full px-2 py-0.5 text-[10px] font-bold uppercase", card.subjectTone)}
-            >
-              {card.subject}
+            {locked && (
+              <span className="rounded-full bg-[#2b7fff]/10 px-2 py-0.5 text-[10px] font-bold uppercase text-[#2b7fff]">
+                Premium
+              </span>
+            )}
+            <span className="rounded-full bg-teal-500/10 px-2 py-0.5 text-[10px] font-bold uppercase text-teal-700">
+              {category}
             </span>
           </div>
           <button type="button" className="text-slate-300 hover:text-[#2b7fff]" aria-label="Save">
             <Bookmark className="size-4" />
           </button>
         </div>
-        <h3 className="mt-2 truncate font-semibold text-slate-900">{card.title}</h3>
+        <h3 className="mt-2 truncate font-semibold text-slate-900">{title}</h3>
+        <p className="mt-0.5 truncate text-xs text-slate-500">
+          {category}
+          {moduleName ? ` · ${moduleName}` : ""}
+        </p>
         <p className="mt-1 flex flex-wrap gap-2 text-xs text-slate-500">
           <span className="inline-flex items-center gap-1">
             <Clock3 className="size-3" />
-            {card.minutes} Mins
+            {quiz.durationMinutes} Mins
           </span>
           <span>•</span>
-          <span>{card.questions} Questions</span>
+          <span>{quiz._count.questions} Questions</span>
         </p>
         <div className="mt-3 flex items-center justify-between gap-2">
           <span className="inline-flex items-center gap-1 text-xs text-slate-400">
             <Users className="size-3.5" />
-            {card.students} Students Attempted
+            {formatAttempts(quiz._count.attempts)} Students Attempted
           </span>
           <Button
             size="sm"
-            variant={card.locked ? "default" : "outline"}
+            variant={locked ? "default" : "outline"}
             className={cn(
               "rounded-lg font-semibold",
-              card.locked
+              locked
                 ? "bg-[#1e3a5f] text-white hover:bg-[#254a75]"
                 : "border-[#2b7fff] text-[#2b7fff] hover:bg-[#2b7fff]/5",
             )}
-            disabled
+            onClick={onPrimary}
           >
-            {card.locked ? (
+            {locked ? (
               <>
                 <Lock className="size-3.5" />
                 Unlock
@@ -446,33 +631,6 @@ function UpcomingCard({ card }: { card: (typeof UPCOMING)[number] }) {
           </Button>
         </div>
       </div>
-    </article>
-  );
-}
-
-function UpcomingMobileRow({ card }: { card: (typeof UPCOMING)[number] }) {
-  return (
-    <article className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
-      <div
-        className={cn(
-          "flex size-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br text-lg font-bold text-[#2b7fff]/80",
-          card.accent,
-        )}
-      >
-        {card.titleEn.charAt(0)}
-      </div>
-      <div className="min-w-0 flex-1">
-        <div className="flex flex-wrap gap-1">
-          <span className={cn("rounded-full px-1.5 py-0.5 text-[9px] font-bold uppercase", card.tagTone)}>
-            {card.tag}
-          </span>
-        </div>
-        <h3 className="mt-0.5 truncate text-sm font-semibold text-slate-900">{card.titleEn}</h3>
-        <p className="text-[11px] text-slate-500">
-          {card.minutes} mins • Intermediate
-        </p>
-      </div>
-      <ChevronRight className="size-4 shrink-0 text-slate-300" />
     </article>
   );
 }

@@ -130,7 +130,7 @@ export function QuizResult() {
           )}
           <div>
             <h1 className="font-semibold text-xl md:text-2xl">{localize(attempt.quiz.title, locale)}</h1>
-            <p className="text-muted-foreground text-sm">{attempt.quiz.course.title}</p>
+            <p className="text-muted-foreground text-sm">{localize(attempt.quiz.course.title, locale)}</p>
           </div>
 
           <div className="mt-2 flex flex-col items-center gap-1">

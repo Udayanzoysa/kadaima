@@ -115,7 +115,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           if (item.id === "my-quizzes") {
             return isSuperAdmin || !canManageQuizzes;
           }
-          if (item.id === "quizzes" || item.id === "questions") {
+          if (item.id === "quizzes" || item.id === "questions" || item.id === "courses") {
             return canManageQuizzes;
           }
           if (item.id === "students") {

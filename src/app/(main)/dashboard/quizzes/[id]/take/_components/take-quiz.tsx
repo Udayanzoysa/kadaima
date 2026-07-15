@@ -281,7 +281,7 @@ export function TakeQuiz() {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h1 className="font-semibold text-lg leading-tight md:text-xl">{localize(attempt.quiz.title, locale)}</h1>
-            <p className="text-muted-foreground text-xs">{attempt.quiz.course.title}</p>
+            <p className="text-muted-foreground text-xs">{localize(attempt.quiz.course.title, locale)}</p>
           </div>
           <div className="flex items-center gap-3">
             <div className="flex flex-wrap gap-1">

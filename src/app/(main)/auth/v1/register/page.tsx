@@ -18,7 +18,7 @@ export default function RegisterHubV1() {
 
           <div className="grid gap-4">
             <Button asChild variant="outline" className="h-auto justify-start gap-4 p-4 text-left">
-              <Link prefetch={false} href="/auth/v1/register/student">
+              <Link prefetch={false} href="/student/register">
                 <GraduationCap className="size-6 shrink-0" />
                 <span>
                   <span className="block font-medium">I&apos;m a student</span>
@@ -29,7 +29,7 @@ export default function RegisterHubV1() {
               </Link>
             </Button>
             <Button asChild variant="outline" className="h-auto justify-start gap-4 p-4 text-left">
-              <Link prefetch={false} href="/auth/v1/register/teacher">
+              <Link prefetch={false} href="/teacher/register">
                 <Presentation className="size-6 shrink-0" />
                 <span>
                   <span className="block font-medium">I&apos;m a teacher</span>
@@ -43,7 +43,7 @@ export default function RegisterHubV1() {
 
           <p className="text-center text-muted-foreground text-xs">
             Already have an account?{" "}
-            <Link prefetch={false} href="/auth/v1/login" className="text-primary">
+            <Link prefetch={false} href="/login" className="text-primary">
               Login
             </Link>
           </p>

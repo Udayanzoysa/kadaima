@@ -1,5 +1,7 @@
 ﻿import {
   ClipboardList,
+  BookOpen,
+  CreditCard,
   GraduationCap,
   HelpCircle,
   LayoutDashboard,
@@ -78,6 +80,12 @@ export const sidebarItems: NavGroup[] = [
         icon: ClipboardList,
       },
       {
+        id: "courses",
+        title: "Courses",
+        url: "/admin/courses",
+        icon: BookOpen,
+      },
+      {
         id: "questions",
         title: "Questions",
         url: "/admin/questions",
@@ -108,6 +116,12 @@ export const sidebarItems: NavGroup[] = [
         title: "Roles",
         url: "/admin/roles",
         icon: Lock,
+      },
+      {
+        id: "payments",
+        title: "Payments",
+        url: "/admin/payments",
+        icon: CreditCard,
       },
       {
         id: "settings",
