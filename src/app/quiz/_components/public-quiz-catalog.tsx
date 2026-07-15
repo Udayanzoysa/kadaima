@@ -211,7 +211,7 @@ export function PublicQuizCatalog() {
   };
 
   return (
-    <PublicQuizShell activeNav="Quiz">
+    <PublicQuizShell activeNav="quiz">
       <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 md:px-6 md:py-8">
         {loading && (
           <div className="flex h-64 items-center justify-center gap-2 text-slate-500">

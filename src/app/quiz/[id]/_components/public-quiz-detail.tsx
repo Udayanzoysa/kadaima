@@ -57,7 +57,7 @@ export function PublicQuizDetail() {
   const quizId = params.id;
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { locale } = useI18n();
+  const { locale, t } = useI18n();
 
   const [quiz, setQuiz] = useState<PublicQuizDetailData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -151,7 +151,7 @@ export function PublicQuizDetail() {
     }
     const token = getClientCookie("session_token");
     if (!token || !authUser) {
-      toast.error("Please log in again to start.");
+      toast.error(t("public.pleaseLogInAgain"));
       deleteClientCookie("session_token");
       setAuthUser(null);
       return;
@@ -171,16 +171,16 @@ export function PublicQuizDetail() {
         if (res.status === 401) {
           deleteClientCookie("session_token");
           setAuthUser(null);
-          throw new Error("Session expired. Please log in again.");
+          throw new Error(t("public.sessionExpired"));
         }
-        throw new Error(body?.message || "Could not start the quiz.");
+        throw new Error(body?.message || t("public.couldNotStart"));
       }
       const attempt = await res.json();
       sessionStorage.setItem(`auth_attempt_${quizId}`, attempt.id);
       sessionStorage.removeItem(`guest_attempt_${quizId}`);
       router.push(`/quiz/${quizId}/take`);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Could not start the quiz.");
+      toast.error(err instanceof Error ? err.message : t("public.couldNotStart"));
       setStarting(false);
     }
   };
@@ -192,11 +192,11 @@ export function PublicQuizDetail() {
       return;
     }
     if (!studentName.trim() || !school.trim()) {
-      toast.error("Name and school are required.");
+      toast.error(t("public.nameSchoolRequired"));
       return;
     }
     if (!SL_MOBILE.test(mobileNumber.trim())) {
-      toast.error("Enter a valid Sri Lankan mobile number (07XXXXXXXX).");
+      toast.error(t("public.invalidMobile"));
       return;
     }
 
@@ -223,7 +223,7 @@ export function PublicQuizDetail() {
 
       if (!res.ok) {
         const body = await res.json().catch(() => null);
-        throw new Error(body?.message || "Could not start the quiz.");
+        throw new Error(body?.message || t("public.couldNotStart"));
       }
 
       const attempt = await res.json();
@@ -231,7 +231,7 @@ export function PublicQuizDetail() {
       sessionStorage.removeItem(`auth_attempt_${quizId}`);
       router.push(`/quiz/${quizId}/take`);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Could not start the quiz.");
+      toast.error(err instanceof Error ? err.message : t("public.couldNotStart"));
       setStarting(false);
     }
   };
@@ -241,7 +241,7 @@ export function PublicQuizDetail() {
       <PublicQuizShell>
         <div className="flex flex-1 items-center justify-center gap-2 text-slate-500">
           <Spinner className="size-7" />
-          Loading quiz...
+          {t("public.loadingQuiz")}
         </div>
       </PublicQuizShell>
     );
@@ -251,9 +251,9 @@ export function PublicQuizDetail() {
     return (
       <PublicQuizShell>
         <div className="flex flex-1 flex-col items-center justify-center gap-4 px-4 text-center">
-          <p className="text-slate-600">{error ?? "Quiz not found."}</p>
+          <p className="text-slate-600">{error ?? t("public.quizNotFound")}</p>
           <Button asChild className="rounded-xl bg-[#2b7fff] font-semibold hover:bg-[#1f6ae0]">
-            <Link href="/">Back to quizzes</Link>
+            <Link href="/">{t("public.backToQuizzes")}</Link>
           </Button>
         </div>
       </PublicQuizShell>
@@ -281,11 +281,11 @@ export function PublicQuizDetail() {
         <section className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#2b7fff] via-[#3b9eff] to-[#5ec4c0] p-6 text-white shadow-[0_20px_50px_-24px_rgba(43,127,255,0.55)] md:p-8">
           {locked ? (
             <span className="inline-flex rounded-full bg-white/90 px-3 py-1 text-[11px] font-semibold text-[#2b7fff]">
-              Premium · LKR {Number(quiz.priceLkr ?? 0).toFixed(0)}
+              {t("public.premium").replace("{price}", Number(quiz.priceLkr ?? 0).toFixed(0))}
             </span>
           ) : (
             <span className="inline-flex rounded-full bg-white/90 px-3 py-1 text-[11px] font-semibold text-[#2b7fff]">
-              Feature Event
+              {t("public.featureEvent")}
             </span>
           )}
           <h1 className="mt-4 font-[family-name:var(--font-outfit)] text-2xl font-extrabold leading-tight md:text-3xl">
@@ -294,21 +294,23 @@ export function PublicQuizDetail() {
           <div className="mt-3 flex flex-wrap gap-4 text-sm text-white/90">
             <span className="inline-flex items-center gap-1.5">
               <Clock3 className="size-4" />
-              {quiz.durationMinutes} mins
+              {t("public.mins").replace("{count}", String(quiz.durationMinutes))}
             </span>
-            <span>{quiz.questions.length} Questions</span>
+            <span>{t("public.questionsCount").replace("{count}", String(quiz.questions.length))}</span>
             <span>
               {(quiz.maxAttempts ?? 1) === 1
-                ? "1 attempt"
-                : `Up to ${quiz.maxAttempts} attempts`}
+                ? t("public.oneAttempt")
+                : t("public.upToAttempts").replace("{count}", String(quiz.maxAttempts))}
             </span>
-            <span>Pass {quiz.passingScorePercentage}%</span>
+            <span>
+              {t("public.passPercent").replace("{percent}", String(quiz.passingScorePercentage))}
+            </span>
           </div>
         </section>
 
         {localize(quiz.description, locale) && (
           <section className="mt-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-            <h2 className="text-sm font-semibold text-slate-900">Description</h2>
+            <h2 className="text-sm font-semibold text-slate-900">{t("public.description")}</h2>
             <div className="mt-2 text-sm text-slate-600">
               <RichHtml
                 html={localize(quiz.description, locale)}
@@ -322,18 +324,16 @@ export function PublicQuizDetail() {
           <section className="mt-5 rounded-2xl border border-slate-200 bg-white p-5 text-center shadow-sm md:p-6">
             <Lock className="mx-auto size-8 text-slate-400" />
             <h2 className="mt-3 font-[family-name:var(--font-outfit)] text-lg font-bold text-slate-900">
-              Unlock to attempt
+              {t("public.unlockToAttempt")}
             </h2>
-            <p className="mt-1 text-sm text-slate-500">
-              This quiz requires payment verification before you can start.
-            </p>
+            <p className="mt-1 text-sm text-slate-500">{t("public.unlockHint")}</p>
             <Button
               size="lg"
               className="mt-5 rounded-xl bg-[#1e3a5f] font-semibold hover:bg-[#254a75]"
               onClick={() => setUnlockOpen(true)}
             >
               <Lock className="size-4" />
-              Unlock · LKR {Number(quiz.priceLkr ?? 0).toFixed(0)}
+              {t("public.unlockPrice").replace("{price}", Number(quiz.priceLkr ?? 0).toFixed(0))}
             </Button>
           </section>
         ) : authUser ? (
@@ -343,10 +343,11 @@ export function PublicQuizDetail() {
                 <UserRound className="size-6" />
               </span>
               <h2 className="mt-3 font-[family-name:var(--font-outfit)] text-lg font-bold text-slate-900">
-                Ready to start
+                {t("public.readyToStart")}
               </h2>
               <p className="mt-1 text-sm text-slate-500">
-                Signed in as <span className="font-semibold text-slate-800">{authUser.name}</span>
+                {t("public.signedInAs")}{" "}
+                <span className="font-semibold text-slate-800">{authUser.name}</span>
                 {authUser.email ? (
                   <>
                     {" "}
@@ -354,9 +355,7 @@ export function PublicQuizDetail() {
                   </>
                 ) : null}
               </p>
-              <p className="mt-2 text-xs text-slate-400">
-                Your account details from the server will be used — no form needed.
-              </p>
+              <p className="mt-2 text-xs text-slate-400">{t("public.accountDetailsHint")}</p>
               <Button
                 size="lg"
                 disabled={starting}
@@ -366,11 +365,11 @@ export function PublicQuizDetail() {
                 {starting ? (
                   <>
                     <Spinner className="size-4" />
-                    Starting...
+                    {t("public.starting")}
                   </>
                 ) : (
                   <>
-                    Start Now
+                    {t("public.startNow")}
                     <Play className="size-4 fill-current" />
                   </>
                 )}
@@ -380,40 +379,40 @@ export function PublicQuizDetail() {
         ) : (
           <section className="mt-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm md:p-6">
             <h2 className="text-center font-[family-name:var(--font-outfit)] text-lg font-bold text-slate-900">
-              Enter your details to start
+              {t("public.enterDetails")}
             </h2>
             <p className="mt-1 text-center text-sm text-slate-500">
-              No password needed.{" "}
+              {t("public.noPasswordNeeded")}{" "}
               <Link href="/login" className="font-medium text-[#2b7fff] hover:underline">
-                Already have an account? Log in
+                {t("public.alreadyHaveAccount")}
               </Link>
             </p>
 
             <form onSubmit={startQuiz} className="mx-auto mt-6 grid max-w-md gap-4">
               <div className="grid gap-2">
-                <Label htmlFor="studentName">Full name *</Label>
+                <Label htmlFor="studentName">{t("public.fullName")}</Label>
                 <Input
                   id="studentName"
                   value={studentName}
                   onChange={(e) => setStudentName(e.target.value)}
-                  placeholder="e.g. Saman Perera"
+                  placeholder={t("public.fullNamePlaceholder")}
                   required
                   className="rounded-xl"
                 />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="school">School *</Label>
+                <Label htmlFor="school">{t("public.school")}</Label>
                 <Input
                   id="school"
                   value={school}
                   onChange={(e) => setSchool(e.target.value)}
-                  placeholder="e.g. Royal College Colombo"
+                  placeholder={t("public.schoolPlaceholder")}
                   required
                   className="rounded-xl"
                 />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="mobile">Mobile number *</Label>
+                <Label htmlFor="mobile">{t("public.mobile")}</Label>
                 <Input
                   id="mobile"
                   value={mobileNumber}
@@ -425,7 +424,7 @@ export function PublicQuizDetail() {
                 />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="email">Email (optional)</Label>
+                <Label htmlFor="email">{t("public.emailOptional")}</Label>
                 <Input
                   id="email"
                   type="email"
@@ -445,11 +444,11 @@ export function PublicQuizDetail() {
                 {starting ? (
                   <>
                     <Spinner className="size-4" />
-                    Starting...
+                    {t("public.starting")}
                   </>
                 ) : (
                   <>
-                    Start Now
+                    {t("public.startNow")}
                     <Play className="size-4 fill-current" />
                   </>
                 )}

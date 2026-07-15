@@ -15,6 +15,7 @@ import {
   Clock,
   Cloud,
   CloudOff,
+  Globe,
   LayoutGrid,
   Lightbulb,
   X,
@@ -226,7 +227,7 @@ export function PublicTakeQuiz() {
         sessionStorage.removeItem(`guest_attempt_${quizId}`);
         sessionStorage.removeItem(`auth_attempt_${quizId}`);
 
-        if (!silent) toast.success("Quiz submitted!");
+        if (!silent) toast.success(t("student.quizSubmitted"));
         if (result?.resultToken) {
           router.push(`/results/${result.resultToken}`);
         } else {
@@ -238,7 +239,7 @@ export function PublicTakeQuiz() {
         toast.error(err instanceof Error ? err.message : "Failed to submit quiz.");
       }
     },
-    [authHeaders, quizId, router, syncProgressToServer],
+    [authHeaders, quizId, router, syncProgressToServer, t],
   );
 
   useEffect(() => {
@@ -517,7 +518,7 @@ export function PublicTakeQuiz() {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-2 text-slate-500" style={{ background: PAGE_BG }}>
         <Spinner className="size-8" />
-        Starting quiz...
+        {t("student.startingQuiz")}
       </div>
     );
   }
@@ -526,13 +527,13 @@ export function PublicTakeQuiz() {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-4 px-4 text-center" style={{ background: PAGE_BG }}>
         <AlertTriangle className="size-10" style={{ color: PRIMARY }} />
-        <p className="max-w-md text-sm text-slate-700">{errorMessage ?? "Unable to load this quiz."}</p>
+        <p className="max-w-md text-sm text-slate-700">{errorMessage ?? t("student.unableToLoadQuiz")}</p>
         <div className="flex gap-2">
           <Button variant="secondary" onClick={() => router.push("/")}>
-            Back to quizzes
+            {t("public.backToQuizzes")}
           </Button>
           <Button style={{ background: PRIMARY }} className="text-white hover:opacity-90" onClick={() => window.location.reload()}>
-            Try again
+            {t("student.tryAgain")}
           </Button>
         </div>
       </div>
@@ -550,21 +551,21 @@ export function PublicTakeQuiz() {
       <AlertDialogTrigger asChild>{trigger}</AlertDialogTrigger>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Submit your answers?</AlertDialogTitle>
+          <AlertDialogTitle>{t("student.submitConfirmTitle")}</AlertDialogTitle>
           <AlertDialogDescription>
-            Once submitted, you cannot change your answers.
+            {t("student.submitConfirmDescription")}
             {unansweredCount > 0 && (
               <span className="mt-2 flex items-center gap-1.5 text-amber-600">
                 <Circle className="size-3.5 fill-current" />
-                You have {unansweredCount} unanswered question(s).
+                {t("student.submitConfirmUnanswered").replace("{count}", String(unansweredCount))}
               </span>
             )}
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogCancel>{t("student.cancel")}</AlertDialogCancel>
           <AlertDialogAction onClick={() => submitAttempt(attempt.id, questions)}>
-            Yes, submit
+            {t("student.confirmSubmit")}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
@@ -628,12 +629,12 @@ export function PublicTakeQuiz() {
             <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600">
               {online ? <Cloud className="size-3.5" style={{ color: PRIMARY }} /> : <CloudOff className="size-3.5" />}
               {isAuthed
-                ? "Signed in"
+                ? t("student.signedIn")
                 : !online
-                  ? "Saved locally"
+                  ? t("student.savedLocally")
                   : syncing
-                    ? "Syncing…"
-                    : "Synced"}
+                    ? t("student.syncing")
+                    : t("student.synced")}
             </span>
             <div className="flex gap-1">
               {LOCALES.map((l) => (
@@ -662,7 +663,7 @@ export function PublicTakeQuiz() {
             </span>
             {violationCount > 0 && (
               <span className="inline-flex items-center rounded-full border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-700">
-                Violations: {violationCount}/3
+                {t("student.violations").replace("{count}", String(violationCount))}
               </span>
             )}
           </div>
@@ -683,9 +684,25 @@ export function PublicTakeQuiz() {
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-bold text-slate-900">Kadaima</p>
             <p className="truncate text-[11px] text-slate-500">
-              {answeredCount} of {questions.length} answered
+              {t("student.answeredOf")
+                .replace("{answered}", String(answeredCount))
+                .replace("{total}", String(questions.length))}
             </p>
           </div>
+          <button
+            type="button"
+            className="inline-flex h-8 shrink-0 items-center gap-1 rounded-full border border-slate-200 bg-white px-2.5 text-[11px] font-medium text-slate-600"
+            onClick={() => {
+              const idx = LOCALES.findIndex((l) => l.code === locale);
+              setLocale(LOCALES[(idx + 1) % LOCALES.length].code);
+            }}
+            aria-label="Change language"
+          >
+            <Globe className="size-3.5" />
+            <span className="max-w-[3.5rem] truncate">
+              {(LOCALES.find((l) => l.code === locale) ?? LOCALES[0]).label}
+            </span>
+          </button>
           <span
             className={cn(
               "inline-flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1.5 font-mono text-xs font-bold tabular-nums",
@@ -718,9 +735,11 @@ export function PublicTakeQuiz() {
                 <LayoutGrid className="size-4" />
               </span>
               <div>
-                <p className="text-sm font-bold text-slate-800">Current Progress</p>
+                <p className="text-sm font-bold text-slate-800">{t("student.currentProgress")}</p>
                 <p className="text-xs text-slate-500">
-                  {answeredCount} of {questions.length} questions answered
+                  {t("student.answeredOfQuestions")
+                    .replace("{answered}", String(answeredCount))
+                    .replace("{total}", String(questions.length))}
                 </p>
               </div>
             </div>
@@ -752,7 +771,7 @@ export function PublicTakeQuiz() {
                     </span>
                   </div>
                   <span className="shrink-0 text-xs font-medium text-slate-500">
-                    {Number(question.points).toFixed(1)} Points
+                    {Number(question.points).toFixed(1)} {t("student.pointsFull")}
                   </span>
                 </div>
                 <QuestionPrompt
@@ -779,12 +798,12 @@ export function PublicTakeQuiz() {
             <div className="flex min-h-0 flex-1 flex-col rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm">
               <div className="mb-1 shrink-0 flex items-center gap-2">
                 <LayoutGrid className="size-4" style={{ color: PRIMARY }} />
-                <p className="text-sm font-bold text-slate-900">Question Navigator</p>
+                <p className="text-sm font-bold text-slate-900">{t("student.questionNavigator")}</p>
               </div>
               <p className="mb-4 shrink-0 text-xs text-slate-500">
                 {unansweredCount > 0
-                  ? `${unansweredCount} Questions Remaining`
-                  : "All questions answered"}
+                  ? t("student.questionsRemaining").replace("{count}", String(unansweredCount))
+                  : t("student.allQuestionsAnswered")}
               </p>
               <div className="min-h-0 flex-1 overflow-y-auto pr-1">
                 {questionNavButtons({ cols: "grid-cols-5" })}
@@ -801,11 +820,11 @@ export function PublicTakeQuiz() {
                     {submitting ? (
                       <>
                         <Spinner className="size-4" />
-                        Submitting...
+                        {t("student.submitting")}
                       </>
                     ) : (
                       <>
-                        Submit Quiz
+                        {t("student.submitQuiz")}
                         <ArrowRight className="size-4" />
                       </>
                     )}
@@ -817,8 +836,8 @@ export function PublicTakeQuiz() {
             <div className="flex shrink-0 gap-3 rounded-2xl border border-[#cfe3f0] bg-[#eef6fb] p-4">
               <Lightbulb className="mt-0.5 size-5 shrink-0 text-[#0c4a6e]" />
               <p className="text-xs leading-relaxed text-slate-600">
-                <span className="font-bold text-slate-800">Quick Tip: </span>
-                Don&apos;t leave any questions blank! Points are only awarded for correct answers.
+                <span className="font-bold text-slate-800">{t("student.quickTipTitle")} </span>
+                {t("student.quickTipBody")}
               </p>
             </div>
           </div>
@@ -848,7 +867,7 @@ export function PublicTakeQuiz() {
                 <div className="max-h-[70dvh] overflow-y-auto rounded-t-2xl px-4 pb-3 pt-2">
                   <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-slate-300" />
                   <div className="mb-4 flex items-center justify-between">
-                    <p className="text-base font-bold text-slate-900">Question Navigator</p>
+                    <p className="text-base font-bold text-slate-900">{t("student.questionNavigator")}</p>
                     <button
                       type="button"
                       onClick={() => setMobileNavOpen(false)}
@@ -869,7 +888,7 @@ export function PublicTakeQuiz() {
                         disabled={submitting}
                         className="w-full bg-slate-950 font-bold text-white hover:bg-slate-800"
                       >
-                        {submitting ? <Spinner className="size-4" /> : "Submit Quiz"}
+                        {submitting ? <Spinner className="size-4" /> : t("student.submitQuiz")}
                       </Button>,
                     )}
                   </div>
@@ -892,11 +911,13 @@ export function PublicTakeQuiz() {
                     </span>
                     <span className="min-w-0">
                       <span className="block truncate text-sm font-bold text-slate-900">
-                        Question Navigator
+                        {t("student.questionNavigator")}
                       </span>
                       <span className="block truncate text-[11px] text-slate-500">
-                        {answeredCount}/{questions.length} answered
-                        {unansweredCount > 0 ? ` · ${unansweredCount} left` : ""}
+                        {answeredCount}/{questions.length} {t("student.answered").toLowerCase()}
+                        {unansweredCount > 0
+                          ? ` · ${t("student.leftCount").replace("{count}", String(unansweredCount))}`
+                          : ""}
                       </span>
                     </span>
                   </button>
@@ -906,7 +927,7 @@ export function PublicTakeQuiz() {
                       disabled={submitting}
                       className="shrink-0 bg-slate-950 font-bold text-white hover:bg-slate-800"
                     >
-                      {submitting ? <Spinner className="size-4" /> : "Submit"}
+                      {submitting ? <Spinner className="size-4" /> : t("student.submit")}
                     </Button>,
                   )}
                 </div>
@@ -916,7 +937,9 @@ export function PublicTakeQuiz() {
             <div className="flex items-center gap-3 border-t border-slate-200 p-3">
               <div className="min-w-0 flex-1">
                 <p className="mb-1.5 text-[11px] font-medium text-slate-500">
-                  Tap a number · {answeredCount}/{questions.length}
+                  {t("student.tapANumber")
+                    .replace("{answered}", String(answeredCount))
+                    .replace("{total}", String(questions.length))}
                 </p>
                 <div className="flex gap-1.5 overflow-x-auto pb-0.5">
                   {questions.map((q, index) => {
@@ -943,7 +966,7 @@ export function PublicTakeQuiz() {
                   disabled={submitting}
                   className="shrink-0 bg-slate-950 font-bold text-white hover:bg-slate-800"
                 >
-                  {submitting ? <Spinner className="size-4" /> : "Submit"}
+                  {submitting ? <Spinner className="size-4" /> : t("student.submit")}
                 </Button>,
               )}
             </div>

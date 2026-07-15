@@ -11,9 +11,9 @@ import { LOCALES } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
 const NAV = [
-  { label: "Quiz", href: "/", icon: HelpCircle },
-  { label: "In Progress", href: "/quiz/in-progress", icon: Timer },
-  { label: "My Attempts", href: "/quiz/my-attempts", icon: ClipboardList },
+  { id: "quiz", labelKey: "public.nav.quiz", href: "/", icon: HelpCircle },
+  { id: "in-progress", labelKey: "public.nav.inProgress", href: "/quiz/in-progress", icon: Timer },
+  { id: "my-attempts", labelKey: "public.nav.myAttempts", href: "/quiz/my-attempts", icon: ClipboardList },
 ] as const;
 
 export function PublicQuizShell({
@@ -21,10 +21,10 @@ export function PublicQuizShell({
   activeNav,
 }: {
   children: React.ReactNode;
-  activeNav?: string;
+  activeNav?: (typeof NAV)[number]["id"];
 }) {
   const pathname = usePathname();
-  const { locale, setLocale } = useI18n();
+  const { locale, setLocale, t } = useI18n();
   const localeMeta = LOCALES.find((l) => l.code === locale) ?? LOCALES[0];
 
   const resolvedActive =
@@ -33,7 +33,8 @@ export function PublicQuizShell({
       n.href === "/"
         ? pathname === "/"
         : pathname === n.href || pathname.startsWith(`${n.href}/`),
-    )?.label ?? "Quiz";
+    )?.id ??
+    "quiz";
 
   return (
     <div className="relative flex min-h-screen flex-col bg-[#f4f7fb] text-slate-900">
@@ -52,10 +53,10 @@ export function PublicQuizShell({
 
           <nav className="hidden items-center gap-8 md:flex">
             {NAV.map((item) => {
-              const isActive = resolvedActive === item.label;
+              const isActive = resolvedActive === item.id;
               return (
                 <Link
-                  key={item.label}
+                  key={item.id}
                   href={item.href}
                   className={cn(
                     "relative pb-1 text-sm font-medium transition-colors",
@@ -64,7 +65,7 @@ export function PublicQuizShell({
                       "after:absolute after:inset-x-0 after:-bottom-[15px] after:h-0.5 after:rounded-full after:bg-[#2b7fff]",
                   )}
                 >
-                  {item.label}
+                  {t(item.labelKey)}
                 </Link>
               );
             })}
@@ -101,7 +102,7 @@ export function PublicQuizShell({
             <BookOpenCheck className="size-4 text-[#2b7fff]" />
             Kadaima
           </span>
-          <span>© {new Date().getFullYear()} Kadaima. All rights reserved.</span>
+          <span>{t("public.footerRights").replace("{year}", String(new Date().getFullYear()))}</span>
         </div>
       </footer>
 
@@ -110,10 +111,10 @@ export function PublicQuizShell({
         <div className="mx-auto grid max-w-md grid-cols-3 gap-1">
           {NAV.map((item) => {
             const Icon = item.icon;
-            const isActive = resolvedActive === item.label;
+            const isActive = resolvedActive === item.id;
             return (
               <Link
-                key={item.label}
+                key={item.id}
                 href={item.href}
                 className={cn(
                   "flex flex-col items-center gap-1 rounded-xl px-2 py-2 text-[11px] font-medium transition",
@@ -121,7 +122,7 @@ export function PublicQuizShell({
                 )}
               >
                 <Icon className="size-4" />
-                {item.label}
+                {t(item.labelKey)}
               </Link>
             );
           })}
