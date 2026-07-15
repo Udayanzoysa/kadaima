@@ -42,6 +42,27 @@ function newId() {
   return crypto.randomUUID();
 }
 
+const QUIZ_DRAFT_COVER_KEY = "quiz-draft-cover";
+
+function readDraftCover(): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    return sessionStorage.getItem(QUIZ_DRAFT_COVER_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function writeDraftCover(url: string | null) {
+  if (typeof window === "undefined") return;
+  try {
+    if (url) sessionStorage.setItem(QUIZ_DRAFT_COVER_KEY, url);
+    else sessionStorage.removeItem(QUIZ_DRAFT_COVER_KEY);
+  } catch {
+    /* ignore quota / private mode */
+  }
+}
+
 function createChoice(): AnswerChoiceForm {
   return { id: newId(), choiceText: emptyLocalizedText(), isCorrect: false };
 }
@@ -98,6 +119,16 @@ export function QuizBuilder({ quizId }: QuizBuilderProps) {
       .finally(() => setLoadingCourses(false));
   }, []);
 
+  // Restore draft cover on Add Quiz (survives refresh before Create).
+  useEffect(() => {
+    if (isEdit) return;
+    const draft = readDraftCover();
+    if (!draft) return;
+    setQuizDetails((prev) =>
+      prev.coverImageUrl ? prev : { ...prev, coverImageUrl: draft },
+    );
+  }, [isEdit]);
+
   useEffect(() => {
     if (!quizId) return;
     const token = getClientCookie("session_token");
@@ -143,6 +174,22 @@ export function QuizBuilder({ quizId }: QuizBuilderProps) {
     }));
   };
 
+  const persistCoverToQuiz = async (url: string | null, token: string) => {
+    if (!quizId) return;
+    const res = await fetch(`${APP_CONFIG.apiUrl}/quizzes/${quizId}`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ coverImageUrl: url }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || "Failed to save preview image");
+    }
+  };
+
   const handleCoverUpload = async (file: File) => {
     const token = getClientCookie("session_token");
     if (!token) return;
@@ -158,12 +205,34 @@ export function QuizBuilder({ quizId }: QuizBuilderProps) {
       if (!res.ok) throw new Error("Upload failed");
       const data = (await res.json()) as { url?: string };
       if (!data.url) throw new Error("No image URL returned");
-      setQuizDetails((prev) => ({ ...prev, coverImageUrl: data.url! }));
-      toast.success("Preview image uploaded");
+      const url = data.url;
+
+      if (isEdit && quizId) {
+        await persistCoverToQuiz(url, token);
+        setQuizDetails((prev) => ({ ...prev, coverImageUrl: url }));
+        toast.success("Preview image saved");
+      } else {
+        writeDraftCover(url);
+        setQuizDetails((prev) => ({ ...prev, coverImageUrl: url }));
+        toast.success("Preview image uploaded — click Create Quiz to keep it");
+      }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Upload failed");
     } finally {
       setUploadingCover(false);
+    }
+  };
+
+  const handleCoverRemove = async () => {
+    const token = getClientCookie("session_token");
+    setQuizDetails((prev) => ({ ...prev, coverImageUrl: null }));
+    writeDraftCover(null);
+    if (!isEdit || !quizId || !token) return;
+    try {
+      await persistCoverToQuiz(null, token);
+      toast.success("Preview image removed");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to remove image");
     }
   };
 
@@ -380,6 +449,7 @@ export function QuizBuilder({ quizId }: QuizBuilderProps) {
       toast.success(t("quiz.createSuccess"), {
         description: quizDetails.title.en,
       });
+      writeDraftCover(null);
       router.push("/admin/quizzes/manage");
     } catch (err) {
       toast.error(isEdit ? "Update failed" : t("quiz.createError"), {
@@ -523,9 +593,7 @@ export function QuizBuilder({ quizId }: QuizBuilderProps) {
                   type="button"
                   variant="ghost"
                   size="sm"
-                  onClick={() =>
-                    setQuizDetails((prev) => ({ ...prev, coverImageUrl: null }))
-                  }
+                  onClick={() => void handleCoverRemove()}
                 >
                   Remove
                 </Button>
@@ -540,7 +608,9 @@ export function QuizBuilder({ quizId }: QuizBuilderProps) {
               />
             )}
             <FieldDescription>
-              Shown on the right side of the public home hero carousel.
+              {isEdit
+                ? "Saved to this quiz as soon as you upload. Shown on the public home hero."
+                : "Upload stores the file; click Create Quiz to keep it on the quiz. Shown on the public home hero."}
             </FieldDescription>
           </Field>
 
