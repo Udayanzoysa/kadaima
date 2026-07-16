@@ -88,6 +88,7 @@ export function PermissionGuard({ children }: { children: ReactNode }) {
             pathname.startsWith("/admin/quizzes/manage") ||
             pathname.startsWith("/admin/quizzes/new") ||
             pathname.startsWith("/admin/courses") ||
+            pathname.startsWith("/admin/teacher-page") ||
             pathname === "/admin/questions" ||
             pathname.startsWith("/admin/questions/") ||
             /^\/admin\/quizzes\/[^/]+\/edit$/.test(pathname) ||

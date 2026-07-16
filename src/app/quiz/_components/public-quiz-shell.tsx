@@ -1,11 +1,11 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-import { BookOpenCheck, ClipboardList, Globe, HelpCircle, Timer } from "lucide-react";
+import { ClipboardList, Globe, HelpCircle, Timer } from "lucide-react";
 
+import { BrandLogo } from "@/components/brand/brand-logo";
 import { useI18n } from "@/hooks/use-i18n";
 import { LOCALES } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
@@ -41,14 +41,7 @@ export function PublicQuizShell({
       <header className="sticky top-0 z-30 border-b border-slate-200/80 bg-white/90 backdrop-blur-md">
         <div className="mx-auto flex h-14 w-full max-w-6xl items-center justify-between gap-3 px-4 md:h-16 md:px-6">
           <Link href="/" className="flex shrink-0 items-center">
-            <Image
-              src="/brand/kadaima-logo.png"
-              alt="Kadaima"
-              width={140}
-              height={36}
-              className="h-8 w-auto md:h-9"
-              priority
-            />
+            <BrandLogo className="h-8 w-auto md:h-9" priority />
           </Link>
 
           <nav className="hidden items-center gap-8 md:flex">
@@ -98,10 +91,7 @@ export function PublicQuizShell({
 
       <footer className="relative z-10 mt-auto hidden border-t border-slate-200 bg-white md:block">
         <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-4 px-6 py-5 text-xs text-slate-400">
-          <span className="inline-flex items-center gap-2 font-medium text-slate-600">
-            <BookOpenCheck className="size-4 text-[#2b7fff]" />
-            Kadaima
-          </span>
+          <BrandLogo className="h-6 w-auto" />
           <span>{t("public.footerRights").replace("{year}", String(new Date().getFullYear()))}</span>
         </div>
       </footer>

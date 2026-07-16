@@ -4,9 +4,10 @@ import { useEffect, useState } from "react";
 
 import Link from "next/link";
 
-import { CircleHelp, ClipboardList, Command, Database, File, Search, Settings } from "lucide-react";
+import { CircleHelp, ClipboardList, Database, File, Search, Settings } from "lucide-react";
 import { useShallow } from "zustand/react/shallow";
 
+import { BrandLogo } from "@/components/brand/brand-logo";
 import {
   Sidebar,
   SidebarContent,
@@ -16,7 +17,6 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
-import { APP_CONFIG } from "@/config/app-config";
 import { getClientCookie } from "@/lib/cookie.client";
 import { sidebarItems } from "@/navigation/sidebar/sidebar-items";
 import { usePreferencesStore } from "@/stores/preferences/preferences-provider";
@@ -115,7 +115,12 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           if (item.id === "my-quizzes") {
             return isSuperAdmin || !canManageQuizzes;
           }
-          if (item.id === "quizzes" || item.id === "questions" || item.id === "courses") {
+          if (
+            item.id === "quizzes" ||
+            item.id === "questions" ||
+            item.id === "courses" ||
+            item.id === "teacher-page"
+          ) {
             return canManageQuizzes;
           }
           if (item.id === "students") {
@@ -143,10 +148,14 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton asChild>
-              <Link prefetch={false} href="/admin/default">
-                <Command />
-                <span className="font-semibold text-base">{APP_CONFIG.name}</span>
+            <SidebarMenuButton asChild size="lg" className="gap-2">
+              <Link prefetch={false} href="/admin/default" className="flex items-center gap-2">
+                <BrandLogo variant="full" className="h-7 w-auto group-data-[collapsible=icon]:hidden" priority />
+                <BrandLogo
+                  variant="mark"
+                  className="hidden size-7 group-data-[collapsible=icon]:block"
+                  priority
+                />
               </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>

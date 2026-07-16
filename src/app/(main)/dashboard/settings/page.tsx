@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 
+import Link from "next/link";
+
 import {
   Building,
   CheckCircle2,
@@ -20,9 +22,12 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { APP_CONFIG } from "@/config/app-config";
 import { getClientCookie } from "@/lib/cookie.client";
+
+import { NotificationSettings } from "./_components/notification-settings";
 
 export default function SettingsPage() {
   const [loading, setLoading] = useState(true);
@@ -38,6 +43,7 @@ export default function SettingsPage() {
 
   const [workspaceName, setWorkspaceName] = useState("");
   const [isOwner, setIsOwner] = useState(false);
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [nicUrl, setNicUrl] = useState("");
   const [companyBrUrl, setCompanyBrUrl] = useState("");
   const [uploadingNic, setUploadingNic] = useState(false);
@@ -71,7 +77,9 @@ export default function SettingsPage() {
           setPhoneNumber(user.phoneNumber || "");
           setTwoFactorEnabled(user.isTwoFactorEnabled || false);
           setWorkspaceName(user.workspace?.name || "");
-          setIsOwner(user.role === "SUPER_ADMIN" || user.customRole?.name === "Owner");
+          const superAdmin = user.role === "SUPER_ADMIN";
+          setIsSuperAdmin(superAdmin);
+          setIsOwner(superAdmin || user.customRole?.name === "Owner");
           setNicUrl(user.nicUrl || "");
           setCompanyBrUrl(user.companyBrUrl || "");
         } else {
@@ -90,6 +98,10 @@ export default function SettingsPage() {
         const parts = token.split(".");
         if (parts.length === 3) {
           const payload = JSON.parse(atob(parts[1].replace(/-/g, "+").replace(/_/g, "/")));
+          if (payload?.role === "SUPER_ADMIN") {
+            setIsSuperAdmin(true);
+            setIsOwner(true);
+          }
           if (payload?.sub) {
             setUserId(payload.sub);
             void fetchUser(payload.sub, token);
@@ -258,308 +270,337 @@ export default function SettingsPage() {
     <div className="flex flex-col gap-6 p-1">
       <div className="space-y-1">
         <h1 className="font-semibold text-3xl tracking-tight">Settings</h1>
-        <p className="text-muted-foreground text-sm">Manage your account and security preferences.</p>
+        <p className="text-muted-foreground text-sm">
+          Manage your account, security
+          {isSuperAdmin ? ", and platform mail/SMS gateways for password reset delivery." : "."}
+        </p>
       </div>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <div className="space-y-6">
-          <Card className="border-border bg-card">
-            <CardHeader className="space-y-1.5 p-6">
-              <CardTitle className="flex items-center gap-2 font-semibold text-xl leading-none tracking-tight">
-                <User className="size-5" />
-                Profile
-              </CardTitle>
-              <CardDescription className="text-muted-foreground text-sm">
-                This information is used on account notifications.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6 p-6">
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <Field className="gap-1.5">
-                  <FieldLabel htmlFor="first-name">First Name</FieldLabel>
-                  <Input id="first-name" value={firstName} onChange={(e) => setFirstName(e.target.value)} />
-                </Field>
-                <Field className="gap-1.5">
-                  <FieldLabel htmlFor="last-name">Last Name</FieldLabel>
-                  <Input id="last-name" value={lastName} onChange={(e) => setLastName(e.target.value)} />
-                </Field>
-              </div>
+      <Tabs defaultValue="account" className="gap-6">
+        <TabsList variant="line" className="h-auto w-full flex-wrap justify-start gap-1">
+          <TabsTrigger value="account">Account</TabsTrigger>
+          <TabsTrigger value="security">Security & password</TabsTrigger>
+          {isSuperAdmin ? <TabsTrigger value="platform">SMTP & SMS</TabsTrigger> : null}
+        </TabsList>
 
-              <Field className="gap-1.5">
-                <FieldLabel htmlFor="company">Organization</FieldLabel>
-                <Input id="company" value={company} onChange={(e) => setCompany(e.target.value)} />
-              </Field>
-
-              <Field className="gap-1.5">
-                <FieldLabel htmlFor="address">Address</FieldLabel>
-                <Textarea
-                  id="address"
-                  value={address}
-                  onChange={(e) => setAddress(e.target.value)}
-                  className="min-h-[80px]"
-                />
-              </Field>
-
-              <Field className="gap-1.5">
-                <FieldLabel htmlFor="email-address">Email Address</FieldLabel>
-                <Input id="email-address" value={email} disabled />
-                <FieldDescription>Contact support to change the email on your account.</FieldDescription>
-              </Field>
-
-              <div className="space-y-4 rounded-lg border border-border bg-muted/40 p-4 dark:bg-muted/10">
-                <Field className="gap-1.5">
-                  <FieldLabel htmlFor="phone-number">Phone Number</FieldLabel>
-                  <Input id="phone-number" value={phoneNumber} onChange={(e) => setPhoneNumber(e.target.value)} />
-                </Field>
-
-                <div className="flex items-start space-x-3 pt-2">
-                  <Checkbox
-                    id="2fa"
-                    checked={twoFactorEnabled}
-                    onCheckedChange={(checked) => setTwoFactorEnabled(!!checked)}
-                  />
-                  <div className="space-y-1">
-                    <label htmlFor="2fa" className="cursor-pointer font-medium text-sm leading-none">
-                      Two-Factor Authentication
-                    </label>
-                    <p className="text-muted-foreground text-xs">
-                      We highly recommend keeping this enabled to protect your account.
-                    </p>
+        <TabsContent value="account" className="mt-0">
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+            <div className="space-y-6">
+              <Card className="border-border bg-card">
+                <CardHeader className="space-y-1.5 p-6">
+                  <CardTitle className="flex items-center gap-2 font-semibold text-xl leading-none tracking-tight">
+                    <User className="size-5" />
+                    Profile
+                  </CardTitle>
+                  <CardDescription className="text-muted-foreground text-sm">
+                    This information is used on account notifications.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6 p-6">
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <Field className="gap-1.5">
+                      <FieldLabel htmlFor="first-name">First Name</FieldLabel>
+                      <Input id="first-name" value={firstName} onChange={(e) => setFirstName(e.target.value)} />
+                    </Field>
+                    <Field className="gap-1.5">
+                      <FieldLabel htmlFor="last-name">Last Name</FieldLabel>
+                      <Input id="last-name" value={lastName} onChange={(e) => setLastName(e.target.value)} />
+                    </Field>
                   </div>
-                </div>
-              </div>
 
-              <div className="flex justify-end pt-4">
-                <Button className="font-semibold" onClick={handleSave} disabled={saving}>
-                  {saving ? "Saving..." : "Save Changes"}
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+                  <Field className="gap-1.5">
+                    <FieldLabel htmlFor="company">Organization</FieldLabel>
+                    <Input id="company" value={company} onChange={(e) => setCompany(e.target.value)} />
+                  </Field>
 
-          {isOwner && (
+                  <Field className="gap-1.5">
+                    <FieldLabel htmlFor="address">Address</FieldLabel>
+                    <Textarea
+                      id="address"
+                      value={address}
+                      onChange={(e) => setAddress(e.target.value)}
+                      className="min-h-[80px]"
+                    />
+                  </Field>
+
+                  <Field className="gap-1.5">
+                    <FieldLabel htmlFor="email-address">Email Address</FieldLabel>
+                    <Input id="email-address" value={email} disabled />
+                    <FieldDescription>Contact support to change the email on your account.</FieldDescription>
+                  </Field>
+
+                  <div className="space-y-4 rounded-lg border border-border bg-muted/40 p-4 dark:bg-muted/10">
+                    <Field className="gap-1.5">
+                      <FieldLabel htmlFor="phone-number">Phone Number</FieldLabel>
+                      <Input id="phone-number" value={phoneNumber} onChange={(e) => setPhoneNumber(e.target.value)} />
+                    </Field>
+
+                    <div className="flex items-start space-x-3 pt-2">
+                      <Checkbox
+                        id="2fa"
+                        checked={twoFactorEnabled}
+                        onCheckedChange={(checked) => setTwoFactorEnabled(!!checked)}
+                      />
+                      <div className="space-y-1">
+                        <label htmlFor="2fa" className="cursor-pointer font-medium text-sm leading-none">
+                          Two-Factor Authentication
+                        </label>
+                        <p className="text-muted-foreground text-xs">
+                          We highly recommend keeping this enabled to protect your account.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex justify-end pt-4">
+                    <Button className="font-semibold" onClick={handleSave} disabled={saving}>
+                      {saving ? "Saving..." : "Save Changes"}
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {isOwner && (
+                <Card className="border-border bg-card">
+                  <CardHeader className="space-y-1.5 p-6">
+                    <CardTitle className="font-semibold text-xl leading-none tracking-tight">
+                      Workspace Settings
+                    </CardTitle>
+                    <CardDescription className="text-muted-foreground text-sm">
+                      Manage workspace identity and properties.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-6 p-6">
+                    <Field className="gap-1.5">
+                      <FieldLabel htmlFor="workspace-name">Workspace Name</FieldLabel>
+                      <Input
+                        id="workspace-name"
+                        value={workspaceName}
+                        onChange={(e) => setWorkspaceName(e.target.value)}
+                        placeholder="e.g. My Institution"
+                      />
+                      <FieldDescription>Only the workspace owner can edit this name.</FieldDescription>
+                    </Field>
+                    <div className="flex justify-end pt-4">
+                      <Button className="font-semibold" onClick={handleSave} disabled={saving}>
+                        {saving ? "Saving..." : "Save Workspace Name"}
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+
             <Card className="border-border bg-card">
               <CardHeader className="space-y-1.5 p-6">
-                <CardTitle className="font-semibold text-xl leading-none tracking-tight">
-                  Workspace Settings
-                </CardTitle>
+                <CardTitle className="font-semibold text-xl leading-none tracking-tight">Document Center</CardTitle>
                 <CardDescription className="text-muted-foreground text-sm">
-                  Manage workspace identity and properties.
+                  Upload verification documents to complete your account validation.
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-6 p-6">
-                <Field className="gap-1.5">
-                  <FieldLabel htmlFor="workspace-name">Workspace Name</FieldLabel>
-                  <Input
-                    id="workspace-name"
-                    value={workspaceName}
-                    onChange={(e) => setWorkspaceName(e.target.value)}
-                    placeholder="e.g. My Institution"
-                  />
-                  <FieldDescription>Only the workspace owner can edit this name.</FieldDescription>
-                </Field>
-                <div className="flex justify-end pt-4">
-                  <Button className="font-semibold" onClick={handleSave} disabled={saving}>
-                    {saving ? "Saving..." : "Save Workspace Name"}
+                <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+                  <div className="flex flex-col gap-3 rounded-lg border border-border bg-muted/20 p-4 dark:bg-muted/5">
+                    <div className="flex items-center gap-2 font-medium text-sm">
+                      <FileText className="size-4 text-primary" />
+                      National Identity Card (NIC)
+                    </div>
+                    {nicUrl ? (
+                      <div className="flex flex-col gap-2">
+                        <div className="flex items-center justify-between rounded-md border border-emerald-500/20 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-500">
+                          <span className="max-w-[200px] truncate font-semibold">{nicUrl}</span>
+                          <span className="shrink-0 rounded bg-emerald-500/20 px-1.5 py-0.5 font-medium text-[10px] uppercase">
+                            Uploaded
+                          </span>
+                        </div>
+                        <Button variant="outline" size="sm" className="w-full text-xs font-semibold" onClick={() => setNicUrl("")}>
+                          Remove and Reupload
+                        </Button>
+                      </div>
+                    ) : (
+                      <label className="flex w-full cursor-pointer flex-col items-center justify-center rounded-lg border border-dashed border-border bg-background p-4 hover:bg-muted/30">
+                        {uploadingNic ? (
+                          <Spinner className="size-6 text-muted-foreground" />
+                        ) : (
+                          <>
+                            <Upload className="mb-2 size-5 text-muted-foreground" />
+                            <span className="font-medium text-xs">Click to upload NIC</span>
+                          </>
+                        )}
+                        <input
+                          type="file"
+                          accept="image/*,application/pdf"
+                          className="hidden"
+                          onChange={(e) => handleUploadFile(e, "nic")}
+                          disabled={uploadingNic}
+                        />
+                      </label>
+                    )}
+                  </div>
+
+                  <div className="flex flex-col gap-3 rounded-lg border border-border bg-muted/20 p-4 dark:bg-muted/5">
+                    <div className="flex items-center gap-2 font-medium text-sm">
+                      <Building className="size-4 text-primary" />
+                      Business Registration (BR)
+                    </div>
+                    {companyBrUrl ? (
+                      <div className="flex flex-col gap-2">
+                        <div className="flex items-center justify-between rounded-md border border-emerald-500/20 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-500">
+                          <span className="max-w-[200px] truncate font-semibold">{companyBrUrl}</span>
+                          <span className="shrink-0 rounded bg-emerald-500/20 px-1.5 py-0.5 font-medium text-[10px] uppercase">
+                            Uploaded
+                          </span>
+                        </div>
+                        <Button variant="outline" size="sm" className="w-full text-xs font-semibold" onClick={() => setCompanyBrUrl("")}>
+                          Remove and Reupload
+                        </Button>
+                      </div>
+                    ) : (
+                      <label className="flex w-full cursor-pointer flex-col items-center justify-center rounded-lg border border-dashed border-border bg-background p-4 hover:bg-muted/30">
+                        {uploadingBr ? (
+                          <Spinner className="size-6 text-muted-foreground" />
+                        ) : (
+                          <>
+                            <Upload className="mb-2 size-5 text-muted-foreground" />
+                            <span className="font-medium text-xs">Click to upload BR</span>
+                          </>
+                        )}
+                        <input
+                          type="file"
+                          accept="image/*,application/pdf"
+                          className="hidden"
+                          onChange={(e) => handleUploadFile(e, "br")}
+                          disabled={uploadingBr}
+                        />
+                      </label>
+                    )}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="security" className="mt-0">
+          <div className="mx-auto max-w-xl space-y-6">
+            <Card className="border-border bg-card">
+              <CardHeader className="space-y-1.5 p-6">
+                <CardTitle className="font-semibold text-xl leading-none tracking-tight">Change Password</CardTitle>
+                <CardDescription className="text-muted-foreground text-sm">
+                  Update your account password while signed in. Locked out? Use{" "}
+                  <Link
+                    prefetch={false}
+                    href="/forgot-password"
+                    className="text-primary underline-offset-4 hover:underline"
+                  >
+                    Forgot password
+                  </Link>{" "}
+                  on the login page (email or SMS code).
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6 p-6">
+                <div className="space-y-4">
+                  <Field className="gap-1.5">
+                    <FieldLabel htmlFor="current-password">Current Password</FieldLabel>
+                    <div className="relative">
+                      <Input
+                        id="current-password"
+                        type={showCurrentPassword ? "text" : "password"}
+                        value={currentPassword}
+                        onChange={(e) => setCurrentPassword(e.target.value)}
+                        placeholder="••••••••"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                      >
+                        {showCurrentPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                      </button>
+                    </div>
+                  </Field>
+
+                  <Field className="gap-1.5">
+                    <FieldLabel htmlFor="new-password">New Password</FieldLabel>
+                    <div className="relative">
+                      <Input
+                        id="new-password"
+                        type={showNewPassword ? "text" : "password"}
+                        value={newPassword}
+                        onChange={(e) => setNewPassword(e.target.value)}
+                        placeholder="••••••••"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowNewPassword(!showNewPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                      >
+                        {showNewPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                      </button>
+                    </div>
+                  </Field>
+
+                  <Field className="gap-1.5">
+                    <FieldLabel htmlFor="confirm-password">Confirm Password</FieldLabel>
+                    <div className="relative">
+                      <Input
+                        id="confirm-password"
+                        type={showConfirmPassword ? "text" : "password"}
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                        placeholder="••••••••"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                      >
+                        {showConfirmPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                      </button>
+                    </div>
+                  </Field>
+                </div>
+
+                {newPassword && (
+                  <div className="space-y-2 rounded-lg border border-border bg-muted/10 p-4">
+                    <div className="font-semibold text-muted-foreground text-xs">Password Strength Requirements:</div>
+                    <div className="grid grid-cols-1 gap-2 text-xs sm:grid-cols-2">
+                      <div className="flex items-center gap-1.5">
+                        {hasMinLength ? <CheckCircle2 className="size-4 text-emerald-500" /> : <XCircle className="size-4 text-muted-foreground/50" />}
+                        <span className={hasMinLength ? "text-emerald-500" : "text-muted-foreground"}>At least 8 characters</span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        {hasUppercase ? <CheckCircle2 className="size-4 text-emerald-500" /> : <XCircle className="size-4 text-muted-foreground/50" />}
+                        <span className={hasUppercase ? "text-emerald-500" : "text-muted-foreground"}>At least 1 uppercase letter</span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        {hasLowercase ? <CheckCircle2 className="size-4 text-emerald-500" /> : <XCircle className="size-4 text-muted-foreground/50" />}
+                        <span className={hasLowercase ? "text-emerald-500" : "text-muted-foreground"}>At least 1 lowercase letter</span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        {hasNumberOrSpecial ? <CheckCircle2 className="size-4 text-emerald-500" /> : <XCircle className="size-4 text-muted-foreground/50" />}
+                        <span className={hasNumberOrSpecial ? "text-emerald-500" : "text-muted-foreground"}>At least 1 number or special symbol</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex justify-end pt-2">
+                  <Button className="font-semibold" onClick={handleUpdatePassword} disabled={updatingPassword || !canSubmitPassword}>
+                    {updatingPassword ? "Updating..." : "Update Password"}
                   </Button>
                 </div>
               </CardContent>
             </Card>
-          )}
-        </div>
+          </div>
+        </TabsContent>
 
-        <div className="space-y-6">
-          <Card className="border-border bg-card">
-            <CardHeader className="space-y-1.5 p-6">
-              <CardTitle className="font-semibold text-xl leading-none tracking-tight">Document Center</CardTitle>
-              <CardDescription className="text-muted-foreground text-sm">
-                Upload verification documents to complete your account validation.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6 p-6">
-              <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-                <div className="flex flex-col gap-3 rounded-lg border border-border bg-muted/20 p-4 dark:bg-muted/5">
-                  <div className="flex items-center gap-2 font-medium text-sm">
-                    <FileText className="size-4 text-primary" />
-                    National Identity Card (NIC)
-                  </div>
-                  {nicUrl ? (
-                    <div className="flex flex-col gap-2">
-                      <div className="flex items-center justify-between rounded-md border border-emerald-500/20 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-500">
-                        <span className="max-w-[200px] truncate font-semibold">{nicUrl}</span>
-                        <span className="shrink-0 rounded bg-emerald-500/20 px-1.5 py-0.5 font-medium text-[10px] uppercase">
-                          Uploaded
-                        </span>
-                      </div>
-                      <Button variant="outline" size="sm" className="w-full text-xs font-semibold" onClick={() => setNicUrl("")}>
-                        Remove and Reupload
-                      </Button>
-                    </div>
-                  ) : (
-                    <label className="flex w-full cursor-pointer flex-col items-center justify-center rounded-lg border border-dashed border-border bg-background p-4 hover:bg-muted/30">
-                      {uploadingNic ? (
-                        <Spinner className="size-6 text-muted-foreground" />
-                      ) : (
-                        <>
-                          <Upload className="mb-2 size-5 text-muted-foreground" />
-                          <span className="font-medium text-xs">Click to upload NIC</span>
-                        </>
-                      )}
-                      <input
-                        type="file"
-                        accept="image/*,application/pdf"
-                        className="hidden"
-                        onChange={(e) => handleUploadFile(e, "nic")}
-                        disabled={uploadingNic}
-                      />
-                    </label>
-                  )}
-                </div>
-
-                <div className="flex flex-col gap-3 rounded-lg border border-border bg-muted/20 p-4 dark:bg-muted/5">
-                  <div className="flex items-center gap-2 font-medium text-sm">
-                    <Building className="size-4 text-primary" />
-                    Business Registration (BR)
-                  </div>
-                  {companyBrUrl ? (
-                    <div className="flex flex-col gap-2">
-                      <div className="flex items-center justify-between rounded-md border border-emerald-500/20 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-500">
-                        <span className="max-w-[200px] truncate font-semibold">{companyBrUrl}</span>
-                        <span className="shrink-0 rounded bg-emerald-500/20 px-1.5 py-0.5 font-medium text-[10px] uppercase">
-                          Uploaded
-                        </span>
-                      </div>
-                      <Button variant="outline" size="sm" className="w-full text-xs font-semibold" onClick={() => setCompanyBrUrl("")}>
-                        Remove and Reupload
-                      </Button>
-                    </div>
-                  ) : (
-                    <label className="flex w-full cursor-pointer flex-col items-center justify-center rounded-lg border border-dashed border-border bg-background p-4 hover:bg-muted/30">
-                      {uploadingBr ? (
-                        <Spinner className="size-6 text-muted-foreground" />
-                      ) : (
-                        <>
-                          <Upload className="mb-2 size-5 text-muted-foreground" />
-                          <span className="font-medium text-xs">Click to upload BR</span>
-                        </>
-                      )}
-                      <input
-                        type="file"
-                        accept="image/*,application/pdf"
-                        className="hidden"
-                        onChange={(e) => handleUploadFile(e, "br")}
-                        disabled={uploadingBr}
-                      />
-                    </label>
-                  )}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="border-border bg-card">
-            <CardHeader className="space-y-1.5 p-6">
-              <CardTitle className="font-semibold text-xl leading-none tracking-tight">Change Password</CardTitle>
-              <CardDescription className="text-muted-foreground text-sm">
-                Update your account password securely.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6 p-6">
-              <div className="space-y-4">
-                <Field className="gap-1.5">
-                  <FieldLabel htmlFor="current-password">Current Password</FieldLabel>
-                  <div className="relative">
-                    <Input
-                      id="current-password"
-                      type={showCurrentPassword ? "text" : "password"}
-                      value={currentPassword}
-                      onChange={(e) => setCurrentPassword(e.target.value)}
-                      placeholder="••••••••"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowCurrentPassword(!showCurrentPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                    >
-                      {showCurrentPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
-                    </button>
-                  </div>
-                </Field>
-
-                <Field className="gap-1.5">
-                  <FieldLabel htmlFor="new-password">New Password</FieldLabel>
-                  <div className="relative">
-                    <Input
-                      id="new-password"
-                      type={showNewPassword ? "text" : "password"}
-                      value={newPassword}
-                      onChange={(e) => setNewPassword(e.target.value)}
-                      placeholder="••••••••"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowNewPassword(!showNewPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                    >
-                      {showNewPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
-                    </button>
-                  </div>
-                </Field>
-
-                <Field className="gap-1.5">
-                  <FieldLabel htmlFor="confirm-password">Confirm Password</FieldLabel>
-                  <div className="relative">
-                    <Input
-                      id="confirm-password"
-                      type={showConfirmPassword ? "text" : "password"}
-                      value={confirmPassword}
-                      onChange={(e) => setConfirmPassword(e.target.value)}
-                      placeholder="••••••••"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                    >
-                      {showConfirmPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
-                    </button>
-                  </div>
-                </Field>
-              </div>
-
-              {newPassword && (
-                <div className="space-y-2 rounded-lg border border-border bg-muted/10 p-4">
-                  <div className="font-semibold text-muted-foreground text-xs">Password Strength Requirements:</div>
-                  <div className="grid grid-cols-1 gap-2 text-xs sm:grid-cols-2">
-                    <div className="flex items-center gap-1.5">
-                      {hasMinLength ? <CheckCircle2 className="size-4 text-emerald-500" /> : <XCircle className="size-4 text-muted-foreground/50" />}
-                      <span className={hasMinLength ? "text-emerald-500" : "text-muted-foreground"}>At least 8 characters</span>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      {hasUppercase ? <CheckCircle2 className="size-4 text-emerald-500" /> : <XCircle className="size-4 text-muted-foreground/50" />}
-                      <span className={hasUppercase ? "text-emerald-500" : "text-muted-foreground"}>At least 1 uppercase letter</span>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      {hasLowercase ? <CheckCircle2 className="size-4 text-emerald-500" /> : <XCircle className="size-4 text-muted-foreground/50" />}
-                      <span className={hasLowercase ? "text-emerald-500" : "text-muted-foreground"}>At least 1 lowercase letter</span>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      {hasNumberOrSpecial ? <CheckCircle2 className="size-4 text-emerald-500" /> : <XCircle className="size-4 text-muted-foreground/50" />}
-                      <span className={hasNumberOrSpecial ? "text-emerald-500" : "text-muted-foreground"}>At least 1 number or special symbol</span>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              <div className="flex justify-end pt-2">
-                <Button className="font-semibold" onClick={handleUpdatePassword} disabled={updatingPassword || !canSubmitPassword}>
-                  {updatingPassword ? "Updating..." : "Update Password"}
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
+        {isSuperAdmin ? (
+          <TabsContent value="platform" className="mt-0">
+            <NotificationSettings />
+          </TabsContent>
+        ) : null}
+      </Tabs>
     </div>
   );
 }

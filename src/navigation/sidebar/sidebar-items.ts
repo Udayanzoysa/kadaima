@@ -9,6 +9,7 @@
   Lock,
   type LucideIcon,
   Settings,
+  Store,
   Users,
 } from "lucide-react";
 
@@ -90,6 +91,12 @@ export const sidebarItems: NavGroup[] = [
         title: "Questions",
         url: "/admin/questions",
         icon: HelpCircle,
+      },
+      {
+        id: "teacher-page",
+        title: "Customize my page",
+        url: "/admin/teacher-page",
+        icon: Store,
       },
       {
         id: "students",

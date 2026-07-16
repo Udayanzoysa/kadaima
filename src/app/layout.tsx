@@ -15,6 +15,15 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: APP_CONFIG.meta.title,
   description: APP_CONFIG.meta.description,
+  icons: {
+    icon: [
+      { url: "/favicon.ico?v=2", sizes: "any" },
+      { url: "/favicon.png?v=2", type: "image/png", sizes: "32x32" },
+      { url: "/brand/kadaima-mark.png?v=2", type: "image/png" },
+    ],
+    apple: [{ url: "/apple-icon.png?v=2", sizes: "180x180", type: "image/png" }],
+  },
+  manifest: "/site.webmanifest",
 };
 
 export default function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
@@ -32,11 +41,9 @@ export default function RootLayout({ children }: Readonly<{ children: ReactNode 
       data-font={font}
       suppressHydrationWarning
     >
-      <head>
-        {/* Applies theme and layout preferences on load to avoid flicker and unnecessary server rerenders. */}
-        <ThemeBootScript />
-      </head>
       <body className={`${fontVars} min-h-screen antialiased`}>
+        {/* beforeInteractive boot script — must live in root layout body */}
+        <ThemeBootScript />
         <TooltipProvider>
           <PreferencesStoreProvider
             themeMode={theme_mode}

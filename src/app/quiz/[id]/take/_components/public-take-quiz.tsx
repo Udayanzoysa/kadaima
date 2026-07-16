@@ -612,9 +612,9 @@ export function PublicTakeQuiz() {
             <Image
               src="/brand/kadaima-logo.png"
               alt="Kadaima"
-              width={120}
-              height={32}
-              className="h-7 w-auto shrink-0"
+              width={140}
+              height={36}
+              className="h-7 w-auto shrink-0 object-contain"
               priority
             />
             <div className="min-w-0 border-l border-slate-200 pl-4">
@@ -682,7 +682,14 @@ export function PublicTakeQuiz() {
             <ArrowLeft className="size-5" />
           </button>
           <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-bold text-slate-900">Kadaima</p>
+            <Image
+              src="/brand/kadaima-logo.png"
+              alt="Kadaima"
+              width={110}
+              height={28}
+              className="h-6 w-auto object-contain"
+              priority
+            />
             <p className="truncate text-[11px] text-slate-500">
               {t("student.answeredOf")
                 .replace("{answered}", String(answeredCount))

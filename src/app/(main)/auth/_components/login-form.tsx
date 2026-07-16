@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -215,7 +216,16 @@ export function LoginForm({ redirectTo = "/admin", onSuccess }: LoginFormProps) 
           name="password"
           render={({ field, fieldState }) => (
             <Field className="gap-1.5" data-invalid={fieldState.invalid}>
-              <FieldLabel htmlFor="login-password">Password</FieldLabel>
+              <div className="flex items-center justify-between gap-2">
+                <FieldLabel htmlFor="login-password">Password</FieldLabel>
+                <Link
+                  prefetch={false}
+                  href="/forgot-password"
+                  className="text-primary text-xs font-medium hover:underline"
+                >
+                  Forgot password?
+                </Link>
+              </div>
               <PasswordInput
                 {...field}
                 id="login-password"

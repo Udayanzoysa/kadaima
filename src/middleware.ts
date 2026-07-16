@@ -3,10 +3,13 @@ import { type NextRequest, NextResponse } from "next/server";
 const PUBLIC_PREFIXES = [
   "/auth",
   "/login",
+  "/forgot-password",
+  "/reset-password",
   "/student",
   "/quiz",
   "/results",
   "/brand",
+  "/t",
   "/_next",
   "/favicon.ico",
 ];
@@ -25,6 +28,10 @@ function isAuthPage(pathname: string) {
   return (
     pathname === "/login" ||
     pathname.startsWith("/login/") ||
+    pathname === "/forgot-password" ||
+    pathname.startsWith("/forgot-password/") ||
+    pathname === "/reset-password" ||
+    pathname.startsWith("/reset-password/") ||
     pathname === "/student/register" ||
     pathname.startsWith("/student/register/") ||
     pathname === "/teacher/register" ||
