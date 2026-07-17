@@ -11,8 +11,8 @@ type KadaimaLoaderProps = {
 };
 
 /**
- * Branded Kadaima loading state for the public site.
- * Uses the same blue theme as PublicQuizShell (`#2b7fff` / `#f4f7fb`).
+ * Branded Kadaima loading state used across the full site.
+ * Theme: brand blue `#2b7fff` on soft `#f4f7fb`.
  */
 export function KadaimaLoader({
   variant = "page",

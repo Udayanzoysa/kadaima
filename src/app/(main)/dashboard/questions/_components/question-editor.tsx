@@ -25,6 +25,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
 import { APP_CONFIG } from "@/config/app-config";
 import { getClientCookie } from "@/lib/cookie.client";
+import { hideGlobalLoader, showGlobalLoader } from "@/stores/global-loader-store";
 import {
   QUESTION_TYPE_META,
   emptyLocalizedText,
@@ -178,6 +179,7 @@ export function QuestionEditor({ questionId }: QuestionEditorProps) {
     const token = getClientCookie("session_token");
     if (!token) return;
     setUploading(true);
+    showGlobalLoader(`Uploading “${file.name}”… don’t close this page`);
     try {
       const form = new FormData();
       form.append("file", file);
@@ -195,6 +197,7 @@ export function QuestionEditor({ questionId }: QuestionEditorProps) {
       toast.error(err instanceof Error ? err.message : "Upload failed");
     } finally {
       setUploading(false);
+      hideGlobalLoader();
     }
   };
 

@@ -35,6 +35,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { APP_CONFIG } from "@/config/app-config";
 import { getClientCookie } from "@/lib/cookie.client";
 import { cn } from "@/lib/utils";
+import { hideGlobalLoader, showGlobalLoader } from "@/stores/global-loader-store";
 import { mediaUrl, type LocalizedText } from "@/types/quiz";
 
 const SETTINGS_TABS = [
@@ -430,6 +431,7 @@ export function TeacherPageSettings() {
   const uploadImage = async (file: File, onUrl: (url: string) => void | Promise<void>) => {
     setUploading(true);
     setUploadingName(file.name);
+    showGlobalLoader(`Uploading “${file.name}”… don’t close this page`);
     try {
       const body = new FormData();
       body.append("file", file);
@@ -447,6 +449,7 @@ export function TeacherPageSettings() {
     } finally {
       setUploading(false);
       setUploadingName(null);
+      hideGlobalLoader();
     }
   };
 

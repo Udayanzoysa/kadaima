@@ -4,7 +4,7 @@ import { createContext, type ReactNode, useContext, useEffect, useState } from "
 
 import { usePathname, useRouter } from "next/navigation";
 
-import { Spinner } from "@/components/ui/spinner";
+import { KadaimaLoader } from "@/components/site/kadaima-loader";
 import { APP_CONFIG } from "@/config/app-config";
 import { getClientCookie } from "@/lib/cookie.client";
 
@@ -171,10 +171,11 @@ export function PermissionGuard({ children }: { children: ReactNode }) {
 
   if (loading) {
     return (
-      <div className="flex h-64 items-center justify-center">
-        <Spinner className="size-8" />
-        <span className="ml-2 text-muted-foreground text-sm">Verifying access permissions...</span>
-      </div>
+      <KadaimaLoader
+        variant="page"
+        label="Verifying access…"
+        className="min-h-64"
+      />
     );
   }
 

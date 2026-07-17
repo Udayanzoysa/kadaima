@@ -11,6 +11,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { APP_CONFIG } from "@/config/app-config";
 import { setClientCookie } from "@/lib/cookie.client";
 import { cn } from "@/lib/utils";
+import { hideGlobalLoader, showGlobalLoader } from "@/stores/global-loader-store";
 
 type AccountType = "student" | "teacher";
 
@@ -77,6 +78,7 @@ function GoogleSignInControl({
       return;
     }
     setBusy(true);
+    showGlobalLoader("Signing in with Google…");
     try {
       const response = await fetch(`${APP_CONFIG.apiUrl}/auth/google`, {
         method: "POST",
@@ -110,6 +112,7 @@ function GoogleSignInControl({
       });
     } finally {
       setBusy(false);
+      hideGlobalLoader();
     }
   };
 

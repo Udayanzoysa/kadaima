@@ -21,11 +21,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Checkbox } from "@/components/ui/checkbox";
 import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { KadaimaLoader } from "@/components/site/kadaima-loader";
 import { Spinner } from "@/components/ui/spinner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { APP_CONFIG } from "@/config/app-config";
 import { getClientCookie } from "@/lib/cookie.client";
+import { hideGlobalLoader, showGlobalLoader } from "@/stores/global-loader-store";
 
 import { AiChatSettings } from "./_components/ai-chat-settings";
 import { NotificationSettings } from "./_components/notification-settings";
@@ -237,16 +239,20 @@ export default function SettingsPage() {
 
     if (type === "nic") {
       setUploadingNic(true);
+      showGlobalLoader(`Uploading “${file.name}”… don’t close this page`);
       setTimeout(() => {
         setNicUrl(file.name);
         setUploadingNic(false);
+        hideGlobalLoader();
         toast.success("NIC document uploaded successfully");
       }, 1000);
     } else {
       setUploadingBr(true);
+      showGlobalLoader(`Uploading “${file.name}”… don’t close this page`);
       setTimeout(() => {
         setCompanyBrUrl(file.name);
         setUploadingBr(false);
+        hideGlobalLoader();
         toast.success("Business Registration certificate uploaded successfully");
       }, 1000);
     }
@@ -261,11 +267,7 @@ export default function SettingsPage() {
   const canSubmitPassword = currentPassword && newPassword && confirmPassword && isPasswordValid && passwordsMatch;
 
   if (loading) {
-    return (
-      <div className="flex h-96 items-center justify-center">
-        <Spinner className="size-8 text-muted-foreground" />
-      </div>
-    );
+    return <KadaimaLoader variant="inline" label="Kadaima is loading…" className="h-96" />;
   }
 
   return (

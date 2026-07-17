@@ -25,6 +25,7 @@ import { useI18n } from "@/hooks/use-i18n";
 import { APP_CONFIG } from "@/config/app-config";
 import { getClientCookie } from "@/lib/cookie.client";
 import { LOCALES } from "@/lib/i18n";
+import { hideGlobalLoader, showGlobalLoader } from "@/stores/global-loader-store";
 import {
   type BankQuestion,
   type Course,
@@ -246,6 +247,7 @@ export function QuizBuilder({ quizId }: QuizBuilderProps) {
     const token = getClientCookie("session_token");
     if (!token) return;
     setUploadingCover(true);
+    showGlobalLoader(`Uploading “${file.name}”… don’t close this page`);
     try {
       const form = new FormData();
       form.append("file", file);
@@ -272,6 +274,7 @@ export function QuizBuilder({ quizId }: QuizBuilderProps) {
       toast.error(err instanceof Error ? err.message : "Upload failed");
     } finally {
       setUploadingCover(false);
+      hideGlobalLoader();
     }
   };
 
@@ -317,6 +320,7 @@ export function QuizBuilder({ quizId }: QuizBuilderProps) {
     const token = getClientCookie("session_token");
     if (!token) return;
     setUploadingQuestionId(questionId);
+    showGlobalLoader(`Uploading “${file.name}”… don’t close this page`);
     try {
       const form = new FormData();
       form.append("file", file);
@@ -339,6 +343,7 @@ export function QuizBuilder({ quizId }: QuizBuilderProps) {
       toast.error(err instanceof Error ? err.message : "Upload failed");
     } finally {
       setUploadingQuestionId(null);
+      hideGlobalLoader();
     }
   };
 
