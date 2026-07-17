@@ -1,14 +1,15 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
-import { Archive, Pencil, Plus, Trash2 } from "lucide-react";
+import { Archive, ChevronLeft, ChevronRight, Pencil, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select,
   SelectContent,
@@ -21,7 +22,17 @@ import { APP_CONFIG } from "@/config/app-config";
 import { getClientCookie } from "@/lib/cookie.client";
 import { localize, type QuizSummary } from "@/types/quiz";
 
+const PAGE_SIZE = 10;
+
 type QuizStatus = QuizSummary["status"];
+
+type PaginatedResponse = {
+  items: QuizSummary[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+};
 
 function statusLabel(status: QuizStatus) {
   if (status === "Published") return "Public";
@@ -33,35 +44,74 @@ export function ManageQuizzesList() {
   const [quizzes, setQuizzes] = useState<QuizSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+  const [bulkStatus, setBulkStatus] = useState<QuizStatus | "">("");
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (pageNum = page) => {
     const token = getClientCookie("session_token");
     if (!token) return;
     setLoading(true);
     try {
-      const res = await fetch(`${APP_CONFIG.apiUrl}/quizzes`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await fetch(
+        `${APP_CONFIG.apiUrl}/quizzes?page=${pageNum}&pageSize=${PAGE_SIZE}`,
+        { headers: { Authorization: `Bearer ${token}` } },
+      );
       if (!res.ok) throw new Error("Failed to load quizzes");
-      const data: QuizSummary[] = await res.json();
-      setQuizzes(data);
+      const data = (await res.json()) as PaginatedResponse | QuizSummary[];
+
+      if (Array.isArray(data)) {
+        setQuizzes(data);
+        setTotal(data.length);
+        setTotalPages(1);
+        setPage(1);
+      } else {
+        setQuizzes(data.items ?? []);
+        setTotal(data.total ?? 0);
+        setTotalPages(data.totalPages ?? 1);
+        setPage(data.page ?? pageNum);
+      }
+      setSelected(new Set());
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to load quizzes");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [page]);
 
   useEffect(() => {
-    void load();
-  }, [load]);
+    void load(page);
+  }, [page]); // eslint-disable-line react-hooks/exhaustive-deps -- reload on page change only
 
-  const authHeaders = () => {
-    const token = getClientCookie("session_token");
-    return {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-    };
+  const authHeaders = () => ({
+    Authorization: `Bearer ${getClientCookie("session_token")}`,
+    "Content-Type": "application/json",
+  });
+
+  const pageIds = useMemo(() => quizzes.map((q) => q.id), [quizzes]);
+  const allPageSelected =
+    pageIds.length > 0 && pageIds.every((id) => selected.has(id));
+  const somePageSelected = pageIds.some((id) => selected.has(id));
+
+  const toggleAllPage = (checked: boolean) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (checked) pageIds.forEach((id) => next.add(id));
+      else pageIds.forEach((id) => next.delete(id));
+      return next;
+    });
+  };
+
+  const toggleOne = (id: string, checked: boolean) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (checked) next.add(id);
+      else next.delete(id);
+      return next;
+    });
   };
 
   const updateStatus = async (id: string, status: QuizStatus) => {
@@ -77,7 +127,7 @@ export function ManageQuizzesList() {
         throw new Error(err.message || "Could not update status");
       }
       toast.success(`Status set to ${statusLabel(status)}`);
-      await load();
+      await load(page);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Could not update status");
     } finally {
@@ -106,7 +156,7 @@ export function ManageQuizzesList() {
       }
       const body = await res.json();
       toast.success(body.archived ? "Quiz archived" : "Quiz deleted");
-      await load();
+      await load(page);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Could not delete quiz");
     } finally {
@@ -114,7 +164,64 @@ export function ManageQuizzesList() {
     }
   };
 
-  if (loading) {
+  const selectedIds = [...selected];
+
+  const bulkChangeStatus = async () => {
+    if (!bulkStatus || selectedIds.length === 0) return;
+    setBulkBusy(true);
+    try {
+      const res = await fetch(`${APP_CONFIG.apiUrl}/quizzes/bulk/status`, {
+        method: "PATCH",
+        headers: authHeaders(),
+        body: JSON.stringify({ ids: selectedIds, status: bulkStatus }),
+      });
+      if (!res.ok) throw new Error("Bulk status update failed");
+      const body = await res.json();
+      toast.success(
+        `Updated ${body.updated ?? selectedIds.length} to ${statusLabel(bulkStatus)}`,
+      );
+      setBulkStatus("");
+      await load(page);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Bulk status update failed");
+    } finally {
+      setBulkBusy(false);
+    }
+  };
+
+  const bulkDelete = async () => {
+    if (selectedIds.length === 0) return;
+    const confirmed = window.confirm(
+      `Delete ${selectedIds.length} selected quiz(zes)? Items with attempts will be archived instead.`,
+    );
+    if (!confirmed) return;
+
+    setBulkBusy(true);
+    try {
+      const res = await fetch(`${APP_CONFIG.apiUrl}/quizzes/bulk/delete`, {
+        method: "POST",
+        headers: authHeaders(),
+        body: JSON.stringify({ ids: selectedIds }),
+      });
+      if (!res.ok) throw new Error("Bulk delete failed");
+      const body = await res.json();
+      toast.success(
+        `Deleted ${body.deleted ?? 0}, archived ${body.archived ?? 0}`,
+      );
+      const remainingOnPage =
+        quizzes.length -
+        selectedIds.filter((id) => quizzes.some((q) => q.id === id)).length;
+      const nextPage = remainingOnPage <= 0 && page > 1 ? page - 1 : page;
+      if (nextPage !== page) setPage(nextPage);
+      else await load(page);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Bulk delete failed");
+    } finally {
+      setBulkBusy(false);
+    }
+  };
+
+  if (loading && quizzes.length === 0) {
     return (
       <div className="flex h-40 items-center justify-center gap-2">
         <Spinner className="size-6" />
@@ -140,90 +247,199 @@ export function ManageQuizzesList() {
         </Button>
       </div>
 
-      {quizzes.length === 0 ? (
+      {selectedIds.length > 0 && (
+        <div className="flex flex-wrap items-center gap-3 rounded-lg border border-border bg-muted/30 px-4 py-3">
+          <span className="text-sm font-medium">{selectedIds.length} selected</span>
+          <Select
+            value={bulkStatus || undefined}
+            onValueChange={(val) => setBulkStatus(val as QuizStatus)}
+            disabled={bulkBusy}
+          >
+            <SelectTrigger className="h-8 w-[140px]">
+              <SelectValue placeholder="Set status…" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="Draft">Draft</SelectItem>
+              <SelectItem value="Published">Public</SelectItem>
+              <SelectItem value="Archived">Archived</SelectItem>
+            </SelectContent>
+          </Select>
+          <Button
+            type="button"
+            size="sm"
+            disabled={bulkBusy || !bulkStatus}
+            onClick={() => void bulkChangeStatus()}
+          >
+            {bulkBusy ? <Spinner className="size-4" /> : null}
+            Apply status
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="destructive"
+            disabled={bulkBusy}
+            onClick={() => void bulkDelete()}
+          >
+            <Trash2 className="size-3.5" />
+            Delete selected
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            disabled={bulkBusy}
+            onClick={() => setSelected(new Set())}
+          >
+            Clear
+          </Button>
+        </div>
+      )}
+
+      {total === 0 ? (
         <p className="text-muted-foreground text-sm">No quizzes yet. Add your first quiz.</p>
       ) : (
-        <div className="overflow-x-auto rounded-lg border border-border">
-          <table className="w-full min-w-[720px] text-left text-sm">
-            <thead className="border-b border-border bg-muted/40">
-              <tr>
-                <th className="px-4 py-3 font-medium">Title</th>
-                <th className="px-4 py-3 font-medium">Course</th>
-                <th className="px-4 py-3 font-medium">Questions</th>
-                <th className="px-4 py-3 font-medium">Attempts</th>
-                <th className="px-4 py-3 font-medium">Status</th>
-                <th className="px-4 py-3 font-medium">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {quizzes.map((quiz) => (
-                <tr key={quiz.id} className="border-b border-border last:border-0">
-                  <td className="px-4 py-3">
-                    <div className="font-medium">{localize(quiz.title, "en")}</div>
-                    <div className="text-muted-foreground flex flex-wrap gap-2 text-xs">
-                      {quiz.shuffleQuestions ? <span>Shuffle on</span> : null}
-                      {quiz.requiresUnlock ? (
-                        <span>
-                          Locked
-                          {quiz.priceLkr != null ? ` · LKR ${Number(quiz.priceLkr).toFixed(0)}` : ""}
-                        </span>
-                      ) : null}
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 text-muted-foreground">
-                    {localize(quiz.course?.title, "en")}
-                  </td>
-                  <td className="px-4 py-3">{quiz._count.questions}</td>
-                  <td className="px-4 py-3">{quiz._count.attempts}</td>
-                  <td className="px-4 py-3">
-                    <Select
-                      value={quiz.status}
-                      disabled={busyId === quiz.id}
-                      onValueChange={(val) => updateStatus(quiz.id, val as QuizStatus)}
-                    >
-                      <SelectTrigger className="h-8 w-[120px]">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Draft">Draft</SelectItem>
-                        <SelectItem value="Published">Public</SelectItem>
-                        <SelectItem value="Archived">Archived</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="flex flex-wrap gap-1">
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        disabled={busyId === quiz.id}
-                        onClick={() => router.push(`/admin/quizzes/${quiz.id}/edit`)}
-                      >
-                        <Pencil className="size-3.5" />
-                        Edit
-                      </Button>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        disabled={busyId === quiz.id}
-                        onClick={() => void removeQuiz(quiz)}
-                      >
-                        {quiz._count.attempts > 0 ? (
-                          <Archive className="size-3.5" />
-                        ) : (
-                          <Trash2 className="size-3.5" />
-                        )}
-                        {quiz._count.attempts > 0 ? "Archive" : "Delete"}
-                      </Button>
-                    </div>
-                  </td>
+        <>
+          <div className="relative overflow-x-auto rounded-lg border border-border">
+            {loading && (
+              <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/50">
+                <Spinner className="size-5" />
+              </div>
+            )}
+            <table className="w-full min-w-[760px] text-left text-sm">
+              <thead className="border-b border-border bg-muted/40">
+                <tr>
+                  <th className="w-10 px-3 py-3">
+                    <Checkbox
+                      checked={
+                        allPageSelected
+                          ? true
+                          : somePageSelected
+                            ? "indeterminate"
+                            : false
+                      }
+                      onCheckedChange={(v) => toggleAllPage(v === true)}
+                      aria-label="Select all on page"
+                    />
+                  </th>
+                  <th className="px-4 py-3 font-medium">Title</th>
+                  <th className="px-4 py-3 font-medium">Course</th>
+                  <th className="px-4 py-3 font-medium">Questions</th>
+                  <th className="px-4 py-3 font-medium">Attempts</th>
+                  <th className="px-4 py-3 font-medium">Status</th>
+                  <th className="px-4 py-3 font-medium">Actions</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {quizzes.map((quiz) => (
+                  <tr key={quiz.id} className="border-b border-border last:border-0">
+                    <td className="px-3 py-3">
+                      <Checkbox
+                        checked={selected.has(quiz.id)}
+                        onCheckedChange={(v) => toggleOne(quiz.id, v === true)}
+                        aria-label={`Select quiz ${localize(quiz.title, "en")}`}
+                      />
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="font-medium">{localize(quiz.title, "en")}</div>
+                      <div className="text-muted-foreground flex flex-wrap gap-2 text-xs">
+                        {quiz.shuffleQuestions ? <span>Shuffle on</span> : null}
+                        {quiz.requiresUnlock ? (
+                          <span>
+                            Locked
+                            {quiz.priceLkr != null
+                              ? ` · LKR ${Number(quiz.priceLkr).toFixed(0)}`
+                              : ""}
+                          </span>
+                        ) : null}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-muted-foreground">
+                      {localize(quiz.course?.title, "en")}
+                    </td>
+                    <td className="px-4 py-3">{quiz._count.questions}</td>
+                    <td className="px-4 py-3">{quiz._count.attempts}</td>
+                    <td className="px-4 py-3">
+                      <Select
+                        value={quiz.status}
+                        disabled={busyId === quiz.id || bulkBusy}
+                        onValueChange={(val) => updateStatus(quiz.id, val as QuizStatus)}
+                      >
+                        <SelectTrigger className="h-8 w-[120px]">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Draft">Draft</SelectItem>
+                          <SelectItem value="Published">Public</SelectItem>
+                          <SelectItem value="Archived">Archived</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex flex-wrap gap-1">
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          disabled={busyId === quiz.id}
+                          onClick={() => router.push(`/admin/quizzes/${quiz.id}/edit`)}
+                        >
+                          <Pencil className="size-3.5" />
+                          Edit
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          disabled={busyId === quiz.id}
+                          onClick={() => void removeQuiz(quiz)}
+                        >
+                          {quiz._count.attempts > 0 ? (
+                            <Archive className="size-3.5" />
+                          ) : (
+                            <Trash2 className="size-3.5" />
+                          )}
+                          {quiz._count.attempts > 0 ? "Archive" : "Delete"}
+                        </Button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="text-muted-foreground text-sm">
+              Showing {(page - 1) * PAGE_SIZE + 1}–
+              {Math.min(page * PAGE_SIZE, total)} of {total}
+            </p>
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                disabled={page <= 1 || loading}
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+              >
+                <ChevronLeft className="size-4" />
+                Previous
+              </Button>
+              <span className="tabular-nums text-sm">
+                Page {page} / {totalPages}
+              </span>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                disabled={page >= totalPages || loading}
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              >
+                Next
+                <ChevronRight className="size-4" />
+              </Button>
+            </div>
+          </div>
+        </>
       )}
     </div>
   );

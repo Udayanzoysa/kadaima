@@ -27,6 +27,10 @@ interface GoogleButtonProps {
   onSuccess?: () => void;
 }
 
+/** Google GIS allows up to 400px; match the auth form column. */
+const GOOGLE_BTN_MIN = 200;
+const GOOGLE_BTN_MAX = 400;
+
 function GoogleSignInControl({
   className,
   redirectTo = "/admin",
@@ -36,15 +40,21 @@ function GoogleSignInControl({
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
-  const [buttonWidth, setButtonWidth] = useState(352);
+  const [buttonWidth, setButtonWidth] = useState<number | null>(null);
 
   useEffect(() => {
     const el = containerRef.current;
-    if (!el || typeof ResizeObserver === "undefined") return;
-    const observer = new ResizeObserver((entries) => {
-      const width = entries[0]?.contentRect.width;
-      if (width) setButtonWidth(Math.max(200, Math.min(352, Math.floor(width))));
-    });
+    if (!el) return;
+
+    const measure = () => {
+      const width = Math.floor(el.getBoundingClientRect().width);
+      if (width <= 0) return;
+      setButtonWidth(Math.max(GOOGLE_BTN_MIN, Math.min(GOOGLE_BTN_MAX, width)));
+    };
+
+    measure();
+    if (typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(measure);
     observer.observe(el);
     return () => observer.disconnect();
   }, []);
@@ -85,8 +95,6 @@ function GoogleSignInControl({
         toast.info("Two-Factor Authentication required", {
           description: "Enter the code from your authenticator app on the login form.",
         });
-        // Fall back to password login path for 2FA — store nothing; ask user to use email login
-        // Or we could navigate with preAuth — for now show clear message.
         throw new Error(
           "This account has 2FA enabled. Sign in with email and password, then enter your code.",
         );
@@ -108,13 +116,26 @@ function GoogleSignInControl({
   return (
     <div ref={containerRef} className={cn("relative w-full", className)}>
       {busy ? (
-        <div className="flex h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white text-sm text-slate-600">
+        <div className="flex h-11 items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white text-sm text-slate-600 shadow-sm">
           <Spinner className="size-4" />
           Signing in with Google…
         </div>
+      ) : buttonWidth == null ? (
+        <div
+          aria-hidden
+          className="h-11 w-full rounded-xl border border-slate-300 bg-white shadow-sm"
+        />
       ) : (
-        <div className="flex w-full justify-center overflow-hidden rounded-xl [&_iframe]:!w-full">
+        <div
+          className={cn(
+            // Full form width; overflow visible so Google’s outline border isn’t clipped
+            "flex w-full justify-start overflow-visible",
+            "[&>div]:w-full [&>div>div]:w-full",
+            "[&_iframe]:!w-full [&_iframe]:!max-w-none",
+          )}
+        >
           <GoogleLogin
+            key={buttonWidth}
             onSuccess={(res) => void handleGoogleCredential(res.credential)}
             onError={() =>
               toast.error("Google sign-in failed", {
@@ -126,6 +147,7 @@ function GoogleSignInControl({
             size="large"
             text="continue_with"
             shape="rectangular"
+            logo_alignment="left"
             width={buttonWidth}
           />
         </div>
