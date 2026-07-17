@@ -16,6 +16,10 @@ const teamValues = [
 
 export type UserTeam = (typeof teamValues)[number];
 
+export type AuthProvider = "google" | "email";
+
+export type TeacherReviewStatus = "Pending" | "Active" | "Rejected";
+
 export type UserRow = {
   id?: string;
   email: string;
@@ -29,6 +33,14 @@ export type UserRow = {
   canViewOthers?: boolean;
   canManagePermissions?: boolean;
   customRoleId?: string | null;
+  /** How the user registered / signs in */
+  authProvider?: AuthProvider;
+  teacherProfile?: {
+    id: string;
+    slug: string;
+    reviewStatus: TeacherReviewStatus;
+    isPublic: boolean;
+  } | null;
 };
 
 export const users: UserRow[] = [

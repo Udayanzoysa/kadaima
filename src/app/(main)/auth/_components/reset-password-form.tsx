@@ -10,13 +10,23 @@ import { Controller, useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
 
+import { Mail, Phone } from "lucide-react";
+
 import { Button } from "@/components/ui/button";
 import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { PasswordInput } from "@/components/ui/password-input";
 import { Spinner } from "@/components/ui/spinner";
 import { APP_CONFIG } from "@/config/app-config";
 import { cn } from "@/lib/utils";
+
+import {
+  authInputClass,
+  authInputGroupClass,
+  authInputGroupControlClass,
+  authPrimaryButtonClass,
+} from "./auth-shell";
 
 const formSchema = z
   .object({
@@ -178,8 +188,8 @@ export function ResetPasswordForm() {
   if (isEmailMagicLink && linkStatus === "checking") {
     return (
       <div className="flex flex-col items-center justify-center gap-3 py-10">
-        <Spinner className="size-6" />
-        <p className="text-muted-foreground text-sm">Validating your reset link…</p>
+        <Spinner className="size-6 text-sky-500" />
+        <p className="text-sm text-slate-500">Validating your reset link…</p>
       </div>
     );
   }
@@ -187,20 +197,15 @@ export function ResetPasswordForm() {
   if (isEmailMagicLink && linkStatus === "invalid") {
     return (
       <div className="space-y-4 text-center">
-        <p className="text-destructive text-sm font-medium">{linkError}</p>
-        <p className="text-muted-foreground text-sm">
+        <p className="text-sm font-medium text-destructive">{linkError}</p>
+        <p className="text-sm text-slate-500">
           Request a new password reset email and use the latest link.
         </p>
-        <Button asChild className="w-full">
+        <Button asChild className={authPrimaryButtonClass}>
           <Link prefetch={false} href="/forgot-password">
             Request a new link
           </Link>
         </Button>
-        <p className="text-center text-muted-foreground text-xs">
-          <Link prefetch={false} href="/login" className="text-primary">
-            Back to login
-          </Link>
-        </p>
       </div>
     );
   }
@@ -211,7 +216,7 @@ export function ResetPasswordForm() {
     <form noValidate onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col gap-4">
       {!showPasswordOnly ? (
         <>
-          <div className="grid grid-cols-2 gap-2 rounded-lg border border-border bg-muted/40 p-1">
+          <div className="grid grid-cols-2 gap-1 rounded-xl border border-slate-200 bg-slate-50 p-1">
             {(["EMAIL", "SMS"] as const).map((value) => (
               <button
                 key={value}
@@ -219,10 +224,10 @@ export function ResetPasswordForm() {
                 disabled={isSubmitting}
                 onClick={() => form.setValue("channel", value, { shouldValidate: true })}
                 className={cn(
-                  "rounded-md px-3 py-2 text-sm font-medium transition",
+                  "rounded-lg px-3 py-2 text-sm font-medium transition",
                   channel === value
-                    ? "bg-background text-foreground shadow-sm"
-                    : "text-muted-foreground hover:text-foreground",
+                    ? "bg-white text-slate-900 shadow-sm"
+                    : "text-slate-500 hover:text-slate-800",
                 )}
               >
                 {value === "EMAIL" ? "Email" : "SMS"}
@@ -237,16 +242,29 @@ export function ResetPasswordForm() {
                 name="email"
                 render={({ field, fieldState }) => (
                   <Field className="gap-1.5" data-invalid={fieldState.invalid}>
-                    <FieldLabel htmlFor="reset-email">Email Address</FieldLabel>
-                    <Input
-                      {...field}
-                      id="reset-email"
-                      type="email"
-                      placeholder="you@example.com"
-                      autoComplete="email"
-                      aria-invalid={fieldState.invalid}
-                      disabled={isSubmitting}
-                    />
+                    <FieldLabel htmlFor="reset-email" className="text-slate-600">
+                      Email Address
+                    </FieldLabel>
+                    <InputGroup
+                      className={cn(
+                        authInputGroupClass,
+                        fieldState.invalid && "border-destructive ring-3 ring-destructive/20",
+                      )}
+                    >
+                      <InputGroupAddon>
+                        <Mail className="size-4 text-slate-500" />
+                      </InputGroupAddon>
+                      <InputGroupInput
+                        {...field}
+                        id="reset-email"
+                        type="email"
+                        placeholder="e.g. scholar@kadaima.edu"
+                        autoComplete="email"
+                        aria-invalid={fieldState.invalid}
+                        disabled={isSubmitting}
+                        className={authInputGroupControlClass}
+                      />
+                    </InputGroup>
                     {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
                   </Field>
                 )}
@@ -257,17 +275,30 @@ export function ResetPasswordForm() {
                 name="phoneNumber"
                 render={({ field, fieldState }) => (
                   <Field className="gap-1.5" data-invalid={fieldState.invalid}>
-                    <FieldLabel htmlFor="reset-phone">Mobile Number</FieldLabel>
-                    <Input
-                      {...field}
-                      id="reset-phone"
-                      type="tel"
-                      placeholder="07XXXXXXXX"
-                      inputMode="numeric"
-                      autoComplete="tel"
-                      aria-invalid={fieldState.invalid}
-                      disabled={isSubmitting}
-                    />
+                    <FieldLabel htmlFor="reset-phone" className="text-slate-600">
+                      Mobile Number
+                    </FieldLabel>
+                    <InputGroup
+                      className={cn(
+                        authInputGroupClass,
+                        fieldState.invalid && "border-destructive ring-3 ring-destructive/20",
+                      )}
+                    >
+                      <InputGroupAddon>
+                        <Phone className="size-4 text-slate-500" />
+                      </InputGroupAddon>
+                      <InputGroupInput
+                        {...field}
+                        id="reset-phone"
+                        type="tel"
+                        placeholder="07XXXXXXXX"
+                        inputMode="numeric"
+                        autoComplete="tel"
+                        aria-invalid={fieldState.invalid}
+                        disabled={isSubmitting}
+                        className={authInputGroupControlClass}
+                      />
+                    </InputGroup>
                     {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
                   </Field>
                 )}
@@ -279,7 +310,9 @@ export function ResetPasswordForm() {
               name="token"
               render={({ field, fieldState }) => (
                 <Field className="gap-1.5" data-invalid={fieldState.invalid}>
-                  <FieldLabel htmlFor="reset-token">Reset code</FieldLabel>
+                  <FieldLabel htmlFor="reset-token" className="text-slate-600">
+                    Reset code
+                  </FieldLabel>
                   <Input
                     {...field}
                     id="reset-token"
@@ -288,6 +321,7 @@ export function ResetPasswordForm() {
                     autoComplete="one-time-code"
                     aria-invalid={fieldState.invalid}
                     disabled={isSubmitting}
+                    className={authInputClass}
                   />
                   {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
                 </Field>
@@ -296,7 +330,7 @@ export function ResetPasswordForm() {
           </FieldGroup>
         </>
       ) : (
-        <p className="rounded-lg border border-border bg-muted/30 px-3 py-2 text-center text-muted-foreground text-sm">
+        <p className="rounded-xl border border-sky-100 bg-sky-50 px-3 py-2.5 text-center text-sm text-sky-800">
           Link verified. Choose a new password below.
         </p>
       )}
@@ -307,7 +341,9 @@ export function ResetPasswordForm() {
           name="newPassword"
           render={({ field, fieldState }) => (
             <Field className="gap-1.5" data-invalid={fieldState.invalid}>
-              <FieldLabel htmlFor="reset-password">New password</FieldLabel>
+              <FieldLabel htmlFor="reset-password" className="text-slate-600">
+                New password
+              </FieldLabel>
               <PasswordInput
                 {...field}
                 id="reset-password"
@@ -315,6 +351,7 @@ export function ResetPasswordForm() {
                 autoComplete="new-password"
                 aria-invalid={fieldState.invalid}
                 disabled={isSubmitting}
+                className={authInputClass}
               />
               {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
             </Field>
@@ -326,7 +363,9 @@ export function ResetPasswordForm() {
           name="confirmPassword"
           render={({ field, fieldState }) => (
             <Field className="gap-1.5" data-invalid={fieldState.invalid}>
-              <FieldLabel htmlFor="reset-confirm">Confirm password</FieldLabel>
+              <FieldLabel htmlFor="reset-confirm" className="text-slate-600">
+                Confirm password
+              </FieldLabel>
               <PasswordInput
                 {...field}
                 id="reset-confirm"
@@ -334,6 +373,7 @@ export function ResetPasswordForm() {
                 autoComplete="new-password"
                 aria-invalid={fieldState.invalid}
                 disabled={isSubmitting}
+                className={authInputClass}
               />
               {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
             </Field>
@@ -341,19 +381,15 @@ export function ResetPasswordForm() {
         />
       </FieldGroup>
 
-      <Button className="w-full" type="submit" disabled={isSubmitting}>
-        {isSubmitting && <Spinner className="mr-2" />}
+      <Button className={authPrimaryButtonClass} type="submit" disabled={isSubmitting}>
+        {isSubmitting && <Spinner className="size-4" />}
         Update password
       </Button>
 
-      <p className="text-center text-muted-foreground text-xs">
+      <p className="text-center text-xs text-slate-500">
         Didn&apos;t get a link?{" "}
-        <Link prefetch={false} href="/forgot-password" className="text-primary">
+        <Link prefetch={false} href="/forgot-password" className="font-medium text-sky-600 hover:text-sky-700">
           Request again
-        </Link>
-        {" · "}
-        <Link prefetch={false} href="/login" className="text-primary">
-          Back to login
         </Link>
       </p>
     </form>

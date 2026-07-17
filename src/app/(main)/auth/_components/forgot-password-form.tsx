@@ -6,16 +6,23 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 import { zodResolver } from "@hookform/resolvers/zod";
+import { Mail, Phone, Send } from "lucide-react";
 import { Controller, useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
 
 import { Button } from "@/components/ui/button";
 import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
-import { Input } from "@/components/ui/input";
+import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { Spinner } from "@/components/ui/spinner";
 import { APP_CONFIG } from "@/config/app-config";
 import { cn } from "@/lib/utils";
+
+import {
+  authInputGroupClass,
+  authInputGroupControlClass,
+  authPrimaryButtonClass,
+} from "./auth-shell";
 
 const formSchema = z
   .object({
@@ -86,7 +93,6 @@ export function ForgotPasswordForm() {
             result.message ||
             "Open the email and click “Reset My Password”. The link expires in 10 minutes.",
         });
-        // Email flow uses the magic link — stay here so the user opens the inbox link.
         return;
       }
 
@@ -100,12 +106,9 @@ export function ForgotPasswordForm() {
       }
       router.push(`/reset-password?${params.toString()}`);
     } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Please try again.";
+      const message = error instanceof Error ? error.message : "Please try again.";
       toast.error(
-        message.toLowerCase().includes("no user found")
-          ? "No user found"
-          : "Request failed",
+        message.toLowerCase().includes("no user found") ? "No user found" : "Request failed",
         { description: message },
       );
     } finally {
@@ -115,7 +118,7 @@ export function ForgotPasswordForm() {
 
   return (
     <form noValidate onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col gap-4">
-      <div className="grid grid-cols-2 gap-2 rounded-lg border border-border bg-muted/40 p-1">
+      <div className="grid grid-cols-2 gap-1 rounded-xl border border-slate-200 bg-slate-50 p-1">
         {(["EMAIL", "SMS"] as const).map((value) => (
           <button
             key={value}
@@ -123,10 +126,10 @@ export function ForgotPasswordForm() {
             disabled={isSubmitting}
             onClick={() => form.setValue("channel", value, { shouldValidate: true })}
             className={cn(
-              "rounded-md px-3 py-2 text-sm font-medium transition",
+              "rounded-lg px-3 py-2 text-sm font-medium transition",
               channel === value
-                ? "bg-background text-foreground shadow-sm"
-                : "text-muted-foreground hover:text-foreground",
+                ? "bg-white text-slate-900 shadow-sm"
+                : "text-slate-500 hover:text-slate-800",
             )}
           >
             {value === "EMAIL" ? "Email" : "SMS"}
@@ -141,16 +144,29 @@ export function ForgotPasswordForm() {
             name="email"
             render={({ field, fieldState }) => (
               <Field className="gap-1.5" data-invalid={fieldState.invalid}>
-                <FieldLabel htmlFor="forgot-email">Email Address</FieldLabel>
-                <Input
-                  {...field}
-                  id="forgot-email"
-                  type="email"
-                  placeholder="you@example.com"
-                  autoComplete="email"
-                  aria-invalid={fieldState.invalid}
-                  disabled={isSubmitting}
-                />
+                <FieldLabel htmlFor="forgot-email" className="text-slate-600">
+                  Email Address
+                </FieldLabel>
+                <InputGroup
+                  className={cn(
+                    authInputGroupClass,
+                    fieldState.invalid && "border-destructive ring-3 ring-destructive/20",
+                  )}
+                >
+                  <InputGroupAddon>
+                    <Mail className="size-4 text-slate-500" />
+                  </InputGroupAddon>
+                  <InputGroupInput
+                    {...field}
+                    id="forgot-email"
+                    type="email"
+                    placeholder="e.g. scholar@kadaima.edu"
+                    autoComplete="email"
+                    aria-invalid={fieldState.invalid}
+                    disabled={isSubmitting}
+                    className={authInputGroupControlClass}
+                  />
+                </InputGroup>
                 {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
               </Field>
             )}
@@ -161,17 +177,30 @@ export function ForgotPasswordForm() {
             name="phoneNumber"
             render={({ field, fieldState }) => (
               <Field className="gap-1.5" data-invalid={fieldState.invalid}>
-                <FieldLabel htmlFor="forgot-phone">Mobile Number</FieldLabel>
-                <Input
-                  {...field}
-                  id="forgot-phone"
-                  type="tel"
-                  placeholder="07XXXXXXXX"
-                  inputMode="numeric"
-                  autoComplete="tel"
-                  aria-invalid={fieldState.invalid}
-                  disabled={isSubmitting}
-                />
+                <FieldLabel htmlFor="forgot-phone" className="text-slate-600">
+                  Mobile Number
+                </FieldLabel>
+                <InputGroup
+                  className={cn(
+                    authInputGroupClass,
+                    fieldState.invalid && "border-destructive ring-3 ring-destructive/20",
+                  )}
+                >
+                  <InputGroupAddon>
+                    <Phone className="size-4 text-slate-500" />
+                  </InputGroupAddon>
+                  <InputGroupInput
+                    {...field}
+                    id="forgot-phone"
+                    type="tel"
+                    placeholder="07XXXXXXXX"
+                    inputMode="numeric"
+                    autoComplete="tel"
+                    aria-invalid={fieldState.invalid}
+                    disabled={isSubmitting}
+                    className={authInputGroupControlClass}
+                  />
+                </InputGroup>
                 {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
               </Field>
             )}
@@ -179,15 +208,16 @@ export function ForgotPasswordForm() {
         )}
       </FieldGroup>
 
-      <Button className="w-full" type="submit" disabled={isSubmitting}>
-        {isSubmitting && <Spinner className="mr-2" />}
-        Send reset code
+      <Button className={authPrimaryButtonClass} type="submit" disabled={isSubmitting}>
+        {isSubmitting ? <Spinner className="size-4" /> : null}
+        {channel === "EMAIL" ? "Send Recovery Link" : "Send reset code"}
+        {!isSubmitting ? <Send className="size-4" /> : null}
       </Button>
 
-      <p className="text-center text-muted-foreground text-xs">
-        Remembered your password?{" "}
-        <Link prefetch={false} href="/login" className="text-primary">
-          Back to login
+      <p className="text-center text-xs text-slate-500">
+        Already have a code?{" "}
+        <Link prefetch={false} href="/reset-password" className="font-medium text-sky-600 hover:text-sky-700">
+          Enter reset code
         </Link>
       </p>
     </form>

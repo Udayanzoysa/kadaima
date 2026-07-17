@@ -17,6 +17,16 @@ import {
 import { AlertTriangle, Cog, Download, Grid, Plus, Rows3, Search, SlidersHorizontal } from "lucide-react";
 import { toast } from "sonner";
 
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -64,6 +74,14 @@ interface BackendUser {
   } | null;
   canViewOthers?: boolean;
   canManagePermissions?: boolean;
+  authProvider?: "google" | "email";
+  googleId?: string | null;
+  teacherProfile?: {
+    id: string;
+    slug: string;
+    reviewStatus: "Pending" | "Active" | "Rejected";
+    isPublic: boolean;
+  } | null;
 }
 
 function getDecodedToken(token: string | null | undefined) {
@@ -110,6 +128,15 @@ export function Users({ users: initialUsers }: { users?: UserRow[] }) {
   const [editCanManagePermissions, setEditCanManagePermissions] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
 
+  // Soft / hard delete confirmation
+  const [deleteTarget, setDeleteTarget] = useState<UserRow | null>(null);
+  const [deleteMode, setDeleteMode] = useState<"soft" | "hard" | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  // Activate teacher profile
+  const [activateTarget, setActivateTarget] = useState<UserRow | null>(null);
+  const [isActivating, setIsActivating] = useState(false);
+
   useEffect(() => {
     if (selectedUserForModal) {
       setEditUserName(selectedUserForModal.name);
@@ -132,6 +159,8 @@ export function Users({ users: initialUsers }: { users?: UserRow[] }) {
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({
     search: false,
     team: false,
+    // Auth method is shown under the user name; keep dedicated column optional
+    authProvider: false,
   });
   const [pagination, setPagination] = useState<PaginationState>({
     pageIndex: 0,
@@ -178,6 +207,8 @@ export function Users({ users: initialUsers }: { users?: UserRow[] }) {
         canViewOthers: u.canViewOthers,
         canManagePermissions: u.canManagePermissions,
         customRoleId: u.customRole?.id || null,
+        authProvider: u.authProvider ?? (u.googleId ? "google" : "email"),
+        teacherProfile: u.teacherProfile ?? null,
       }));
 
       setUsersList(mapped);
@@ -285,6 +316,78 @@ export function Users({ users: initialUsers }: { users?: UserRow[] }) {
     }
   };
 
+  const confirmDelete = useCallback(async () => {
+    if (!deleteTarget?.id || !deleteMode) return;
+    const token = getClientCookie("session_token");
+    setIsDeleting(true);
+    try {
+      const url =
+        deleteMode === "soft"
+          ? `${APP_CONFIG.apiUrl}/users/${deleteTarget.id}/soft-delete`
+          : `${APP_CONFIG.apiUrl}/users/${deleteTarget.id}`;
+      const response = await fetch(url, {
+        method: deleteMode === "soft" ? "POST" : "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        const errMsg = Array.isArray(result.message)
+          ? result.message.join(", ")
+          : result.message || `Failed to ${deleteMode === "soft" ? "soft-delete" : "hard-delete"} user.`;
+        throw new Error(errMsg);
+      }
+      toast.success(deleteMode === "soft" ? "User deactivated" : "User permanently deleted", {
+        description:
+          result.message ||
+          (deleteMode === "soft"
+            ? `${deleteTarget.name} can no longer sign in.`
+            : `${deleteTarget.name} has been removed.`),
+      });
+      setDeleteTarget(null);
+      setDeleteMode(null);
+      await fetchData();
+    } catch (err) {
+      toast.error(deleteMode === "soft" ? "Soft delete failed" : "Hard delete failed", {
+        description: err instanceof Error ? err.message : "Request failed",
+      });
+    } finally {
+      setIsDeleting(false);
+    }
+  }, [deleteTarget, deleteMode, fetchData]);
+
+  const confirmActivateTeacher = useCallback(async () => {
+    if (!activateTarget?.id) return;
+    const token = getClientCookie("session_token");
+    setIsActivating(true);
+    try {
+      const response = await fetch(
+        `${APP_CONFIG.apiUrl}/users/${activateTarget.id}/activate-teacher`,
+        {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}` },
+        },
+      );
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        const errMsg = Array.isArray(result.message)
+          ? result.message.join(", ")
+          : result.message || "Failed to activate teacher profile.";
+        throw new Error(errMsg);
+      }
+      toast.success("Teacher profile activated", {
+        description: result.message || `${activateTarget.name} can now publish their page.`,
+      });
+      setActivateTarget(null);
+      await fetchData();
+    } catch (err) {
+      toast.error("Activation failed", {
+        description: err instanceof Error ? err.message : "Request failed",
+      });
+    } finally {
+      setIsActivating(false);
+    }
+  }, [activateTarget, fetchData]);
+
   const columns = useMemo(() => {
     return getUsersColumns(
       isUdaya,
@@ -318,6 +421,15 @@ export function Users({ users: initialUsers }: { users?: UserRow[] }) {
         setSelectedUserForModal(user);
         setModalMode(action);
       },
+      (user) => {
+        setDeleteTarget(user);
+        setDeleteMode("soft");
+      },
+      (user) => {
+        setDeleteTarget(user);
+        setDeleteMode("hard");
+      },
+      (user) => setActivateTarget(user),
     );
   }, [isUdaya, fetchData]);
 
@@ -490,6 +602,82 @@ export function Users({ users: initialUsers }: { users?: UserRow[] }) {
 
         <UsersTable table={table} />
       </CardContent>
+
+      <AlertDialog
+        open={!!activateTarget}
+        onOpenChange={(open) => {
+          if (!open && !isActivating) setActivateTarget(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Activate teacher profile?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Approve <strong>{activateTarget?.name}</strong> ({activateTarget?.email}) so they can
+              publish their public teacher page. They will receive a confirmation email.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isActivating}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={isActivating}
+              onClick={(e) => {
+                e.preventDefault();
+                void confirmActivateTeacher();
+              }}
+            >
+              {isActivating ? <Spinner className="size-4" /> : null}
+              Activate profile
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog
+        open={!!deleteTarget && !!deleteMode}
+        onOpenChange={(open) => {
+          if (!open && !isDeleting) {
+            setDeleteTarget(null);
+            setDeleteMode(null);
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {deleteMode === "hard" ? "Permanently delete user?" : "Soft-delete (deactivate) user?"}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {deleteMode === "hard" ? (
+                <>
+                  This will permanently remove <strong>{deleteTarget?.name}</strong> (
+                  {deleteTarget?.email}). Quizzes they created stay in the system and are reassigned to
+                  you. This cannot be undone.
+                </>
+              ) : (
+                <>
+                  <strong>{deleteTarget?.name}</strong> ({deleteTarget?.email}) will be deactivated and
+                  cannot sign in. You can restore access later by setting status back to Active.
+                </>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              variant={deleteMode === "hard" ? "destructive" : "default"}
+              disabled={isDeleting}
+              onClick={(e) => {
+                e.preventDefault();
+                void confirmDelete();
+              }}
+            >
+              {isDeleting ? <Spinner className="size-4" /> : null}
+              {deleteMode === "hard" ? "Hard delete" : "Soft delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Add User Modal Dialog */}
       <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>

@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 import { zodResolver } from "@hookform/resolvers/zod";
+import { LockKeyhole, Mail } from "lucide-react";
 import { Controller, useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
@@ -13,12 +14,20 @@ import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Field, FieldContent, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
-import { Input } from "@/components/ui/input";
+import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { InputOTP, InputOTPGroup, InputOTPSeparator, InputOTPSlot } from "@/components/ui/input-otp";
 import { PasswordInput } from "@/components/ui/password-input";
 import { Spinner } from "@/components/ui/spinner";
 import { APP_CONFIG } from "@/config/app-config";
 import { setClientCookie } from "@/lib/cookie.client";
+import { cn } from "@/lib/utils";
+
+import {
+  authInputClass,
+  authInputGroupClass,
+  authInputGroupControlClass,
+  authPrimaryButtonClass,
+} from "./auth-shell";
 
 const formSchema = z.object({
   email: z.string().email({ message: "Please enter a valid email address." }),
@@ -141,8 +150,8 @@ export function LoginForm({ redirectTo = "/admin", onSuccess }: LoginFormProps) 
     return (
       <div className="flex flex-col gap-4 text-center">
         <div className="space-y-1">
-          <div className="font-medium text-sm">Verify your Identity</div>
-          <div className="text-muted-foreground text-xs">
+          <div className="font-medium text-sm text-slate-900">Verify your Identity</div>
+          <div className="text-xs text-slate-500">
             Enter the 6-digit TOTP code from your Google Authenticator or secondary auth application.
           </div>
         </div>
@@ -165,7 +174,7 @@ export function LoginForm({ redirectTo = "/admin", onSuccess }: LoginFormProps) 
           <Button
             type="button"
             variant="outline"
-            className="w-1/3"
+            className="h-11 w-1/3 rounded-xl"
             onClick={() => {
               setShow2FA(false);
               setPreAuthToken("");
@@ -177,11 +186,11 @@ export function LoginForm({ redirectTo = "/admin", onSuccess }: LoginFormProps) 
           </Button>
           <Button
             type="button"
-            className="w-2/3"
+            className={cn(authPrimaryButtonClass, "w-2/3")}
             onClick={handle2FAVerify}
             disabled={isSubmitting || otpValue.length < 6}
           >
-            {isSubmitting && <Spinner className="mr-2" />}
+            {isSubmitting && <Spinner className="size-4" />}
             Verify Code
           </Button>
         </div>
@@ -197,16 +206,29 @@ export function LoginForm({ redirectTo = "/admin", onSuccess }: LoginFormProps) 
           name="email"
           render={({ field, fieldState }) => (
             <Field className="gap-1.5" data-invalid={fieldState.invalid}>
-              <FieldLabel htmlFor="login-email">Email Address</FieldLabel>
-              <Input
-                {...field}
-                id="login-email"
-                type="email"
-                placeholder="you@example.com"
-                autoComplete="email"
-                aria-invalid={fieldState.invalid}
-                disabled={isSubmitting}
-              />
+              <FieldLabel htmlFor="login-email" className="text-slate-600">
+                Email Address
+              </FieldLabel>
+              <InputGroup
+                className={cn(
+                  authInputGroupClass,
+                  fieldState.invalid && "border-destructive ring-3 ring-destructive/20",
+                )}
+              >
+                <InputGroupAddon>
+                  <Mail className="size-4 text-slate-500" />
+                </InputGroupAddon>
+                <InputGroupInput
+                  {...field}
+                  id="login-email"
+                  type="email"
+                  placeholder="e.g. scholar@kadaima.edu"
+                  autoComplete="email"
+                  aria-invalid={fieldState.invalid}
+                  disabled={isSubmitting}
+                  className={authInputGroupControlClass}
+                />
+              </InputGroup>
               {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
             </Field>
           )}
@@ -217,23 +239,29 @@ export function LoginForm({ redirectTo = "/admin", onSuccess }: LoginFormProps) 
           render={({ field, fieldState }) => (
             <Field className="gap-1.5" data-invalid={fieldState.invalid}>
               <div className="flex items-center justify-between gap-2">
-                <FieldLabel htmlFor="login-password">Password</FieldLabel>
+                <FieldLabel htmlFor="login-password" className="text-slate-600">
+                  Password
+                </FieldLabel>
                 <Link
                   prefetch={false}
                   href="/forgot-password"
-                  className="text-primary text-xs font-medium hover:underline"
+                  className="text-xs font-medium text-sky-600 hover:text-sky-700 hover:underline"
                 >
                   Forgot password?
                 </Link>
               </div>
-              <PasswordInput
-                {...field}
-                id="login-password"
-                placeholder="••••••••"
-                autoComplete="current-password"
-                aria-invalid={fieldState.invalid}
-                disabled={isSubmitting}
-              />
+              <div className="relative">
+                <LockKeyhole className="pointer-events-none absolute top-1/2 left-2.5 z-10 size-4 -translate-y-1/2 text-slate-400" />
+                <PasswordInput
+                  {...field}
+                  id="login-password"
+                  placeholder="••••••••"
+                  autoComplete="current-password"
+                  aria-invalid={fieldState.invalid}
+                  disabled={isSubmitting}
+                  className={cn(authInputClass, "pl-9")}
+                />
+              </div>
               {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
             </Field>
           )}
@@ -252,7 +280,7 @@ export function LoginForm({ redirectTo = "/admin", onSuccess }: LoginFormProps) 
                 disabled={isSubmitting}
               />
               <FieldContent>
-                <FieldLabel htmlFor="login-remember" className="font-normal">
+                <FieldLabel htmlFor="login-remember" className="font-normal text-slate-600">
                   Remember me for 30 days
                 </FieldLabel>
                 {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
@@ -261,9 +289,9 @@ export function LoginForm({ redirectTo = "/admin", onSuccess }: LoginFormProps) 
           )}
         />
       </FieldGroup>
-      <Button className="w-full" type="submit" disabled={isSubmitting}>
-        {isSubmitting && <Spinner className="mr-2" />}
-        Login
+      <Button className={authPrimaryButtonClass} type="submit" disabled={isSubmitting}>
+        {isSubmitting && <Spinner className="size-4" />}
+        Sign in
       </Button>
     </form>
   );

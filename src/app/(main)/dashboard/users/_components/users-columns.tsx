@@ -3,9 +3,11 @@
 
 import type { ColumnDef } from "@tanstack/react-table";
 import { parse } from "date-fns";
-import { Check, Clock, MoreHorizontal, X } from "lucide-react";
+import { Check, Clock, Mail, MoreHorizontal, X } from "lucide-react";
+import { siGoogle } from "simple-icons";
 import { toast } from "sonner";
 
+import { SimpleIcon } from "@/components/simple-icon";
 import { Avatar, AvatarBadge, AvatarFallback, AvatarGroup, AvatarGroupCount } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -21,13 +23,63 @@ import { APP_CONFIG } from "@/config/app-config";
 import { getClientCookie } from "@/lib/cookie.client";
 import { cn, getInitials } from "@/lib/utils";
 
-import { statusMeta, type UserRow } from "./data";
+import { statusMeta, type TeacherReviewStatus, type UserRow } from "./data";
 
-function RoleCell({ role, team }: { role: string; team: string }) {
+function AuthProviderBadge({ provider }: { provider?: UserRow["authProvider"] }) {
+  if (provider === "google") {
+    return (
+      <Badge
+        variant="outline"
+        className="mt-0.5 gap-1 border-slate-200 bg-white px-1.5 py-0 text-[10px] font-medium text-slate-600"
+        title="Registered with Google"
+      >
+        <SimpleIcon icon={siGoogle} className="size-2.5" />
+        Google
+      </Badge>
+    );
+  }
+
+  return (
+    <Badge
+      variant="outline"
+      className="mt-0.5 gap-1 border-slate-200 bg-slate-50 px-1.5 py-0 text-[10px] font-medium text-slate-500"
+      title="Registered with email and password"
+    >
+      <Mail className="size-2.5" />
+      Email
+    </Badge>
+  );
+}
+
+function RoleCell({
+  role,
+  team,
+  teacherReviewStatus,
+}: {
+  role: string;
+  team: string;
+  teacherReviewStatus?: TeacherReviewStatus;
+}) {
   return (
     <div className="grid gap-0.5">
       <span className="whitespace-nowrap">{role}</span>
       <span className="text-muted-foreground text-xs">{team}</span>
+      {teacherReviewStatus === "Pending" ? (
+        <Badge
+          variant="outline"
+          className="mt-0.5 w-fit border-amber-200 bg-amber-50 px-1.5 py-0 text-[10px] font-medium text-amber-700"
+        >
+          Teacher pending
+        </Badge>
+      ) : null}
+      {teacherReviewStatus === "Active" && (role === "Teacher" || team === "Teacher") ? (
+        <Badge
+          variant="outline"
+          className="mt-0.5 w-fit border-emerald-200 bg-emerald-50 px-1.5 py-0 text-[10px] font-medium text-emerald-700"
+        >
+          Teacher active
+        </Badge>
+      ) : null}
     </div>
   );
 }
@@ -122,6 +174,9 @@ export const getUsersColumns = (
   isUdaya: boolean,
   onTogglePermission: (userId: string, field: "canViewOthers" | "canManagePermissions", currentValue: boolean) => void,
   onAction?: (action: "view" | "edit", user: UserRow) => void,
+  onSoftDelete?: (user: UserRow) => void,
+  onHardDelete?: (user: UserRow) => void,
+  onActivateTeacher?: (user: UserRow) => void,
 ): ColumnDef<UserRow>[] => [
   {
     id: "select",
@@ -161,15 +216,28 @@ export const getUsersColumns = (
         <div className="min-w-0">
           <div className="truncate font-medium text-foreground text-sm">{row.original.name}</div>
           <div className="truncate text-muted-foreground text-sm">{row.original.email}</div>
+          <AuthProviderBadge provider={row.original.authProvider} />
         </div>
       </div>
     ),
   },
   {
+    accessorKey: "authProvider",
+    header: "Sign-in",
+    filterFn: "equalsString",
+    cell: ({ row }) => <AuthProviderBadge provider={row.original.authProvider} />,
+  },
+  {
     accessorKey: "role",
     header: "Role / Team",
     filterFn: "equalsString",
-    cell: ({ row }) => <RoleCell role={row.original.role} team={row.original.team} />,
+    cell: ({ row }) => (
+      <RoleCell
+        role={row.original.role}
+        team={row.original.team}
+        teacherReviewStatus={row.original.teacherProfile?.reviewStatus}
+      />
+    ),
   },
   {
     accessorKey: "canViewOthers",
@@ -250,6 +318,14 @@ export const getUsersColumns = (
           <DropdownMenuContent align="end">
             <DropdownMenuItem onClick={() => onAction?.("view", row.original)}>View profile</DropdownMenuItem>
             <DropdownMenuItem onClick={() => onAction?.("edit", row.original)}>Edit user</DropdownMenuItem>
+            {row.original.teacherProfile?.reviewStatus === "Pending" ? (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => onActivateTeacher?.(row.original)}>
+                  Activate teacher profile
+                </DropdownMenuItem>
+              </>
+            ) : null}
             <DropdownMenuSeparator />
             <DropdownMenuItem
               onClick={async () => {
@@ -274,27 +350,13 @@ export const getUsersColumns = (
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem
-              variant="destructive"
-              onClick={async () => {
-                if (!row.original.id) return;
-                const token = getClientCookie("session_token");
-                try {
-                  const response = await fetch(`${APP_CONFIG.apiUrl}/users/${row.original.id}/deactivate`, {
-                    method: "POST",
-                    headers: {
-                      Authorization: `Bearer ${token}`,
-                    },
-                  });
-                  if (!response.ok) throw new Error("Failed to deactivate user.");
-                  toast.success(`User ${row.original.name} has been deactivated.`);
-                  window.dispatchEvent(new Event("refresh-users"));
-                } catch (err) {
-                  const msg = err instanceof Error ? err.message : "Request failed";
-                  toast.error("Failed to deactivate", { description: msg });
-                }
-              }}
+              disabled={row.original.status === "Deactivated"}
+              onClick={() => onSoftDelete?.(row.original)}
             >
-              Deactivate user
+              Soft delete (deactivate)
+            </DropdownMenuItem>
+            <DropdownMenuItem variant="destructive" onClick={() => onHardDelete?.(row.original)}>
+              Hard delete (permanent)
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

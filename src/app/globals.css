@@ -282,3 +282,39 @@ html {
     -webkit-print-color-adjust: exact;
   }
 }
+
+/* Auth forms: keep field borders visible when the browser autofills */
+.auth-form-surface input:-webkit-autofill,
+.auth-form-surface input:-webkit-autofill:hover,
+.auth-form-surface input:-webkit-autofill:focus,
+.auth-form-surface input:-webkit-autofill:active,
+.auth-form-surface textarea:-webkit-autofill,
+.auth-form-surface textarea:-webkit-autofill:hover,
+.auth-form-surface textarea:-webkit-autofill:focus {
+  -webkit-text-fill-color: #0f172a !important;
+  caret-color: #0f172a;
+  /* Cover Chrome's autofill tint so it does not erase the outer border */
+  -webkit-box-shadow: 0 0 0 1000px #ffffff inset !important;
+  box-shadow: 0 0 0 1000px #ffffff inset !important;
+  transition: background-color 99999s ease-out 0s;
+}
+
+/* Redraw the group edge above autofilled controls */
+.auth-form-surface [data-slot="input-group"]::after {
+  content: "";
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  border-radius: inherit;
+  box-shadow: inset 0 0 0 1px rgb(203 213 225);
+}
+
+.auth-form-surface
+  [data-slot="input-group"]:has([data-slot="input-group-control"]:focus-visible)::after {
+  box-shadow: inset 0 0 0 1px rgb(14 165 233);
+}
+
+.auth-form-surface [data-slot="input-group"]:has([aria-invalid="true"])::after {
+  box-shadow: inset 0 0 0 1px var(--destructive);
+}

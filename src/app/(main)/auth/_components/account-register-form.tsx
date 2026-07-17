@@ -16,6 +16,8 @@ import { PasswordInput } from "@/components/ui/password-input";
 import { Spinner } from "@/components/ui/spinner";
 import { APP_CONFIG } from "@/config/app-config";
 
+import { authInputClass, authPrimaryButtonClass } from "./auth-shell";
+
 const formSchema = z
   .object({
     name: z.string().min(2, { message: "Name must be at least 2 characters." }),
@@ -92,7 +94,9 @@ export function AccountRegisterForm({ accountType }: AccountRegisterFormProps) {
           name="name"
           render={({ field, fieldState }) => (
             <Field className="gap-1.5" data-invalid={fieldState.invalid}>
-              <FieldLabel htmlFor="register-name">Full name</FieldLabel>
+              <FieldLabel htmlFor="register-name" className="text-slate-600">
+                Full name
+              </FieldLabel>
               <Input
                 {...field}
                 id="register-name"
@@ -100,6 +104,7 @@ export function AccountRegisterForm({ accountType }: AccountRegisterFormProps) {
                 placeholder={isTeacher ? "Nimal Silva" : "Saman Perera"}
                 autoComplete="name"
                 aria-invalid={fieldState.invalid}
+                className={authInputClass}
               />
               {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
             </Field>
@@ -110,7 +115,9 @@ export function AccountRegisterForm({ accountType }: AccountRegisterFormProps) {
           name="email"
           render={({ field, fieldState }) => (
             <Field className="gap-1.5" data-invalid={fieldState.invalid}>
-              <FieldLabel htmlFor="register-email">Email</FieldLabel>
+              <FieldLabel htmlFor="register-email" className="text-slate-600">
+                Email
+              </FieldLabel>
               <Input
                 {...field}
                 id="register-email"
@@ -118,6 +125,7 @@ export function AccountRegisterForm({ accountType }: AccountRegisterFormProps) {
                 placeholder={isTeacher ? "teacher@school.com" : "student@school.com"}
                 autoComplete="email"
                 aria-invalid={fieldState.invalid}
+                className={authInputClass}
               />
               {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
             </Field>
@@ -128,13 +136,16 @@ export function AccountRegisterForm({ accountType }: AccountRegisterFormProps) {
           name="password"
           render={({ field, fieldState }) => (
             <Field className="gap-1.5" data-invalid={fieldState.invalid}>
-              <FieldLabel htmlFor="register-password">Password</FieldLabel>
+              <FieldLabel htmlFor="register-password" className="text-slate-600">
+                Password
+              </FieldLabel>
               <PasswordInput
                 {...field}
                 id="register-password"
                 placeholder="••••••••"
                 autoComplete="new-password"
                 aria-invalid={fieldState.invalid}
+                className={authInputClass}
               />
               {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
             </Field>
@@ -145,21 +156,24 @@ export function AccountRegisterForm({ accountType }: AccountRegisterFormProps) {
           name="confirmPassword"
           render={({ field, fieldState }) => (
             <Field className="gap-1.5" data-invalid={fieldState.invalid}>
-              <FieldLabel htmlFor="register-confirm-password">Confirm password</FieldLabel>
+              <FieldLabel htmlFor="register-confirm-password" className="text-slate-600">
+                Confirm password
+              </FieldLabel>
               <PasswordInput
                 {...field}
                 id="register-confirm-password"
                 placeholder="••••••••"
                 autoComplete="new-password"
                 aria-invalid={fieldState.invalid}
+                className={authInputClass}
               />
               {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
             </Field>
           )}
         />
       </FieldGroup>
-      <Button className="w-full" type="submit" disabled={isSubmitting}>
-        {isSubmitting && <Spinner className="mr-2" />}
+      <Button className={authPrimaryButtonClass} type="submit" disabled={isSubmitting}>
+        {isSubmitting && <Spinner className="size-4" />}
         {isTeacher ? "Create teacher account" : "Create student account"}
       </Button>
     </form>
