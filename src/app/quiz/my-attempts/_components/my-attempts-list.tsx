@@ -8,7 +8,7 @@ import { useRouter } from "next/navigation";
 import { Award, CheckCircle2, ClipboardList, XCircle } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { Spinner } from "@/components/ui/spinner";
+import { KadaimaLoader } from "@/components/site/kadaima-loader";
 import { APP_CONFIG } from "@/config/app-config";
 import { useI18n } from "@/hooks/use-i18n";
 import { getClientCookie } from "@/lib/cookie.client";
@@ -89,12 +89,7 @@ export function MyAttemptsList() {
           </p>
         </div>
 
-        {loading && (
-          <div className="flex h-48 items-center justify-center gap-2 text-slate-500">
-            <Spinner className="size-6" />
-            Loading...
-          </div>
-        )}
+        {loading && <KadaimaLoader variant="inline" label="Kadaima is loading…" />}
 
         {error && (
           <div className="rounded-2xl border border-red-200 bg-red-50 px-5 py-4 text-sm text-red-700">

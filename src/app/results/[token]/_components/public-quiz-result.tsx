@@ -12,7 +12,7 @@ import { ProfileMenu, type SiteAuthUser } from "@/components/site/profile-menu";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { Spinner } from "@/components/ui/spinner";
+import { KadaimaLoader } from "@/components/site/kadaima-loader";
 import { APP_CONFIG } from "@/config/app-config";
 import { useI18n } from "@/hooks/use-i18n";
 import { deleteClientCookie, getClientCookie } from "@/lib/cookie.client";
@@ -118,12 +118,7 @@ export function PublicQuizResult() {
   );
 
   if (loading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-[#f4f7fb] text-slate-500">
-        <Spinner className="size-7" />
-        <span className="ml-2">Loading result...</span>
-      </div>
-    );
+    return <KadaimaLoader variant="page" label="Kadaima is loading…" className="min-h-screen" />;
   }
 
   if (error || !attempt) {

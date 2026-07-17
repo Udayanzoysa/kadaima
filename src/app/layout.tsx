@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 
 import type { Metadata } from "next";
 
+import { PublicNavigationLoader } from "@/components/site/public-navigation-loader";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { APP_CONFIG } from "@/config/app-config";
@@ -53,6 +54,7 @@ export default function RootLayout({ children }: Readonly<{ children: ReactNode 
             font={font}
           >
             {children}
+            <PublicNavigationLoader />
             <Toaster />
           </PreferencesStoreProvider>
         </TooltipProvider>

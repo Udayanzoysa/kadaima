@@ -8,7 +8,7 @@ import { Play } from "lucide-react";
 
 import { PublicQuizCard } from "@/components/quiz/public-quiz-card";
 import { Button } from "@/components/ui/button";
-import { Spinner } from "@/components/ui/spinner";
+import { KadaimaLoader } from "@/components/site/kadaima-loader";
 import { APP_CONFIG } from "@/config/app-config";
 import { useI18n } from "@/hooks/use-i18n";
 import { getClientCookie } from "@/lib/cookie.client";
@@ -323,10 +323,11 @@ export function PublicQuizCatalog() {
         </section>
 
         {loading && (
-          <div className="mt-10 flex h-48 items-center justify-center gap-2 text-slate-500">
-            <Spinner className="size-6" />
-            {t("public.loadingQuizzes")}
-          </div>
+          <KadaimaLoader
+            variant="inline"
+            label={t("public.loadingQuizzes")}
+            className="mt-6"
+          />
         )}
 
         {error && (

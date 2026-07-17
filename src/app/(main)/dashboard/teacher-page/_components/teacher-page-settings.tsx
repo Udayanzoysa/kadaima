@@ -289,6 +289,7 @@ export function TeacherPageSettings() {
   const [classWhatsapp, setClassWhatsapp] = useState("");
   const [bannerCta, setBannerCta] = useState("");
   const [uploading, setUploading] = useState(false);
+  const [uploadingName, setUploadingName] = useState<string | null>(null);
   const [inquiries, setInquiries] = useState<InquiryItem[]>([]);
   const [loadingInquiries, setLoadingInquiries] = useState(false);
 
@@ -428,6 +429,7 @@ export function TeacherPageSettings() {
 
   const uploadImage = async (file: File, onUrl: (url: string) => void | Promise<void>) => {
     setUploading(true);
+    setUploadingName(file.name);
     try {
       const body = new FormData();
       body.append("file", file);
@@ -444,6 +446,7 @@ export function TeacherPageSettings() {
       toast.error(err instanceof Error ? err.message : "Upload failed");
     } finally {
       setUploading(false);
+      setUploadingName(null);
     }
   };
 
@@ -772,12 +775,30 @@ export function TeacherPageSettings() {
               Open page
             </Link>
           </Button>
-          <Button disabled={saving} onClick={() => void saveAll()}>
-            {saving ? <Spinner className="size-4" /> : null}
-            Save all changes
+          <Button disabled={saving || uploading} onClick={() => void saveAll()}>
+            {saving || uploading ? <Spinner className="size-4" /> : null}
+            {uploading ? "Uploading…" : "Save all changes"}
           </Button>
         </div>
       </div>
+
+      {uploading ? (
+        <div
+          role="status"
+          aria-live="polite"
+          className="sticky top-2 z-30 flex items-start gap-3 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-amber-950 shadow-sm"
+        >
+          <Spinner className="mt-0.5 size-5 shrink-0 text-amber-700" />
+          <div className="min-w-0 space-y-0.5 text-sm leading-relaxed">
+            <p className="font-semibold">Uploading file — please don’t close this page</p>
+            <p className="truncate text-amber-900/80">
+              {uploadingName
+                ? `Updating “${uploadingName}”. Keep this tab open until it finishes.`
+                : "Your file is still uploading. Keep this tab open until it finishes."}
+            </p>
+          </div>
+        </div>
+      ) : null}
 
       <div className="flex gap-3 rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-sky-950">
         <Info className="mt-0.5 size-5 shrink-0 text-sky-600" />
@@ -922,8 +943,15 @@ export function TeacherPageSettings() {
                   onChange={(e) => {
                     const file = e.target.files?.[0];
                     if (file) void addBannerFromFile(file).catch((err) => toast.error(String(err)));
+                    e.target.value = "";
                   }}
                 />
+                {uploading ? (
+                  <div className="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-amber-950 text-xs">
+                    <Spinner className="size-3.5 shrink-0 text-amber-700" />
+                    <span>Uploading… don’t close this page while the file updates.</span>
+                  </div>
+                ) : null}
                 <div className="space-y-2">
                   {(profile?.banners ?? []).map((b, i) => (
                     <div
@@ -1476,6 +1504,15 @@ export function TeacherPageSettings() {
                     e.target.value = "";
                   }}
                 />
+                {uploading ? (
+                  <div className="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-amber-950 text-xs">
+                    <Spinner className="size-3.5 shrink-0 text-amber-700" />
+                    <span>
+                      Uploading{uploadingName ? ` “${uploadingName}”` : ""}… don’t close this page
+                      while the file updates.
+                    </span>
+                  </div>
+                ) : null}
                 <ul className="space-y-2">
                   {posters.length === 0 ? (
                     <li className="text-muted-foreground text-xs">No poster banners yet.</li>
@@ -1536,9 +1573,9 @@ export function TeacherPageSettings() {
 
             {activeTab !== "asks" ? (
               <div className="flex justify-end border-t border-border pt-4">
-                <Button disabled={saving} onClick={() => void saveAll()}>
-                  {saving ? <Spinner className="size-4" /> : null}
-                  Save all changes
+                <Button disabled={saving || uploading} onClick={() => void saveAll()}>
+                  {saving || uploading ? <Spinner className="size-4" /> : null}
+                  {uploading ? "Uploading…" : "Save all changes"}
                 </Button>
               </div>
             ) : null}

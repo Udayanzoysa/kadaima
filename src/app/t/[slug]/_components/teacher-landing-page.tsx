@@ -20,6 +20,7 @@ import {
 
 import { BrandLogo } from "@/components/brand/brand-logo";
 import { PublicQuizCard } from "@/components/quiz/public-quiz-card";
+import { KadaimaLoader } from "@/components/site/kadaima-loader";
 import { SimpleIcon } from "@/components/simple-icon";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -507,7 +508,7 @@ function ContactSection({
 
 export function TeacherLandingPage({ slug }: { slug: string }) {
   const router = useRouter();
-  const { locale } = useI18n();
+  const { locale, t } = useI18n();
   const [profile, setProfile] = useState<TeacherProfile | null>(null);
   const [quizzes, setQuizzes] = useState<TeacherPageQuiz[]>([]);
   const [loading, setLoading] = useState(true);
@@ -606,10 +607,11 @@ export function TeacherLandingPage({ slug }: { slug: string }) {
 
   if (loading) {
     return (
-      <div className="flex min-h-dvh items-center justify-center gap-2 bg-[#eef3f7]">
-        <Spinner className="size-6" style={{ color: NAVY }} />
-        <span className="text-sm text-slate-500">Loading teacher page…</span>
-      </div>
+      <KadaimaLoader
+        variant="page"
+        label={t("public.loadingSite")}
+        className="min-h-dvh"
+      />
     );
   }
 

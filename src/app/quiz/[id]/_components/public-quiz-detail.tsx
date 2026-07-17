@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RichHtml } from "@/components/ui/rich-text-editor";
+import { KadaimaLoader } from "@/components/site/kadaima-loader";
 import { Spinner } from "@/components/ui/spinner";
 import { APP_CONFIG } from "@/config/app-config";
 import { useI18n } from "@/hooks/use-i18n";
@@ -256,10 +257,7 @@ export function PublicQuizDetail() {
   if (loading || authChecking) {
     return (
       <PublicQuizShell>
-        <div className="flex flex-1 items-center justify-center gap-2 text-slate-500">
-          <Spinner className="size-7" />
-          {t("public.loadingQuiz")}
-        </div>
+        <KadaimaLoader variant="inline" label={t("public.loadingQuiz")} className="flex-1" />
       </PublicQuizShell>
     );
   }
