@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
-import Image from "next/image";
 import { useParams, useRouter } from "next/navigation";
 
 import {
@@ -22,6 +21,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
+import { BrandLogo } from "@/components/brand/brand-logo";
 import { QuestionAnswerInput, QuestionPrompt, type AnswerValue } from "@/components/quiz/question-answer";
 import {
   AlertDialog,
@@ -609,14 +609,7 @@ export function PublicTakeQuiz() {
       <header className="sticky top-0 z-10 hidden border-b border-slate-200/80 bg-white/95 backdrop-blur-sm lg:block">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-6 py-3.5">
           <div className="flex min-w-0 items-center gap-4">
-            <Image
-              src="/brand/kadaima-logo.png"
-              alt="Kadaima"
-              width={140}
-              height={36}
-              className="h-7 w-auto shrink-0 object-contain"
-              priority
-            />
+            <BrandLogo className="h-7 w-auto shrink-0" priority />
             <div className="min-w-0 border-l border-slate-200 pl-4">
               <h1 className="truncate text-base font-bold" style={{ color: PRIMARY }}>
                 {localize(attempt.quiz.title, locale)}
@@ -682,14 +675,7 @@ export function PublicTakeQuiz() {
             <ArrowLeft className="size-5" />
           </button>
           <div className="min-w-0 flex-1">
-            <Image
-              src="/brand/kadaima-logo.png"
-              alt="Kadaima"
-              width={110}
-              height={28}
-              className="h-6 w-auto object-contain"
-              priority
-            />
+            <BrandLogo className="h-6 w-auto" priority />
             <p className="truncate text-[11px] text-slate-500">
               {t("student.answeredOf")
                 .replace("{answered}", String(answeredCount))

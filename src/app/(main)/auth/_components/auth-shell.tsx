@@ -5,10 +5,10 @@ import type { ReactNode } from "react";
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 
+import { BrandLogo } from "@/components/brand/brand-logo";
 import { cn } from "@/lib/utils";
 
 export function AuthShell({
-  icon,
   title,
   description,
   children,
@@ -17,7 +17,6 @@ export function AuthShell({
   showSupport = true,
   className,
 }: {
-  icon: ReactNode;
   title: string;
   description: string;
   children: ReactNode;
@@ -35,12 +34,7 @@ export function AuthShell({
         )}
       >
         <div className="mb-6 flex flex-col items-center text-center">
-          <div
-            className="mb-4 flex size-14 items-center justify-center rounded-full bg-sky-100 text-sky-600"
-            aria-hidden
-          >
-            {icon}
-          </div>
+          <BrandLogo className="mb-5 h-10 w-auto sm:h-11" priority />
           <h1 className="font-bold text-2xl tracking-tight text-slate-900 sm:text-[1.65rem]">
             {title}
           </h1>

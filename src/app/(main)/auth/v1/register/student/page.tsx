@@ -1,7 +1,5 @@
 import Link from "next/link";
 
-import { GraduationCap } from "lucide-react";
-
 import { AccountRegisterForm } from "../../../_components/account-register-form";
 import { AuthShell } from "../../../_components/auth-shell";
 import { GoogleButton } from "../../../_components/social-auth/google-button";
@@ -9,7 +7,6 @@ import { GoogleButton } from "../../../_components/social-auth/google-button";
 export default function RegisterStudentV1() {
   return (
     <AuthShell
-      icon={<GraduationCap className="size-7" strokeWidth={1.75} />}
       title="Student registration"
       description="Create a student account to take quizzes and track your attempts."
       backHref="/login"

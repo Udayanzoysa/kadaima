@@ -2,12 +2,12 @@
 
 import { useEffect, useState } from "react";
 
-import Image from "next/image";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 
 import { Award, CheckCircle2, XCircle } from "lucide-react";
 
+import { BrandLogo } from "@/components/brand/brand-logo";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -80,14 +80,7 @@ export function PublicQuizResult() {
     <div className="min-h-screen bg-[#f4f7f5] text-[#0b3d2e]">
       <header className="mx-auto flex max-w-3xl items-center justify-between px-4 py-5 md:px-6">
         <Link href="/" className="inline-flex items-center">
-          <Image
-            src="/brand/kadaima-logo.png"
-            alt="Kadaima"
-            width={140}
-            height={36}
-            className="h-8 w-auto"
-            priority
-          />
+          <BrandLogo className="h-8 w-auto" priority />
         </Link>
         <div className="flex gap-1.5">
           {LOCALES.map((l) => (

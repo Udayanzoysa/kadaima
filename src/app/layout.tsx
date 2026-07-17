@@ -17,11 +17,11 @@ export const metadata: Metadata = {
   description: APP_CONFIG.meta.description,
   icons: {
     icon: [
-      { url: "/favicon.ico?v=2", sizes: "any" },
-      { url: "/favicon.png?v=2", type: "image/png", sizes: "32x32" },
-      { url: "/brand/kadaima-mark.png?v=2", type: "image/png" },
+      { url: "/favicon.ico?v=3", sizes: "any" },
+      { url: "/favicon.png?v=3", type: "image/png", sizes: "32x32" },
+      { url: "/brand/kadaima-mark.png?v=3", type: "image/png" },
     ],
-    apple: [{ url: "/apple-icon.png?v=2", sizes: "180x180", type: "image/png" }],
+    apple: [{ url: "/apple-icon.png?v=3", sizes: "180x180", type: "image/png" }],
   },
   manifest: "/site.webmanifest",
 };

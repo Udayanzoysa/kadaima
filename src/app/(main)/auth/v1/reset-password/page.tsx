@@ -1,7 +1,5 @@
 import { Suspense } from "react";
 
-import { KeyRound } from "lucide-react";
-
 import { Spinner } from "@/components/ui/spinner";
 
 import { AuthShell } from "../../_components/auth-shell";
@@ -10,7 +8,6 @@ import { ResetPasswordForm } from "../../_components/reset-password-form";
 export default function ResetPasswordPage() {
   return (
     <AuthShell
-      icon={<KeyRound className="size-7" strokeWidth={1.75} />}
       title="Set a new password"
       description="Choose a new password for your account. If you opened this from your email, the link is applied automatically."
     >

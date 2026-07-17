@@ -16,8 +16,8 @@ export function BrandLogo({ variant = "full", className, priority }: BrandLogoPr
       <Image
         src="/brand/kadaima-mark.png"
         alt="Kadaima"
-        width={40}
-        height={40}
+        width={283}
+        height={290}
         className={cn("size-8 object-contain", className)}
         priority={priority}
       />
@@ -28,8 +28,8 @@ export function BrandLogo({ variant = "full", className, priority }: BrandLogoPr
     <Image
       src="/brand/kadaima-logo.png"
       alt="Kadaima"
-      width={160}
-      height={40}
+      width={966}
+      height={290}
       className={cn("h-8 w-auto object-contain", className)}
       priority={priority}
     />

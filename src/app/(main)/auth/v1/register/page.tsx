@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import { GraduationCap, Presentation, UserPlus } from "lucide-react";
+import { GraduationCap, Presentation } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 
@@ -9,7 +9,6 @@ import { AuthShell } from "../../_components/auth-shell";
 export default function RegisterHubV1() {
   return (
     <AuthShell
-      icon={<UserPlus className="size-7" strokeWidth={1.75} />}
       title="Create an account"
       description="Choose how you want to join Kadaima."
       backHref="/login"

@@ -1,7 +1,5 @@
 import Link from "next/link";
 
-import { LogIn } from "lucide-react";
-
 import { AuthShell } from "../../_components/auth-shell";
 import { LoginForm } from "../../_components/login-form";
 import { GoogleButton } from "../../_components/social-auth/google-button";
@@ -9,7 +7,6 @@ import { GoogleButton } from "../../_components/social-auth/google-button";
 export default function LoginV1() {
   return (
     <AuthShell
-      icon={<LogIn className="size-7" strokeWidth={1.75} />}
       title="Welcome back"
       description="Sign in with your email and password to continue."
       backHref="/"

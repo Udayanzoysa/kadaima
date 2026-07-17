@@ -1,7 +1,5 @@
 import Link from "next/link";
 
-import { Presentation } from "lucide-react";
-
 import { AccountRegisterForm } from "../../../_components/account-register-form";
 import { AuthShell } from "../../../_components/auth-shell";
 import { GoogleButton } from "../../../_components/social-auth/google-button";
@@ -9,7 +7,6 @@ import { GoogleButton } from "../../../_components/social-auth/google-button";
 export default function RegisterTeacherV1() {
   return (
     <AuthShell
-      icon={<Presentation className="size-7" strokeWidth={1.75} />}
       title="Teacher registration"
       description="Create a teacher account to manage quizzes and the question bank."
       backHref="/login"

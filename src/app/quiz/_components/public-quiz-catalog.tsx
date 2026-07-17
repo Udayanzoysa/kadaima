@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState } from "react";
 
-import Image from "next/image";
 import { useRouter } from "next/navigation";
 
 import {
@@ -15,6 +14,7 @@ import {
   Users,
 } from "lucide-react";
 
+import { BrandLogo } from "@/components/brand/brand-logo";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { APP_CONFIG } from "@/config/app-config";
@@ -343,13 +343,7 @@ export function PublicQuizCatalog() {
                       />
                     ) : (
                       <div className="absolute inset-0 flex items-center justify-center">
-                        <Image
-                          src="/brand/kadaima-logo.png"
-                          alt=""
-                          width={180}
-                          height={48}
-                          className="opacity-90 brightness-0 invert"
-                        />
+                        <BrandLogo className="h-12 w-auto opacity-90 brightness-0 invert" />
                       </div>
                     )}
                   </div>

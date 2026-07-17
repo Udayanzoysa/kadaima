@@ -2,8 +2,6 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import Image from "next/image";
-
 import {
   Camera,
   Gift,
@@ -13,6 +11,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
+import { BrandLogo } from "@/components/brand/brand-logo";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -558,13 +557,7 @@ export function QuizUnlockModal({
           <div className="p-5 sm:p-6">
             <DialogHeader className="space-y-2 text-left">
               <div className="flex items-center gap-3 pr-8">
-                <Image
-                  src="/brand/kadaima-logo.png"
-                  alt="Kadaima"
-                  width={120}
-                  height={32}
-                  className="h-7 w-auto"
-                />
+                <BrandLogo className="h-7 w-auto" />
                 <DialogTitle className="font-[family-name:var(--font-outfit)] text-xl font-bold text-[#123a6b]">
                   Sign in to unlock
                 </DialogTitle>
