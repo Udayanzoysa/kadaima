@@ -17,11 +17,11 @@ export default function RegisterHubV1() {
       <div className="grid gap-3">
         <Button
           asChild
-          variant="outline"
-          className="h-auto justify-start gap-4 rounded-xl border-slate-200 p-4 text-left hover:border-sky-300 hover:bg-sky-50/50"
+          variant="brandOutline"
+          className="h-auto justify-start gap-4 p-4 text-left"
         >
           <Link prefetch={false} href="/student/register">
-            <GraduationCap className="size-6 shrink-0 text-sky-600" />
+            <GraduationCap className="size-6 shrink-0 text-[#2b7fff]" />
             <span>
               <span className="block font-medium text-slate-900">I&apos;m a student</span>
               <span className="block text-xs font-normal text-slate-500">
@@ -32,11 +32,11 @@ export default function RegisterHubV1() {
         </Button>
         <Button
           asChild
-          variant="outline"
-          className="h-auto justify-start gap-4 rounded-xl border-slate-200 p-4 text-left hover:border-sky-300 hover:bg-sky-50/50"
+          variant="brandOutline"
+          className="h-auto justify-start gap-4 p-4 text-left"
         >
           <Link prefetch={false} href="/teacher/register">
-            <Presentation className="size-6 shrink-0 text-sky-600" />
+            <Presentation className="size-6 shrink-0 text-[#2b7fff]" />
             <span>
               <span className="block font-medium text-slate-900">I&apos;m a teacher</span>
               <span className="block text-xs font-normal text-slate-500">

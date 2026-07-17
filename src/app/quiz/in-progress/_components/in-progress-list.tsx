@@ -163,7 +163,8 @@ export function InProgressList() {
                 </div>
 
                 <Button
-                  className="mt-5 w-full rounded-xl bg-[#2b7fff] font-bold hover:bg-[#1f6ae0]"
+                  variant="brand"
+                  className="mt-5 w-full font-bold"
                   onClick={() => router.push(`/quiz/${item.quizId}/take`)}
                 >
                   Resume →
@@ -182,7 +183,7 @@ function EmptyState({ message, cta }: { message: string; cta: string }) {
     <div className="rounded-2xl border border-dashed border-slate-200 bg-white px-6 py-14 text-center">
       <PlayCircle className="mx-auto size-10 text-slate-300" />
       <p className="mt-3 text-slate-500">{message}</p>
-      <Button asChild className="mt-4 rounded-xl bg-[#2b7fff] font-semibold hover:bg-[#1f6ae0]">
+      <Button asChild variant="brand" className="mt-4 font-semibold">
         <Link href="/">{cta}</Link>
       </Button>
     </div>

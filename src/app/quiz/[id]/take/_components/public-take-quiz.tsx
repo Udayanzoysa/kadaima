@@ -14,7 +14,6 @@ import {
   Clock,
   Cloud,
   CloudOff,
-  Globe,
   LayoutGrid,
   Lightbulb,
   X,
@@ -55,17 +54,17 @@ import {
 import { LOCALES } from "@/lib/i18n";
 import { safeJson } from "@/lib/safe-json";
 import { cn } from "@/lib/utils";
-import { type AttemptDetail, localize } from "@/types/quiz";
+import { type AttemptDetail, localize, resolveQuizLanguage } from "@/types/quiz";
 
-const PRIMARY = "#0c4a6e";
-const SOFT = "#e8f1f8";
-const PAGE_BG = "#f5f7fa";
+const PRIMARY = "#2b7fff";
+const SOFT = "#eef6ff";
+const PAGE_BG = "#f4f7fb";
 
 export function PublicTakeQuiz() {
   const params = useParams<{ id: string }>();
   const quizId = params.id;
   const router = useRouter();
-  const { t, locale, setLocale } = useI18n();
+  const { t, setLocale } = useI18n();
 
   const [attempt, setAttempt] = useState<AttemptDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -514,6 +513,15 @@ export function PublicTakeQuiz() {
     };
   }, []);
 
+  const contentLocale = attempt
+    ? resolveQuizLanguage(attempt.quiz.title, attempt.quiz.language)
+    : "en";
+
+  useEffect(() => {
+    if (!attempt) return;
+    setLocale(resolveQuizLanguage(attempt.quiz.title, attempt.quiz.language));
+  }, [attempt, setLocale]);
+
   if (loading) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-2 text-slate-500" style={{ background: PAGE_BG }}>
@@ -529,10 +537,10 @@ export function PublicTakeQuiz() {
         <AlertTriangle className="size-10" style={{ color: PRIMARY }} />
         <p className="max-w-md text-sm text-slate-700">{errorMessage ?? t("student.unableToLoadQuiz")}</p>
         <div className="flex gap-2">
-          <Button variant="secondary" onClick={() => router.push("/")}>
+          <Button variant="brandOutline" onClick={() => router.push("/")}>
             {t("public.backToQuizzes")}
           </Button>
-          <Button style={{ background: PRIMARY }} className="text-white hover:opacity-90" onClick={() => window.location.reload()}>
+          <Button variant="brand" onClick={() => window.location.reload()}>
             {t("student.tryAgain")}
           </Button>
         </div>
@@ -591,9 +599,9 @@ export function PublicTakeQuiz() {
               "flex items-center justify-center rounded-xl text-sm font-semibold transition",
               opts.size ?? "aspect-square",
               answered || isFocused
-                ? "bg-[#0c4a6e] text-white shadow-sm"
-                : "bg-[#e8f1f8] text-slate-600 hover:bg-[#d7e8f4]",
-              isFocused && !answered && "ring-2 ring-[#0c4a6e]/40 ring-offset-1",
+                ? "bg-[#2b7fff] text-white shadow-sm"
+                : "bg-[#eef6ff] text-slate-600 hover:bg-[#dcebff]",
+              isFocused && !answered && "ring-2 ring-[#2b7fff]/40 ring-offset-1",
             )}
           >
             {answered && !isFocused ? <CheckCircle2 className="size-4" /> : index + 1}
@@ -612,9 +620,11 @@ export function PublicTakeQuiz() {
             <BrandLogo className="h-7 w-auto shrink-0" priority />
             <div className="min-w-0 border-l border-slate-200 pl-4">
               <h1 className="truncate text-base font-bold" style={{ color: PRIMARY }}>
-                {localize(attempt.quiz.title, locale)}
+                {localize(attempt.quiz.title, contentLocale)}
               </h1>
-              <p className="truncate text-xs text-slate-500">{localize(attempt.quiz.course.title, locale)}</p>
+              <p className="truncate text-xs text-slate-500">
+                {localize(attempt.quiz.course.title, contentLocale)}
+              </p>
             </div>
           </div>
 
@@ -629,26 +639,13 @@ export function PublicTakeQuiz() {
                     ? t("student.syncing")
                     : t("student.synced")}
             </span>
-            <div className="flex gap-1">
-              {LOCALES.map((l) => (
-                <button
-                  key={l.code}
-                  type="button"
-                  onClick={() => setLocale(l.code)}
-                  className={cn(
-                    "rounded-full px-2.5 py-1 text-[11px] font-semibold transition",
-                    locale === l.code ? "text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200",
-                  )}
-                  style={locale === l.code ? { background: PRIMARY } : undefined}
-                >
-                  {l.label}
-                </button>
-              ))}
-            </div>
+            <span className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-semibold uppercase text-slate-600">
+              {(LOCALES.find((l) => l.code === contentLocale) ?? LOCALES[0]).label}
+            </span>
             <span
               className={cn(
                 "inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 font-mono text-sm font-semibold tabular-nums",
-                isUrgent ? "bg-red-100 text-red-700 animate-pulse" : "bg-[#e8f1f8] text-[#0c4a6e]",
+                isUrgent ? "bg-red-100 text-red-700 animate-pulse" : "bg-[#eef6ff] text-[#2b7fff]",
               )}
             >
               <Clock className="size-3.5" />
@@ -682,24 +679,13 @@ export function PublicTakeQuiz() {
                 .replace("{total}", String(questions.length))}
             </p>
           </div>
-          <button
-            type="button"
-            className="inline-flex h-8 shrink-0 items-center gap-1 rounded-full border border-slate-200 bg-white px-2.5 text-[11px] font-medium text-slate-600"
-            onClick={() => {
-              const idx = LOCALES.findIndex((l) => l.code === locale);
-              setLocale(LOCALES[(idx + 1) % LOCALES.length].code);
-            }}
-            aria-label="Change language"
-          >
-            <Globe className="size-3.5" />
-            <span className="max-w-[3.5rem] truncate">
-              {(LOCALES.find((l) => l.code === locale) ?? LOCALES[0]).label}
-            </span>
-          </button>
+          <span className="inline-flex h-8 shrink-0 items-center rounded-full border border-slate-200 bg-slate-50 px-2.5 text-[11px] font-semibold uppercase text-slate-600">
+            {(LOCALES.find((l) => l.code === contentLocale) ?? LOCALES[0]).label}
+          </span>
           <span
             className={cn(
               "inline-flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1.5 font-mono text-xs font-bold tabular-nums",
-              isUrgent ? "bg-red-100 text-red-700" : "bg-[#e8f1f8] text-[#0c4a6e]",
+              isUrgent ? "bg-red-100 text-red-700" : "bg-[#eef6ff] text-[#2b7fff]",
             )}
           >
             <Clock className="size-3.5" />
@@ -707,8 +693,27 @@ export function PublicTakeQuiz() {
           </span>
         </div>
         <div className="px-3 pb-2">
-          <Progress value={progressPercent} className="h-1.5 [&>div]:bg-[#0c4a6e]" />
+          <Progress value={progressPercent} className="h-1.5 [&>div]:bg-[#2b7fff]" />
         </div>
+        {(!online || violationCount > 0) && (
+          <div className="flex flex-wrap items-center gap-1.5 px-3 pb-2">
+            <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-2 py-1 text-[10px] font-medium text-slate-600">
+              {online ? <Cloud className="size-3" style={{ color: PRIMARY }} /> : <CloudOff className="size-3" />}
+              {isAuthed
+                ? t("student.signedIn")
+                : !online
+                  ? t("student.savedLocally")
+                  : syncing
+                    ? t("student.syncing")
+                    : t("student.synced")}
+            </span>
+            {violationCount > 0 && (
+              <span className="inline-flex items-center rounded-full border border-red-200 bg-red-50 px-2 py-1 text-[10px] font-semibold text-red-700">
+                {t("student.violations").replace("{count}", String(violationCount))}
+              </span>
+            )}
+          </div>
+        )}
       </header>
 
       <div className="mx-auto grid max-w-7xl gap-6 px-4 py-5 md:px-6 lg:grid-cols-[minmax(0,1fr)_280px] lg:py-8">
@@ -736,7 +741,7 @@ export function PublicTakeQuiz() {
                 </p>
               </div>
             </div>
-            <Progress value={progressPercent} className="h-2 [&>div]:bg-[#0c4a6e]" />
+            <Progress value={progressPercent} className="h-2 [&>div]:bg-[#2b7fff]" />
           </div>
 
           {questions.map((question, index) => {
@@ -749,14 +754,14 @@ export function PublicTakeQuiz() {
                 id={`question-${question.id}`}
                 className={cn(
                   "scroll-mt-24 rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm transition lg:scroll-mt-28",
-                  "border-l-[3px] border-l-[#0c4a6e]",
-                  isFocused && "ring-2 ring-[#0c4a6e]/25 ring-offset-2",
-                  isAnswered && "bg-[#fafcfd]",
+                  "border-l-[3px] border-l-[#2b7fff]",
+                  isFocused && "ring-2 ring-[#2b7fff]/25 ring-offset-2",
+                  isAnswered && "bg-[#f7faff]",
                 )}
               >
                 <div className="mb-3 flex items-start justify-between gap-3">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="rounded-lg bg-[#e8f1f8] px-2.5 py-1 text-xs font-bold text-[#0c4a6e]">
+                    <span className="rounded-lg bg-[#eef6ff] px-2.5 py-1 text-xs font-bold text-[#2b7fff]">
                       Q{index + 1}
                     </span>
                     <span className="rounded-lg bg-slate-100 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
@@ -769,12 +774,12 @@ export function PublicTakeQuiz() {
                 </div>
                 <QuestionPrompt
                   question={question}
-                  locale={locale}
+                  locale={contentLocale}
                   className="mb-4 [&_p]:text-base [&_p]:font-semibold [&_p]:text-slate-900 md:[&_p]:text-lg"
                 />
                 <QuestionAnswerInput
                   question={question}
-                  locale={locale}
+                  locale={contentLocale}
                   value={selected ?? {}}
                   onChange={(next) => handleAnswer(question.id, next)}
                   disabled={submitting}
@@ -805,10 +810,10 @@ export function PublicTakeQuiz() {
               <div className="mt-4 shrink-0 border-t border-slate-100 pt-4">
                 {submitDialog(
                   <Button
+                    variant="brand"
                     size="lg"
                     disabled={submitting}
-                    className="w-full gap-2 font-bold text-white hover:opacity-90"
-                    style={{ background: PRIMARY }}
+                    className="w-full gap-2 font-bold"
                   >
                     {submitting ? (
                       <>
@@ -827,7 +832,7 @@ export function PublicTakeQuiz() {
             </div>
 
             <div className="flex shrink-0 gap-3 rounded-2xl border border-[#cfe3f0] bg-[#eef6fb] p-4">
-              <Lightbulb className="mt-0.5 size-5 shrink-0 text-[#0c4a6e]" />
+              <Lightbulb className="mt-0.5 size-5 shrink-0 text-[#2b7fff]" />
               <p className="text-xs leading-relaxed text-slate-600">
                 <span className="font-bold text-slate-800">{t("student.quickTipTitle")} </span>
                 {t("student.quickTipBody")}
@@ -877,9 +882,10 @@ export function PublicTakeQuiz() {
                   <div className="mt-5 pb-1">
                     {submitDialog(
                       <Button
+                        variant="brand"
                         size="lg"
                         disabled={submitting}
-                        className="w-full bg-slate-950 font-bold text-white hover:bg-slate-800"
+                        className="w-full font-bold"
                       >
                         {submitting ? <Spinner className="size-4" /> : t("student.submitQuiz")}
                       </Button>,
@@ -893,7 +899,7 @@ export function PublicTakeQuiz() {
                   <button
                     type="button"
                     onClick={() => setMobileNavOpen(true)}
-                    className="flex min-w-0 flex-1 items-center gap-3 rounded-2xl bg-[#e8f1f8] px-3 py-2.5 text-left"
+                    className="flex min-w-0 flex-1 items-center gap-3 rounded-2xl bg-[#eef6ff] px-3 py-2.5 text-left"
                     aria-expanded={false}
                   >
                     <span
@@ -916,9 +922,10 @@ export function PublicTakeQuiz() {
                   </button>
                   {submitDialog(
                     <Button
+                      variant="brand"
                       size="lg"
                       disabled={submitting}
-                      className="shrink-0 bg-slate-950 font-bold text-white hover:bg-slate-800"
+                      className="shrink-0 font-bold"
                     >
                       {submitting ? <Spinner className="size-4" /> : t("student.submit")}
                     </Button>,
@@ -944,7 +951,7 @@ export function PublicTakeQuiz() {
                         onClick={() => scrollToQuestion(q.id)}
                         className={cn(
                           "flex size-9 shrink-0 items-center justify-center rounded-xl text-xs font-semibold",
-                          answered ? "bg-[#0c4a6e] text-white" : "bg-[#e8f1f8] text-slate-600",
+                          answered ? "bg-[#2b7fff] text-white" : "bg-[#eef6ff] text-slate-600",
                         )}
                       >
                         {answered ? <CheckCircle2 className="size-3.5" /> : index + 1}
@@ -955,9 +962,10 @@ export function PublicTakeQuiz() {
               </div>
               {submitDialog(
                 <Button
+                  variant="brand"
                   size="lg"
                   disabled={submitting}
-                  className="shrink-0 bg-slate-950 font-bold text-white hover:bg-slate-800"
+                  className="shrink-0 font-bold"
                 >
                   {submitting ? <Spinner className="size-4" /> : t("student.submit")}
                 </Button>,

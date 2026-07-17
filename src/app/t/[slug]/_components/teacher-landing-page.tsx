@@ -6,22 +6,20 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 import {
-  Bookmark,
   CalendarDays,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
   Clock3,
   Home,
-  ListOrdered,
   MapPin,
   Phone,
   Tag,
-  Users,
   type LucideIcon,
 } from "lucide-react";
 
 import { BrandLogo } from "@/components/brand/brand-logo";
+import { PublicQuizCard } from "@/components/quiz/public-quiz-card";
 import { SimpleIcon } from "@/components/simple-icon";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -172,12 +170,15 @@ function PosterStrip({
   );
 }
 
-interface PublicQuizCard {
+interface TeacherPageQuiz {
   id: string;
   title: LocalizedText;
   description: LocalizedText | null;
   coverImageUrl?: string | null;
   durationMinutes: number;
+  requiresUnlock?: boolean;
+  unlocked?: boolean;
+  priceLkr?: number | null;
   _count: { questions: number; attempts?: number };
   course: { id: string; title: LocalizedText | string };
 }
@@ -493,7 +494,7 @@ function ContactSection({
               />
             </div>
             {formError ? <p className="text-xs text-red-600">{formError}</p> : null}
-            <Button type="submit" disabled={sending} style={{ background: NAVY }}>
+            <Button type="submit" variant="brand" disabled={sending}>
               {sending ? <Spinner className="size-4" /> : null}
               Send inquiry
             </Button>
@@ -508,7 +509,7 @@ export function TeacherLandingPage({ slug }: { slug: string }) {
   const router = useRouter();
   const { locale } = useI18n();
   const [profile, setProfile] = useState<TeacherProfile | null>(null);
-  const [quizzes, setQuizzes] = useState<PublicQuizCard[]>([]);
+  const [quizzes, setQuizzes] = useState<TeacherPageQuiz[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [bannerIndex, setBannerIndex] = useState(0);
@@ -527,7 +528,10 @@ export function TeacherLandingPage({ slug }: { slug: string }) {
     let userId = "";
     if (token) {
       try {
-        const payload = JSON.parse(atob(token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/")));
+        const part = token.split(".")[1] || "";
+        const b64 = part.replace(/-/g, "+").replace(/_/g, "/");
+        const padded = b64 + "=".repeat((4 - (b64.length % 4)) % 4);
+        const payload = JSON.parse(atob(padded));
         userId = payload?.sub || "";
       } catch {
         /* ignore */
@@ -549,8 +553,8 @@ export function TeacherLandingPage({ slug }: { slug: string }) {
       fetch(
         `${APP_CONFIG.apiUrl}/public/teachers/${encodeURIComponent(slug)}/quizzes?${qs.toString()}`,
       ).then(async (res) => {
-        if (!res.ok) return [] as PublicQuizCard[];
-        return res.json() as Promise<PublicQuizCard[]>;
+        if (!res.ok) return [] as TeacherPageQuiz[];
+        return res.json() as Promise<TeacherPageQuiz[]>;
       }),
     ])
       .then(([p, q]) => {
@@ -616,7 +620,7 @@ export function TeacherLandingPage({ slug }: { slug: string }) {
         <p className="max-w-md text-sm text-slate-500">
           {error || "This teacher page is not published yet."}
         </p>
-        <Button asChild style={{ background: NAVY }}>
+        <Button asChild variant="brand">
           <Link href="/">Back to Kadaima</Link>
         </Button>
       </div>
@@ -824,63 +828,25 @@ export function TeacherLandingPage({ slug }: { slug: string }) {
             No published quizzes yet.
           </div>
         ) : (
-          pageQuizzes.map((quiz) => {
+          pageQuizzes.map((quiz, i) => {
             const qTitle = localize(quiz.title, locale);
-            const courseTitle = localize(quiz.course.title as LocalizedText, locale);
-            const cover = mediaUrl(quiz.coverImageUrl, APP_CONFIG.apiUrl);
+            const desc =
+              plainFromHtml(localize(quiz.description, locale)) ||
+              localize(quiz.course.title as LocalizedText, locale) ||
+              "Practice questions curated for focused revision.";
+            const locked = Boolean(quiz.requiresUnlock) && quiz.unlocked !== true;
             return (
-              <article
+              <PublicQuizCard
                 key={quiz.id}
-                className="flex gap-3 rounded-xl border border-slate-200 bg-white p-3 shadow-sm transition hover:shadow-md sm:gap-4 sm:rounded-2xl sm:p-3.5 md:p-4"
-              >
-                <LetterThumb
-                  src={cover}
-                  letter={initialLetter(qTitle)}
-                  className="size-14 shrink-0 rounded-lg sm:size-[72px] sm:rounded-xl md:size-20"
-                  letterClassName="text-2xl sm:text-3xl"
-                />
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-start justify-between gap-2">
-                    <span
-                      className="inline-flex max-w-[85%] truncate rounded-md px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide"
-                      style={{ background: "#e3f1fb", color: BLUE }}
-                    >
-                      {courseTitle || "Quiz"}
-                    </span>
-                    <Bookmark className="hidden size-4 shrink-0 text-slate-300 sm:block" />
-                  </div>
-                  <h4 className="mt-1 line-clamp-2 font-semibold text-sm leading-snug tracking-tight text-slate-900 sm:mt-1.5 sm:text-base md:text-lg">
-                    {qTitle}
-                  </h4>
-                  <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] font-medium text-slate-500 sm:mt-2 sm:gap-x-4 sm:text-xs">
-                    <span className="inline-flex items-center gap-1">
-                      <Clock3 className="size-3.5" />
-                      {quiz.durationMinutes} Mins
-                    </span>
-                    <span className="inline-flex items-center gap-1">
-                      <ListOrdered className="size-3.5" />
-                      {quiz._count.questions} Qs
-                    </span>
-                  </div>
-                  <div className="mt-2.5 flex items-center justify-between gap-2 sm:mt-3">
-                    <span className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-400 sm:text-xs">
-                      <Users className="size-3.5" />
-                      <span className="sm:hidden">{quiz._count.attempts ?? 0}</span>
-                      <span className="hidden sm:inline">
-                        {quiz._count.attempts ?? 0} Attempted
-                      </span>
-                    </span>
-                    <Button
-                      size="sm"
-                      className="h-7 rounded-md px-3 text-xs font-semibold tracking-tight text-white hover:opacity-90 sm:h-8 sm:px-4 sm:text-sm"
-                      style={{ background: NAVY }}
-                      onClick={() => router.push(`/quiz/${quiz.id}`)}
-                    >
-                      Start
-                    </Button>
-                  </div>
-                </div>
-              </article>
+                title={qTitle}
+                description={desc}
+                durationMinutes={quiz.durationMinutes}
+                questionCount={quiz._count.questions}
+                iconIndex={i}
+                isNew={i === 0}
+                locked={locked}
+                onPrimary={() => router.push(`/quiz/${quiz.id}`)}
+              />
             );
           })
         )}
@@ -1048,10 +1014,10 @@ export function TeacherLandingPage({ slug }: { slug: string }) {
             className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-xs font-medium tracking-tight sm:gap-x-5 sm:text-sm md:justify-end"
             style={{ color: NAVY }}
           >
-            <Link href="/#privacy" className="transition hover:opacity-80">
+            <Link href="/privacy-policy" className="transition hover:opacity-80">
               Privacy Policy
             </Link>
-            <Link href="/#terms" className="transition hover:opacity-80">
+            <Link href="/terms" className="transition hover:opacity-80">
               Terms of Service
             </Link>
             <Link href="#contact" className="transition hover:opacity-80">
@@ -1063,7 +1029,10 @@ export function TeacherLandingPage({ slug }: { slug: string }) {
 
       {/* Mobile bottom nav */}
       <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-slate-200 bg-white/95 px-1.5 pb-[max(0.4rem,env(safe-area-inset-bottom))] pt-1.5 backdrop-blur sm:px-2 sm:pt-2 md:hidden">
-        <div className="mx-auto grid max-w-md grid-cols-4 gap-0.5 sm:gap-1">
+        <div
+          className="mx-auto grid max-w-md gap-0.5 sm:gap-1"
+          style={{ gridTemplateColumns: `repeat(${navItems.length}, minmax(0, 1fr))` }}
+        >
           {navItems.map((item) => (
             <Link
               key={item.id}

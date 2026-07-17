@@ -1,5 +1,18 @@
 import { type NextRequest, NextResponse } from "next/server";
 
+/** Decode a JWT payload without verifying the signature (routing hint only — the API still enforces real authorization). */
+function decodeJwtPayload(token: string): Record<string, unknown> | null {
+  try {
+    const part = token.split(".")[1];
+    if (!part) return null;
+    const base64 = part.replace(/-/g, "+").replace(/_/g, "/");
+    const padded = base64 + "=".repeat((4 - (base64.length % 4)) % 4);
+    return JSON.parse(atob(padded));
+  } catch {
+    return null;
+  }
+}
+
 const PUBLIC_PREFIXES = [
   "/auth",
   "/login",
@@ -10,6 +23,10 @@ const PUBLIC_PREFIXES = [
   "/results",
   "/brand",
   "/t",
+  "/about",
+  "/contact",
+  "/privacy-policy",
+  "/terms",
   "/_next",
   "/favicon.ico",
 ];
@@ -51,6 +68,12 @@ function isTeacherAppPath(pathname: string) {
   return pathname === "/teacher" || pathname.startsWith("/teacher/");
 }
 
+/** Personal account pages — any logged-in user, but not part of the /admin dashboard. */
+function isAccountPath(pathname: string) {
+  return pathname === "/profile" || pathname.startsWith("/profile/") ||
+    pathname === "/payments" || pathname.startsWith("/payments/");
+}
+
 export function middleware(req: NextRequest) {
   const token = req.cookies.get("session_token")?.value;
   const { pathname } = req.nextUrl;
@@ -60,10 +83,19 @@ export function middleware(req: NextRequest) {
     return NextResponse.redirect(new URL("/admin/default", req.url));
   }
 
+  // Students don't get the /admin or /teacher dashboards — only their own account pages.
+  if (token && (pathname.startsWith("/admin") || isTeacherAppPath(pathname))) {
+    const payload = decodeJwtPayload(token);
+    if (payload?.team === "Student") {
+      return NextResponse.redirect(new URL("/unauthorized", req.url));
+    }
+  }
+
   const isProtected =
     pathname.startsWith("/admin") ||
     isTeacherAppPath(pathname) ||
-    pathname.startsWith("/dashboard");
+    pathname.startsWith("/dashboard") ||
+    isAccountPath(pathname);
 
   if (!token && isProtected) {
     return NextResponse.redirect(new URL("/login", req.url));

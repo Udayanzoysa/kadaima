@@ -14,7 +14,7 @@ export default function ResetPasswordPage() {
       <Suspense
         fallback={
           <div className="flex justify-center py-8">
-            <Spinner className="size-6 text-sky-500" />
+            <Spinner className="size-6 text-[#2b7fff]" />
           </div>
         }
       >

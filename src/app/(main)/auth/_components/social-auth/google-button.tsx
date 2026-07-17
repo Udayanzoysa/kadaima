@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { useRouter } from "next/navigation";
 
@@ -23,23 +23,43 @@ interface GoogleButtonProps {
    * Existing users keep their current role/permissions.
    */
   accountType?: AccountType;
+  /** Called instead of navigating when provided (e.g. unlock modal). */
+  onSuccess?: () => void;
 }
 
 function GoogleSignInControl({
   className,
   redirectTo = "/admin",
   accountType = "student",
+  onSuccess,
 }: GoogleButtonProps) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [buttonWidth, setButtonWidth] = useState(352);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver((entries) => {
+      const width = entries[0]?.contentRect.width;
+      if (width) setButtonWidth(Math.max(200, Math.min(352, Math.floor(width))));
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
 
   const finishWithToken = (accessToken: string) => {
     setClientCookie("session_token", accessToken, 7);
     toast.success("Signed in with Google");
+    if (onSuccess) {
+      onSuccess();
+      return;
+    }
     router.push(redirectTo);
   };
 
-  const onSuccess = async (credential?: string) => {
+  const handleGoogleCredential = async (credential?: string) => {
     if (!credential) {
       toast.error("Google sign-in failed", {
         description: "No credential returned from Google.",
@@ -86,7 +106,7 @@ function GoogleSignInControl({
   };
 
   return (
-    <div className={cn("relative w-full", className)}>
+    <div ref={containerRef} className={cn("relative w-full", className)}>
       {busy ? (
         <div className="flex h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white text-sm text-slate-600">
           <Spinner className="size-4" />
@@ -95,7 +115,7 @@ function GoogleSignInControl({
       ) : (
         <div className="flex w-full justify-center overflow-hidden rounded-xl [&_iframe]:!w-full">
           <GoogleLogin
-            onSuccess={(res) => void onSuccess(res.credential)}
+            onSuccess={(res) => void handleGoogleCredential(res.credential)}
             onError={() =>
               toast.error("Google sign-in failed", {
                 description: "Popup closed or Google rejected the request.",
@@ -106,7 +126,7 @@ function GoogleSignInControl({
             size="large"
             text="continue_with"
             shape="rectangular"
-            width="352"
+            width={buttonWidth}
           />
         </div>
       )}

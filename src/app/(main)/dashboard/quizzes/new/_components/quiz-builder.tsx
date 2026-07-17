@@ -32,10 +32,14 @@ import {
   type LocalizedText,
   type QuestionForm,
   type QuizFormState,
+  type SupportedLocale,
   emptyLocalizedText,
+  hasLocaleContent,
   initialQuizFormState,
   localize,
   mediaUrl,
+  monoLocalizedText,
+  resolveQuizLanguage,
 } from "@/types/quiz";
 
 import { AttachFromBankModal } from "./attach-from-bank-modal";
@@ -43,8 +47,6 @@ import { AttachFromBankModal } from "./attach-from-bank-modal";
 function plainTextFromHtml(html: string) {
   return html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
 }
-
-type ContentLang = "en" | "si" | "ta";
 
 const QUIZ_DRAFT_COVER_KEY = "quiz-draft-cover";
 
@@ -75,8 +77,8 @@ export function QuizBuilder({ quizId }: QuizBuilderProps) {
   const { t, locale, setLocale } = useI18n();
   const router = useRouter();
   const isEdit = Boolean(quizId);
-  const [activeLang, setActiveLang] = useState<ContentLang>("en");
   const [quizDetails, setQuizDetails] = useState<QuizFormState>(initialQuizFormState());
+  const contentLang = quizDetails.language;
   const [courses, setCourses] = useState<Course[]>([]);
   const [modules, setModules] = useState<CourseModule[]>([]);
   const [loadingModules, setLoadingModules] = useState(false);
@@ -86,6 +88,7 @@ export function QuizBuilder({ quizId }: QuizBuilderProps) {
   const [uploadingQuestionId, setUploadingQuestionId] = useState<string | null>(null);
   const [loadingCourses, setLoadingCourses] = useState(true);
   const [loadingQuiz, setLoadingQuiz] = useState(isEdit);
+  const [paymentMode, setPaymentMode] = useState<"MIXED" | "MONTHLY_ONLY" | "QUIZ_ONLY">("MIXED");
 
   useEffect(() => {
     const token = getClientCookie("session_token");
@@ -97,6 +100,16 @@ export function QuizBuilder({ quizId }: QuizBuilderProps) {
       .then((courseData: Course[]) => setCourses(courseData))
       .catch(() => setCourses([]))
       .finally(() => setLoadingCourses(false));
+
+    fetch(`${APP_CONFIG.apiUrl}/public/billing/monthly-fee`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        const mode = String(data?.paymentMode || "MIXED").toUpperCase();
+        if (mode === "MONTHLY_ONLY" || mode === "QUIZ_ONLY" || mode === "MIXED") {
+          setPaymentMode(mode);
+        }
+      })
+      .catch(() => undefined);
   }, []);
 
   // Load modules for selected course
@@ -138,7 +151,9 @@ export function QuizBuilder({ quizId }: QuizBuilderProps) {
       .then(async (res) => {
         if (!res.ok) throw new Error("Failed to load quiz");
         const data = await res.json();
+        const language = resolveQuizLanguage(data.title, data.language);
         setQuizDetails({
+          language,
           title: data.title,
           description: data.description ?? emptyLocalizedText(),
           coverImageUrl: data.coverImageUrl ?? null,
@@ -172,8 +187,43 @@ export function QuizBuilder({ quizId }: QuizBuilderProps) {
   const handleTextChange = (field: "title" | "description", val: string) => {
     setQuizDetails((prev) => ({
       ...prev,
-      [field]: { ...prev[field], [activeLang]: val },
+      [field]: monoLocalizedText(val, prev.language),
     }));
+  };
+
+  const handleLanguageChange = (language: SupportedLocale) => {
+    if (language === quizDetails.language) return;
+    setQuizDetails((prev) => {
+      const title = localize(prev.title, prev.language);
+      const description = localize(prev.description, prev.language);
+      return {
+        ...prev,
+        language,
+        title: monoLocalizedText(title, language),
+        description: monoLocalizedText(description, language),
+        questions: prev.questions.map((q) => ({
+          ...q,
+          questionText: monoLocalizedText(localize(q.questionText, prev.language), language),
+          choices: q.choices.map((c) => ({
+            ...c,
+            choiceText: monoLocalizedText(localize(c.choiceText, prev.language), language),
+          })),
+        })),
+      };
+    });
+    // Drop bank questions that have no text in the new language.
+    setAttached((prev) => {
+      const kept = prev.filter((q) =>
+        hasLocaleContent(q.questionText as LocalizedText, language, 3),
+      );
+      const removed = prev.length - kept.length;
+      if (removed > 0) {
+        toast.message(
+          `Removed ${removed} bank question${removed === 1 ? "" : "s"} without ${language.toUpperCase()} text.`,
+        );
+      }
+      return kept;
+    });
   };
 
   const persistCoverToQuiz = async (url: string | null, token: string) => {
@@ -293,10 +343,21 @@ export function QuizBuilder({ quizId }: QuizBuilderProps) {
   };
 
   const attachFromBank = (questions: BankQuestion[]) => {
+    const lang = quizDetails.language;
+    const compatible = questions.filter((q) =>
+      hasLocaleContent(q.questionText as LocalizedText, lang, 3),
+    );
+    const skipped = questions.length - compatible.length;
+    if (skipped > 0) {
+      toast.error(
+        `${skipped} question${skipped === 1 ? "" : "s"} skipped — missing ${lang.toUpperCase()} text.`,
+      );
+    }
+    if (compatible.length === 0) return;
     setAttached((prev) => {
       const existing = new Set(prev.map((q) => q.id));
       const next = [...prev];
-      for (const q of questions) {
+      for (const q of compatible) {
         if (!existing.has(q.id)) next.push(q);
       }
       return next;
@@ -308,8 +369,11 @@ export function QuizBuilder({ quizId }: QuizBuilderProps) {
   };
 
   const validate = useCallback((): string | null => {
-    if (quizDetails.title.en.trim().length < 3) return t("quiz.validation.titleRequired");
-    if (plainTextFromHtml(quizDetails.description.en).length < 10) {
+    const lang = quizDetails.language;
+    if (!hasLocaleContent(quizDetails.title, lang, 3)) {
+      return t("quiz.validation.titleRequired");
+    }
+    if (plainTextFromHtml(quizDetails.description[lang] ?? "").length < 10) {
       return t("quiz.validation.descriptionRequired");
     }
     if (!quizDetails.courseId) return t("quiz.validation.courseRequired");
@@ -320,18 +384,35 @@ export function QuizBuilder({ quizId }: QuizBuilderProps) {
     if (quizDetails.maxAttempts < 1 || quizDetails.maxAttempts > 50) {
       return "Attempt count must be between 1 and 50.";
     }
-    if (quizDetails.requiresUnlock && (!quizDetails.priceLkr || quizDetails.priceLkr <= 0)) {
-      return "Enter a price in LKR for locked quizzes.";
+    if (
+      quizDetails.requiresUnlock &&
+      paymentMode === "QUIZ_ONLY" &&
+      (!quizDetails.priceLkr || quizDetails.priceLkr <= 0)
+    ) {
+      return "Per-quiz payment mode requires a Price (LKR) for locked quizzes.";
+    }
+    if (
+      quizDetails.requiresUnlock &&
+      quizDetails.priceLkr != null &&
+      quizDetails.priceLkr <= 0
+    ) {
+      return "Price must be greater than 0, or leave it empty for monthly subscription unlock.";
     }
     const totalQuestions = quizDetails.questions.length + attached.length;
     if (totalQuestions === 0) return t("quiz.validation.questionRequired");
 
+    for (const q of attached) {
+      if (!hasLocaleContent(q.questionText as LocalizedText, lang, 3)) {
+        return t("quiz.validation.bankLanguageMismatch");
+      }
+    }
+
     for (const q of quizDetails.questions) {
-      const qErr = validateInlineQuestion(q);
+      const qErr = validateInlineQuestion(q, lang);
       if (qErr) return qErr;
     }
     return null;
-  }, [quizDetails, attached, t]);
+  }, [quizDetails, attached, t, paymentMode]);
 
   const createBankQuestions = async (
     headers: Record<string, string>,
@@ -342,7 +423,7 @@ export function QuizBuilder({ quizId }: QuizBuilderProps) {
       const res = await fetch(`${APP_CONFIG.apiUrl}/questions`, {
         method: "POST",
         headers,
-        body: JSON.stringify(toBankQuestionPayload(q, status)),
+        body: JSON.stringify(toBankQuestionPayload(q, status, quizDetails.language)),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
@@ -386,8 +467,15 @@ export function QuizBuilder({ quizId }: QuizBuilderProps) {
           body: JSON.stringify({
             courseId: quizDetails.courseId,
             moduleId: quizDetails.moduleId || null,
-            title: quizDetails.title,
-            description: quizDetails.description,
+            language: quizDetails.language,
+            title: monoLocalizedText(
+              localize(quizDetails.title, quizDetails.language),
+              quizDetails.language,
+            ),
+            description: monoLocalizedText(
+              localize(quizDetails.description, quizDetails.language),
+              quizDetails.language,
+            ),
             coverImageUrl: quizDetails.coverImageUrl,
             durationMinutes: quizDetails.durationMinutes,
             passingScorePercentage: quizDetails.passingScorePercentage,
@@ -395,7 +483,10 @@ export function QuizBuilder({ quizId }: QuizBuilderProps) {
             status: quizDetails.status,
             shuffleQuestions: quizDetails.shuffleQuestions,
             requiresUnlock: quizDetails.requiresUnlock,
-            priceLkr: quizDetails.requiresUnlock ? quizDetails.priceLkr : null,
+            priceLkr:
+              quizDetails.requiresUnlock && paymentMode !== "MONTHLY_ONLY"
+                ? quizDetails.priceLkr
+                : null,
             questionIds,
           }),
         });
@@ -414,8 +505,15 @@ export function QuizBuilder({ quizId }: QuizBuilderProps) {
         body: JSON.stringify({
           courseId: quizDetails.courseId,
           moduleId: quizDetails.moduleId || null,
-          title: quizDetails.title,
-          description: quizDetails.description,
+          language: quizDetails.language,
+          title: monoLocalizedText(
+            localize(quizDetails.title, quizDetails.language),
+            quizDetails.language,
+          ),
+          description: monoLocalizedText(
+            localize(quizDetails.description, quizDetails.language),
+            quizDetails.language,
+          ),
           coverImageUrl: quizDetails.coverImageUrl,
           durationMinutes: quizDetails.durationMinutes,
           passingScorePercentage: quizDetails.passingScorePercentage,
@@ -423,7 +521,10 @@ export function QuizBuilder({ quizId }: QuizBuilderProps) {
           status: quizDetails.status,
           shuffleQuestions: quizDetails.shuffleQuestions,
           requiresUnlock: quizDetails.requiresUnlock,
-          priceLkr: quizDetails.requiresUnlock ? quizDetails.priceLkr : null,
+          priceLkr:
+            quizDetails.requiresUnlock && paymentMode !== "MONTHLY_ONLY"
+              ? quizDetails.priceLkr
+              : null,
           questionIds,
         }),
       });
@@ -434,7 +535,7 @@ export function QuizBuilder({ quizId }: QuizBuilderProps) {
       }
 
       toast.success(t("quiz.createSuccess"), {
-        description: quizDetails.title.en,
+        description: localize(quizDetails.title, quizDetails.language),
       });
       writeDraftCover(null);
       router.push("/admin/quizzes/manage");
@@ -447,7 +548,7 @@ export function QuizBuilder({ quizId }: QuizBuilderProps) {
     }
   };
 
-  const langLabel = (lang: ContentLang) => {
+  const langLabel = (lang: SupportedLocale) => {
     if (lang === "en") return t("quiz.english");
     if (lang === "si") return t("quiz.sinhala");
     return t("quiz.tamil");
@@ -494,28 +595,33 @@ export function QuizBuilder({ quizId }: QuizBuilderProps) {
               </Button>
             ))}
           </div>
+          <p className="text-muted-foreground text-xs">{t("quiz.uiLanguageHint")}</p>
 
-          <div className="flex flex-wrap gap-2">
-            {(["en", "si", "ta"] as const).map((lang) => (
-              <Button
-                key={lang}
-                type="button"
-                size="sm"
-                variant={activeLang === lang ? "default" : "outline"}
-                onClick={() => setActiveLang(lang)}
-              >
-                {langLabel(lang)}
-              </Button>
-            ))}
-          </div>
+          <Field>
+            <FieldLabel>{t("quiz.contentLanguage")}</FieldLabel>
+            <div className="flex flex-wrap gap-2">
+              {(["en", "si", "ta"] as const).map((lang) => (
+                <Button
+                  key={lang}
+                  type="button"
+                  size="sm"
+                  variant={contentLang === lang ? "default" : "outline"}
+                  onClick={() => handleLanguageChange(lang)}
+                >
+                  {langLabel(lang)}
+                </Button>
+              ))}
+            </div>
+            <FieldDescription>{t("quiz.contentLanguageHint")}</FieldDescription>
+          </Field>
 
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <Field>
               <FieldLabel>
-                {t("quiz.quizTitle")} ({activeLang.toUpperCase()})
+                {t("quiz.quizTitle")} ({contentLang.toUpperCase()})
               </FieldLabel>
               <Input
-                value={quizDetails.title[activeLang]}
+                value={quizDetails.title[contentLang]}
                 onChange={(e) => handleTextChange("title", e.target.value)}
                 placeholder={t("quiz.titlePlaceholder")}
               />
@@ -573,11 +679,11 @@ export function QuizBuilder({ quizId }: QuizBuilderProps) {
 
           <Field>
             <FieldLabel>
-              {t("quiz.description")} ({activeLang.toUpperCase()})
+              {t("quiz.description")} ({contentLang.toUpperCase()})
             </FieldLabel>
             <RichTextEditor
-              key={`desc-${activeLang}-${quizId ?? "new"}`}
-              value={quizDetails.description[activeLang]}
+              key={`desc-${contentLang}-${quizId ?? "new"}`}
+              value={quizDetails.description[contentLang]}
               onChange={(html) => handleTextChange("description", html)}
               placeholder={t("quiz.descriptionPlaceholder")}
               minHeightClass="min-h-[160px]"
@@ -722,31 +828,54 @@ export function QuizBuilder({ quizId }: QuizBuilderProps) {
                   setQuizDetails((prev) => ({
                     ...prev,
                     requiresUnlock: checked === true,
-                    priceLkr: checked === true ? prev.priceLkr ?? 500 : null,
+                    priceLkr:
+                      checked === true
+                        ? paymentMode === "QUIZ_ONLY"
+                          ? prev.priceLkr ?? 500
+                          : null
+                        : null,
                   }))
                 }
               />
               Requires unlock (payment verification)
             </label>
             {quizDetails.requiresUnlock && (
-              <Field>
-                <FieldLabel>Price (LKR)</FieldLabel>
-                <Input
-                  type="number"
-                  min={1}
-                  step={0.01}
-                  value={quizDetails.priceLkr ?? ""}
-                  onChange={(e) =>
-                    setQuizDetails((prev) => ({
-                      ...prev,
-                      priceLkr: e.target.value === "" ? null : Number(e.target.value),
-                    }))
-                  }
-                />
-                <FieldDescription>
-                  Students must unlock via PayHere (sandbox) before attempting.
-                </FieldDescription>
-              </Field>
+              <>
+                {paymentMode === "MONTHLY_ONLY" ? (
+                  <p className="text-xs text-muted-foreground">
+                    Platform mode is <span className="font-medium">monthly only</span>. Students
+                    unlock this quiz with the monthly subscription (no separate quiz price).
+                  </p>
+                ) : (
+                  <Field>
+                    <FieldLabel>
+                      {paymentMode === "QUIZ_ONLY"
+                        ? "Price (LKR) — required"
+                        : "Special price (LKR) — optional"}
+                    </FieldLabel>
+                    <Input
+                      type="number"
+                      min={1}
+                      step={0.01}
+                      placeholder={
+                        paymentMode === "QUIZ_ONLY" ? "e.g. 500" : "Leave empty for monthly unlock"
+                      }
+                      value={quizDetails.priceLkr ?? ""}
+                      onChange={(e) =>
+                        setQuizDetails((prev) => ({
+                          ...prev,
+                          priceLkr: e.target.value === "" ? null : Number(e.target.value),
+                        }))
+                      }
+                    />
+                    <FieldDescription>
+                      {paymentMode === "QUIZ_ONLY"
+                        ? "Students must pay this amount to unlock this quiz only."
+                        : "Leave empty to unlock with the monthly subscription. Enter a price only if this quiz needs a separate payment beyond the monthly plan."}
+                    </FieldDescription>
+                  </Field>
+                )}
+              </>
             )}
           </div>
         </CardContent>
@@ -762,6 +891,7 @@ export function QuizBuilder({ quizId }: QuizBuilderProps) {
           </div>
           <AttachFromBankModal
             excludeIds={attached.map((q) => q.id)}
+            language={contentLang}
             onAttach={attachFromBank}
           />
         </CardHeader>
@@ -769,7 +899,7 @@ export function QuizBuilder({ quizId }: QuizBuilderProps) {
           {attached.length === 0 ? (
             <p className="text-muted-foreground text-sm">
               No bank questions attached yet. Use <strong>Attach from bank</strong> to pick
-              published questions.
+              published questions in {langLabel(contentLang)}.
             </p>
           ) : (
             <ul className="space-y-2">
@@ -782,19 +912,9 @@ export function QuizBuilder({ quizId }: QuizBuilderProps) {
                     <div>
                       <span className="text-muted-foreground">#{index + 1}</span>{" "}
                       <span className="font-medium">
-                        {localize(q.questionText as LocalizedText, "en")}
+                        {localize(q.questionText as LocalizedText, contentLang)}
                       </span>
                     </div>
-                    {Boolean(localize(q.questionText as LocalizedText, "si")) && (
-                      <p className="text-muted-foreground text-xs">
-                        SI: {localize(q.questionText as LocalizedText, "si")}
-                      </p>
-                    )}
-                    {Boolean(localize(q.questionText as LocalizedText, "ta")) && (
-                      <p className="text-muted-foreground text-xs">
-                        TA: {localize(q.questionText as LocalizedText, "ta")}
-                      </p>
-                    )}
                   </div>
                   <Button type="button" size="sm" variant="ghost" onClick={() => detachQuestion(q.id)}>
                     <Trash2 className="size-4" />
@@ -845,7 +965,7 @@ export function QuizBuilder({ quizId }: QuizBuilderProps) {
 
               <InlineQuestionFields
                 question={question}
-                activeLang={activeLang}
+                activeLang={contentLang}
                 uploading={uploadingQuestionId === question.id}
                 onChange={(next) => updateInlineQuestion(question.id, next)}
                 onUploadImage={(file) => void handleQuestionImageUpload(question.id, file)}

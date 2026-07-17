@@ -126,6 +126,9 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           if (item.id === "students") {
             return false; // soon / disabled
           }
+          if (item.id === "log") {
+            return isSuperAdmin; // System logs — super admin only, regardless of custom-role grants
+          }
 
           const subject = item.id.toUpperCase().replace("-", "_");
           const hasRead = hasPermission("READ", subject) || hasPermission("MANAGE", subject);

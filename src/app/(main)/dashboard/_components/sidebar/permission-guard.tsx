@@ -122,12 +122,13 @@ export function PermissionGuard({ children }: { children: ReactNode }) {
             return;
           }
 
-          // Users / Roles / Payments / Settings — super admin only (CASL manage all)
+          // Users / Roles / Payments / Settings / Logs — super admin only (CASL manage all)
           const isAdminOnlyRoute =
             pathname.startsWith("/admin/users") ||
             pathname.startsWith("/admin/roles") ||
             pathname.startsWith("/admin/payments") ||
-            pathname.startsWith("/admin/settings");
+            pathname.startsWith("/admin/settings") ||
+            pathname.startsWith("/admin/logs");
 
           if (isAdminOnlyRoute) {
             if (!isSuperAdmin) {

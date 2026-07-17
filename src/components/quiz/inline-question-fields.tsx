@@ -75,14 +75,32 @@ export function buildQuestionConfig(q: QuestionForm): QuestionConfig {
   return config;
 }
 
-export function validateInlineQuestion(q: QuestionForm): string | null {
-  if (q.questionText.en.trim().length < 3) return "English question text is required.";
+export function validateInlineQuestion(
+  q: QuestionForm,
+  language: SupportedLocale = "en",
+): string | null {
+  const prompt = q.questionText[language]?.trim() ?? "";
+  if (prompt.length < 3) {
+    return `Question text is required in the quiz language (${language.toUpperCase()}).`;
+  }
   if (q.type === "MCQ") {
     if (q.choices.length < 2) return "At least two choices are required.";
     if (!q.choices.some((c) => c.isCorrect)) return "Mark one correct answer.";
+    for (const c of q.choices) {
+      if (!(c.choiceText[language]?.trim())) {
+        return `Each choice needs text in the quiz language (${language.toUpperCase()}).`;
+      }
+    }
   }
-  if (q.type === "SEQUENCE" && q.choices.length < 2) {
-    return "Add at least two sequencing items (in the correct order).";
+  if (q.type === "SEQUENCE") {
+    if (q.choices.length < 2) {
+      return "Add at least two sequencing items (in the correct order).";
+    }
+    for (const c of q.choices) {
+      if (!(c.choiceText[language]?.trim())) {
+        return `Each sequencing item needs text in the quiz language (${language.toUpperCase()}).`;
+      }
+    }
   }
   if (q.type === "SHORT_TEXT") {
     const answers = (q.config?.acceptedAnswers ?? []).map((s) => s.trim()).filter(Boolean);
@@ -94,10 +112,19 @@ export function validateInlineQuestion(q: QuestionForm): string | null {
   return null;
 }
 
-export function toBankQuestionPayload(q: QuestionForm, status: "Draft" | "Published" | "Archived") {
+export function toBankQuestionPayload(
+  q: QuestionForm,
+  status: "Draft" | "Published" | "Archived",
+  language: SupportedLocale = "en",
+) {
   const needsChoices = q.type === "MCQ" || q.type === "SEQUENCE";
+  const mono = (text: typeof q.questionText) => ({
+    en: language === "en" ? text.en : "",
+    si: language === "si" ? text.si : "",
+    ta: language === "ta" ? text.ta : "",
+  });
   return {
-    questionText: q.questionText,
+    questionText: mono(q.questionText),
     points: q.points,
     status,
     type: q.type,
@@ -105,7 +132,7 @@ export function toBankQuestionPayload(q: QuestionForm, status: "Draft" | "Publis
     config: buildQuestionConfig(q),
     choices: needsChoices
       ? q.choices.map((c) => ({
-          choiceText: c.choiceText,
+          choiceText: mono(c.choiceText),
           isCorrect: q.type === "MCQ" ? c.isCorrect : false,
         }))
       : [],

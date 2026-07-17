@@ -12,11 +12,18 @@ export default function page() {
       backHref="/login"
       backLabel="Back to Login"
     >
-      <Button asChild className={authPrimaryButtonClass}>
-        <Link prefetch={false} href="/admin">
-          Go to dashboard
-        </Link>
-      </Button>
+      <div className="flex flex-col gap-2">
+        <Button asChild className={authPrimaryButtonClass}>
+          <Link prefetch={false} href="/">
+            Back to quizzes
+          </Link>
+        </Button>
+        <Button asChild variant="brandOutline">
+          <Link prefetch={false} href="/admin">
+            Go to dashboard
+          </Link>
+        </Button>
+      </div>
     </AuthShell>
   );
 }

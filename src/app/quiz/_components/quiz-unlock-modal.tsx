@@ -2,15 +2,12 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import {
-  Camera,
-  Gift,
-  Lock,
-  ShieldCheck,
-  WalletCards,
-} from "lucide-react";
+import { CalendarDays, Camera, Gift, ShieldCheck, WalletCards } from "lucide-react";
 import { toast } from "sonner";
 
+import { AccountRegisterForm } from "@/app/(main)/auth/_components/account-register-form";
+import { LoginForm } from "@/app/(main)/auth/_components/login-form";
+import { GoogleButton } from "@/app/(main)/auth/_components/social-auth/google-button";
 import { BrandLogo } from "@/components/brand/brand-logo";
 import { Button } from "@/components/ui/button";
 import {
@@ -20,15 +17,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { PasswordInput } from "@/components/ui/password-input";
 import { Spinner } from "@/components/ui/spinner";
 import { APP_CONFIG } from "@/config/app-config";
-import { getClientCookie, setClientCookie } from "@/lib/cookie.client";
-import { ensureGuestSessionId, getOrCreateGuestLead, saveGuestLead } from "@/lib/guest-session";
-import {
-  readUnlockLeadCookie,
-  saveUnlockLeadCookie,
-} from "@/lib/unlock-lead-cookie";
+import { getClientCookie } from "@/lib/cookie.client";
+import { ensureGuestSessionId, getOrCreateGuestLead } from "@/lib/guest-session";
+import { readUnlockLeadCookie } from "@/lib/unlock-lead-cookie";
 import { cn } from "@/lib/utils";
 
 declare global {
@@ -68,12 +61,8 @@ function loadPayHereScript(): Promise<void> {
   });
 }
 
-const SL_MOBILE = /^07\d{8}$/;
-
 const fieldClass =
-  "h-11 w-full rounded-xl border border-[#cfe0f5] bg-[#eef5ff] px-3.5 text-sm text-slate-800 outline-none placeholder:text-slate-400 focus:border-[#2b7fff] focus:bg-white focus:ring-2 focus:ring-[#2b7fff]/20";
-
-const labelClass = "text-[13px] font-medium text-slate-600";
+  "h-10 w-full rounded-xl border border-slate-300 bg-white px-3.5 text-sm text-slate-800 outline-none placeholder:text-slate-400 focus:border-[#2b7fff] focus:ring-2 focus:ring-[#2b7fff]/25";
 
 export interface UnlockQuizTarget {
   id: string;
@@ -98,21 +87,23 @@ export function QuizUnlockModal({
   onUnlocked,
 }: QuizUnlockModalProps) {
   const [step, setStep] = useState<ModalStep>("account");
-  const [accountMode, setAccountMode] = useState<AccountMode>("register");
+  const [accountMode, setAccountMode] = useState<AccountMode>("login");
   const [paying, setPaying] = useState(false);
   const [authBusy, setAuthBusy] = useState(false);
 
-  const [studentName, setStudentName] = useState("");
-  const [school, setSchool] = useState("");
-  const [mobileNumber, setMobileNumber] = useState("");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
+  const [monthlyFee, setMonthlyFee] = useState<number | null>(null);
+  const [paymentMode, setPaymentMode] = useState<"MIXED" | "MONTHLY_ONLY" | "QUIZ_ONLY">("MIXED");
   const [voucherCode, setVoucherCode] = useState("");
   const [slipFile, setSlipFile] = useState<File | null>(null);
   const [bankReference, setBankReference] = useState("");
   const [slipNote, setSlipNote] = useState("");
   const slipInputRef = useRef<HTMLInputElement>(null);
+
+  const isSpecialPriced =
+    quiz?.priceLkr != null && Number.isFinite(Number(quiz.priceLkr)) && Number(quiz.priceLkr) > 0;
+  const useQuizPay =
+    paymentMode === "QUIZ_ONLY" || (paymentMode === "MIXED" && isSpecialPriced);
+  const useSubPay = !useQuizPay;
 
   const resetPayHereHandlers = useCallback(() => {
     if (!window.payhere) return;
@@ -150,20 +141,27 @@ export function QuizUnlockModal({
     }
 
     const token = getClientCookie("session_token");
-    setAccountMode("register");
+    setAccountMode("login");
     setVoucherCode("");
     setSlipFile(null);
     setBankReference("");
     setSlipNote("");
 
-    const lead = getOrCreateGuestLead();
-    const cookieLead = readUnlockLeadCookie();
-    setStudentName(cookieLead?.studentName || lead?.studentName || "");
-    setSchool(cookieLead?.school || lead?.school || "");
-    setMobileNumber(cookieLead?.mobileNumber || lead?.mobileNumber || "");
-    setEmail(cookieLead?.email || lead?.email || "");
-    setPassword("");
-    setConfirmPassword("");
+    void (async () => {
+      try {
+        const feeRes = await fetch(`${APP_CONFIG.apiUrl}/public/billing/monthly-fee`);
+        if (feeRes.ok) {
+          const feeBody = await feeRes.json();
+          setMonthlyFee(Number(feeBody.monthlyStudentFeeLkr) || 0);
+          const mode = String(feeBody.paymentMode || "MIXED").toUpperCase();
+          if (mode === "MONTHLY_ONLY" || mode === "QUIZ_ONLY" || mode === "MIXED") {
+            setPaymentMode(mode);
+          }
+        }
+      } catch {
+        /* ignore */
+      }
+    })();
 
     if (!token) {
       setStep("account");
@@ -173,156 +171,74 @@ export function QuizUnlockModal({
     setStep("pay");
     setAuthBusy(true);
     void (async () => {
-      const unlocked = await checkAlreadyUnlocked(token);
-      if (unlocked && quiz) {
-        toast.success("This quiz is already unlocked for your account.");
-        onUnlocked(quiz.id);
-        onOpenChange(false);
+      try {
+        const unlocked = await checkAlreadyUnlocked(token);
+        if (unlocked && quiz) {
+          toast.success("This quiz is already unlocked for your account.");
+          onUnlocked(quiz.id);
+          onOpenChange(false);
+          return;
+        }
+
+        const subRes = await fetch(`${APP_CONFIG.apiUrl}/public/payments/subscription/status`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (subRes.ok) {
+          const sub = await subRes.json();
+          if (typeof sub.monthlyStudentFeeLkr === "number") {
+            setMonthlyFee(sub.monthlyStudentFeeLkr);
+          }
+          const mode = String(sub.paymentMode || paymentMode).toUpperCase();
+          const resolvedMode =
+            mode === "MONTHLY_ONLY" || mode === "QUIZ_ONLY" || mode === "MIXED"
+              ? mode
+              : paymentMode;
+          setPaymentMode(resolvedMode);
+
+          const special =
+            quiz?.priceLkr != null &&
+            Number.isFinite(Number(quiz.priceLkr)) &&
+            Number(quiz.priceLkr) > 0;
+          const coveredBySub =
+            sub.active &&
+            (resolvedMode === "MONTHLY_ONLY" || (resolvedMode === "MIXED" && !special));
+
+          if (coveredBySub && quiz) {
+            toast.success("Your subscription is active — this quiz is unlocked.");
+            onUnlocked(quiz.id);
+            onOpenChange(false);
+          }
+        }
+      } finally {
+        setAuthBusy(false);
       }
-      setAuthBusy(false);
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, quiz?.id, resetPayHereHandlers]);
 
-  const persistLeadDetails = () => {
-    const payload = {
-      studentName: studentName.trim(),
-      school: school.trim(),
-      mobileNumber: mobileNumber.trim(),
-      email: email.trim() || undefined,
-    };
-    saveUnlockLeadCookie(payload);
-    if (payload.studentName && payload.school && payload.mobileNumber) {
-      saveGuestLead(payload);
-    }
-  };
-
-  const loginExisting = async () => {
-    if (!email.trim() || password.length < 6) {
-      toast.error("Enter email and password to log in.");
+  const afterAuthSuccess = useCallback(async () => {
+    const token = getClientCookie("session_token");
+    if (!token) {
+      setStep("account");
       return;
     }
     setAuthBusy(true);
     try {
-      const res = await fetch(`${APP_CONFIG.apiUrl}/auth/login`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: email.trim(), password }),
-      });
-      const result = await res.json();
-      if (!res.ok) {
-        const msg = Array.isArray(result.message)
-          ? result.message.join(", ")
-          : result.message || "Invalid login credentials.";
-        setAccountMode("register");
-        toast.message("Account not found or password incorrect", {
-          description: "Create a student account with your details to continue.",
-        });
-        throw new Error(msg);
-      }
-      if (result.requires2FA) {
-        toast.error("This account requires 2FA. Please log in from /login first.");
-        return;
-      }
-      if (!result.accessToken) throw new Error("Invalid login response.");
-      setClientCookie("session_token", result.accessToken, 7);
-      persistLeadDetails();
-
-      const unlocked = await checkAlreadyUnlocked(result.accessToken);
+      const unlocked = await checkAlreadyUnlocked(token);
       if (unlocked && quiz) {
         toast.success("Already unlocked — opening quiz.");
         onUnlocked(quiz.id);
         onOpenChange(false);
         return;
       }
-
-      toast.success("Logged in");
       setStep("pay");
-    } catch {
-      /* register switch already toasted */
     } finally {
       setAuthBusy(false);
     }
-  };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [quiz?.id, onUnlocked, onOpenChange]);
 
-  const registerAndContinue = async () => {
-    if (!studentName.trim() || !school.trim()) {
-      toast.error("Name and school are required.");
-      return;
-    }
-    if (!SL_MOBILE.test(mobileNumber.trim())) {
-      toast.error("Enter a valid Sri Lankan mobile number (07XXXXXXXX).");
-      return;
-    }
-    if (!email.trim()) {
-      toast.error("Email is required.");
-      return;
-    }
-    if (password.length < 8) {
-      toast.error("Password must be at least 8 characters.");
-      return;
-    }
-    if (password !== confirmPassword) {
-      toast.error("Passwords do not match.");
-      return;
-    }
-
-    persistLeadDetails();
-    setAuthBusy(true);
-    try {
-      const regRes = await fetch(`${APP_CONFIG.apiUrl}/auth/register/student`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: studentName.trim(),
-          email: email.trim(),
-          password,
-        }),
-      });
-      const regBody = await regRes.json().catch(() => ({}));
-      if (!regRes.ok) {
-        const msg = Array.isArray(regBody.message)
-          ? regBody.message.join(", ")
-          : regBody.message || "Registration failed.";
-        if (String(msg).toLowerCase().includes("already") || regRes.status === 409) {
-          setAccountMode("login");
-          toast.message("Account already exists", {
-            description: "Log in with your password to continue.",
-          });
-          return;
-        }
-        throw new Error(msg);
-      }
-
-      const loginRes = await fetch(`${APP_CONFIG.apiUrl}/auth/login`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: email.trim(), password }),
-      });
-      const loginBody = await loginRes.json();
-      if (!loginRes.ok || !loginBody.accessToken) {
-        toast.success("Account created. Please log in.");
-        setAccountMode("login");
-        return;
-      }
-      setClientCookie("session_token", loginBody.accessToken, 7);
-      const unlocked = await checkAlreadyUnlocked(loginBody.accessToken);
-      if (unlocked && quiz) {
-        toast.success("Already unlocked — opening quiz.");
-        onUnlocked(quiz.id);
-        onOpenChange(false);
-        return;
-      }
-      toast.success("Account ready");
-      setStep("pay");
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Could not create account.");
-    } finally {
-      setAuthBusy(false);
-    }
-  };
-
-  const authHeaders = (): HeadersInit | null => {
+  const authHeaders = (): Record<string, string> | null => {
     const token = getClientCookie("session_token");
     return token ? { Authorization: `Bearer ${token}` } : null;
   };
@@ -421,43 +337,130 @@ export function QuizUnlockModal({
     }
   };
 
-  const payWithPayHere = async () => {
+  const startPayHere = async (
+    payment: Record<string, string | boolean | number>,
+    guestSessionId: string,
+    successMessage: string,
+  ) => {
+    if (!quiz) return;
+    await loadPayHereScript();
+    if (!window.payhere) {
+      throw new Error("PayHere SDK failed to load.");
+    }
+
+    window.payhere.onCompleted = async (orderId: string) => {
+      try {
+        const tokenHeaders = authHeaders();
+        if (payment.sandbox && tokenHeaders) {
+          await fetch(`${APP_CONFIG.apiUrl}/public/payments/payhere/sandbox-complete`, {
+            method: "POST",
+            headers: { ...tokenHeaders, "Content-Type": "application/json" },
+            body: JSON.stringify({
+              orderId,
+              guestSessionId,
+            }),
+          });
+        }
+        toast.success(successMessage);
+        onUnlocked(quiz.id);
+        onOpenChange(false);
+      } catch {
+        toast.error("Payment completed but unlock failed. Refresh and try again.");
+      } finally {
+        setPaying(false);
+        resetPayHereHandlers();
+      }
+    };
+
+    window.payhere.onDismissed = () => {
+      setPaying(false);
+      resetPayHereHandlers();
+      toast.message("Payment cancelled.");
+    };
+
+    window.payhere.onError = (error: string) => {
+      setPaying(false);
+      resetPayHereHandlers();
+      toast.error(error || "Payment failed.");
+    };
+
+    window.payhere.startPayment(payment);
+  };
+
+  const checkoutCustomer = async (headers: Record<string, string>) => {
+    const meRes = await fetch(`${APP_CONFIG.apiUrl}/auth/me`, { headers });
+    const me = meRes.ok ? await meRes.json().catch(() => null) : null;
+    const lead = getOrCreateGuestLead();
+    const cookieLead = readUnlockLeadCookie();
+    return {
+      firstName: (me?.name || cookieLead?.studentName || lead?.studentName || "Student").split(
+        " ",
+      )[0],
+      lastName:
+        (me?.name || cookieLead?.studentName || lead?.studentName || "")
+          .split(" ")
+          .slice(1)
+          .join(" ") || "Student",
+      email: me?.email || cookieLead?.email || lead?.email || undefined,
+      phone: me?.phoneNumber || cookieLead?.mobileNumber || lead?.mobileNumber || undefined,
+    };
+  };
+
+  const paySubscription = async () => {
     if (!quiz) return;
     if (!requireAuth()) return;
     const headers = authHeaders();
     if (!headers) return;
 
     const guestSessionId = ensureGuestSessionId();
-    const lead = getOrCreateGuestLead();
-    const cookieLead = readUnlockLeadCookie();
-
     setPaying(true);
     try {
-      const meRes = await fetch(`${APP_CONFIG.apiUrl}/auth/me`, { headers });
-      const me = meRes.ok
-        ? await meRes.json().catch(() => null)
-        : null;
+      const customer = await checkoutCustomer(headers);
+      const res = await fetch(`${APP_CONFIG.apiUrl}/public/payments/subscription/checkout`, {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({ guestSessionId, ...customer }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        throw new Error(
+          Array.isArray(body?.message)
+            ? body.message.join(", ")
+            : body?.message || "Could not start subscription payment.",
+        );
+      }
 
+      const payment = await res.json();
+      await startPayHere(
+        payment,
+        guestSessionId,
+        paymentMode === "MONTHLY_ONLY"
+          ? "Subscription active — all locked quizzes unlocked for 30 days!"
+          : "Subscription active — locked quizzes without a special price are unlocked for 30 days!",
+      );
+    } catch (err) {
+      setPaying(false);
+      toast.error(err instanceof Error ? err.message : "Could not start payment.");
+    }
+  };
+
+  const payQuiz = async () => {
+    if (!quiz) return;
+    if (!requireAuth()) return;
+    const headers = authHeaders();
+    if (!headers) return;
+
+    const guestSessionId = ensureGuestSessionId();
+    setPaying(true);
+    try {
+      const customer = await checkoutCustomer(headers);
       const res = await fetch(`${APP_CONFIG.apiUrl}/public/payments/payhere/checkout`, {
         method: "POST",
         headers: { ...headers, "Content-Type": "application/json" },
         body: JSON.stringify({
           quizId: quiz.id,
           guestSessionId,
-          firstName:
-            (me?.name || cookieLead?.studentName || lead?.studentName || "Student").split(" ")[0],
-          lastName:
-            (me?.name || cookieLead?.studentName || lead?.studentName || "")
-              .split(" ")
-              .slice(1)
-              .join(" ") || "Student",
-          email: me?.email || cookieLead?.email || lead?.email || email || undefined,
-          phone:
-            me?.phoneNumber ||
-            cookieLead?.mobileNumber ||
-            lead?.mobileNumber ||
-            mobileNumber ||
-            undefined,
+          ...customer,
         }),
       });
       if (!res.ok) {
@@ -465,274 +468,101 @@ export function QuizUnlockModal({
         throw new Error(
           Array.isArray(body?.message)
             ? body.message.join(", ")
-            : body?.message || "Could not start payment.",
+            : body?.message || "Could not start quiz payment.",
         );
       }
 
       const payment = await res.json();
-      await loadPayHereScript();
-
-      if (!window.payhere) {
-        throw new Error("PayHere SDK failed to load.");
-      }
-
-      window.payhere.onCompleted = async (orderId: string) => {
-        try {
-          const tokenHeaders = authHeaders();
-          if (payment.sandbox && tokenHeaders) {
-            await fetch(`${APP_CONFIG.apiUrl}/public/payments/payhere/sandbox-complete`, {
-              method: "POST",
-              headers: { ...tokenHeaders, "Content-Type": "application/json" },
-              body: JSON.stringify({
-                orderId,
-                guestSessionId,
-              }),
-            });
-          }
-          const userId = me?.id
-            ? `&userId=${encodeURIComponent(me.id)}`
-            : "";
-          const accessRes = await fetch(
-            `${APP_CONFIG.apiUrl}/public/quizzes/${quiz.id}/access?guestSessionId=${encodeURIComponent(guestSessionId)}${userId}`,
-          );
-          if (accessRes.ok) {
-            const access = await accessRes.json();
-            if (access.unlocked) {
-              toast.success("Quiz unlocked!");
-              onUnlocked(quiz.id);
-              onOpenChange(false);
-              return;
-            }
-          }
-          toast.success("Payment received. Unlocking…");
-          onUnlocked(quiz.id);
-          onOpenChange(false);
-        } catch {
-          toast.error("Payment completed but unlock failed. Refresh and try again.");
-        } finally {
-          setPaying(false);
-          resetPayHereHandlers();
-        }
-      };
-
-      window.payhere.onDismissed = () => {
-        setPaying(false);
-        resetPayHereHandlers();
-        toast.message("Payment cancelled.");
-      };
-
-      window.payhere.onError = (error: string) => {
-        setPaying(false);
-        resetPayHereHandlers();
-        toast.error(error || "Payment failed.");
-      };
-
-      window.payhere.startPayment(payment);
+      await startPayHere(payment, guestSessionId, "Payment successful — this quiz is unlocked!");
     } catch (err) {
       setPaying(false);
       toast.error(err instanceof Error ? err.message : "Could not start payment.");
     }
   };
 
+  const displayAmount = useQuizPay ? (quiz?.priceLkr ?? null) : monthlyFee;
   const priceLabel =
-    quiz?.priceLkr != null
-      ? `LKR ${Number(quiz.priceLkr).toLocaleString("en-LK", {
+    displayAmount != null
+      ? `LKR ${Number(displayAmount).toLocaleString("en-LK", {
           minimumFractionDigits: 0,
           maximumFractionDigits: 2,
         })}`
       : "—";
+
+  const renewAtLabel = (() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 30);
+    return d.toLocaleDateString("en-US", { month: "long", day: "numeric" });
+  })();
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         showCloseButton
         className={cn(
-          "max-h-[92vh] gap-0 overflow-y-auto border-0 p-0 shadow-2xl sm:max-w-[420px]",
-          step === "account"
-            ? "rounded-2xl bg-[#eaf1ff] text-slate-900"
-            : "rounded-2xl bg-white text-slate-900",
+          "flex max-h-[min(92vh,780px)] w-[calc(100%-1.5rem)] flex-col gap-0 overflow-hidden rounded-2xl border border-slate-200/80 bg-white p-0 shadow-2xl sm:max-w-[420px]",
         )}
       >
         {step === "account" && (
-          <div className="p-5 sm:p-6">
-            <DialogHeader className="space-y-2 text-left">
-              <div className="flex items-center gap-3 pr-8">
-                <BrandLogo className="h-7 w-auto" />
-                <DialogTitle className="font-[family-name:var(--font-outfit)] text-xl font-bold text-[#123a6b]">
-                  Sign in to unlock
-                </DialogTitle>
-              </div>
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-5 sm:p-6 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            <DialogHeader className="space-y-2 text-center sm:text-center">
+              <BrandLogo className="mx-auto h-9 w-auto" />
+              <DialogTitle className="text-xl font-bold tracking-tight text-slate-900">
+                {accountMode === "login" ? "Welcome back" : "Student registration"}
+              </DialogTitle>
               <DialogDescription className="text-sm text-slate-500">
-                Log in or create a student account before payment.
+                {accountMode === "login"
+                  ? "Sign in with your email and password to continue."
+                  : "Create a student account to unlock quizzes and track your attempts."}
               </DialogDescription>
             </DialogHeader>
 
-            <div className="mt-5 grid grid-cols-2 gap-1 rounded-full bg-[#d7e6fb] p-1">
+            <div className="mt-5 grid grid-cols-2 gap-1 rounded-xl bg-slate-100 p-1">
               <button
                 type="button"
                 className={cn(
-                  "rounded-full px-3 py-2 text-sm font-semibold transition",
-                  accountMode === "register"
-                    ? "border border-[#9ec5f5] bg-white text-[#2b7fff] shadow-sm"
-                    : "text-slate-500",
-                )}
-                onClick={() => setAccountMode("register")}
-              >
-                Create account
-              </button>
-              <button
-                type="button"
-                className={cn(
-                  "rounded-full px-3 py-2 text-sm font-semibold transition",
+                  "rounded-lg px-3 py-2 text-sm font-semibold transition",
                   accountMode === "login"
-                    ? "border border-[#9ec5f5] bg-white text-[#2b7fff] shadow-sm"
-                    : "text-slate-500",
+                    ? "bg-white text-slate-900 shadow-sm"
+                    : "text-slate-500 hover:text-slate-700",
                 )}
                 onClick={() => setAccountMode("login")}
               >
                 Log in
               </button>
+              <button
+                type="button"
+                className={cn(
+                  "rounded-lg px-3 py-2 text-sm font-semibold transition",
+                  accountMode === "register"
+                    ? "bg-white text-slate-900 shadow-sm"
+                    : "text-slate-500 hover:text-slate-700",
+                )}
+                onClick={() => setAccountMode("register")}
+              >
+                Create account
+              </button>
             </div>
 
-            {accountMode === "register" && (
-              <div className="mt-5 grid gap-3.5">
-                <div className="grid gap-1.5">
-                  <label htmlFor="unlock-name" className={labelClass}>
-                    Full name <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    id="unlock-name"
-                    className={fieldClass}
-                    value={studentName}
-                    onChange={(e) => setStudentName(e.target.value)}
-                    placeholder="e.g. Saman Perera"
-                  />
-                </div>
-                <div className="grid gap-1.5">
-                  <label htmlFor="unlock-school" className={labelClass}>
-                    School <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    id="unlock-school"
-                    className={fieldClass}
-                    value={school}
-                    onChange={(e) => setSchool(e.target.value)}
-                    placeholder="e.g. Royal College Colombo"
-                  />
-                </div>
-                <div className="grid gap-1.5">
-                  <label htmlFor="unlock-mobile" className={labelClass}>
-                    Mobile <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    id="unlock-mobile"
-                    className={fieldClass}
-                    value={mobileNumber}
-                    onChange={(e) => setMobileNumber(e.target.value)}
-                    placeholder="07XXXXXXXX"
-                    inputMode="numeric"
-                  />
-                </div>
-                <div className="grid gap-1.5">
-                  <label htmlFor="unlock-email" className={labelClass}>
-                    Email <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    id="unlock-email"
-                    type="email"
-                    className={fieldClass}
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="you@example.com"
-                  />
-                </div>
-                <div className="grid gap-1.5">
-                  <label htmlFor="unlock-password" className={labelClass}>
-                    Password <span className="text-red-500">*</span>
-                  </label>
-                  <PasswordInput
-                    id="unlock-password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="••••••••"
-                    autoComplete="new-password"
-                    className={cn(fieldClass, "pr-10")}
-                  />
-                </div>
-                <div className="grid gap-1.5">
-                  <label htmlFor="unlock-confirm" className={labelClass}>
-                    Confirm password <span className="text-red-500">*</span>
-                  </label>
-                  <PasswordInput
-                    id="unlock-confirm"
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    placeholder="••••••••"
-                    autoComplete="new-password"
-                    className={cn(fieldClass, "pr-10")}
-                  />
-                </div>
-                <Button
-                  className="mt-2 h-12 w-full rounded-xl bg-[#2b9dff] text-base font-bold text-white hover:bg-[#1f8eeb]"
-                  disabled={authBusy}
-                  onClick={() => void registerAndContinue()}
-                >
-                  {authBusy ? (
-                    <>
-                      <Spinner className="size-4" />
-                      Creating account…
-                    </>
-                  ) : (
-                    "Continue to payment"
-                  )}
-                </Button>
-              </div>
-            )}
+            <div className="mt-5 space-y-4">
+              {accountMode === "login" ? (
+                <LoginForm onSuccess={() => void afterAuthSuccess()} />
+              ) : (
+                <AccountRegisterForm
+                  accountType="student"
+                  onSuccess={() => void afterAuthSuccess()}
+                />
+              )}
 
-            {accountMode === "login" && (
-              <div className="mt-5 grid gap-3.5">
-                <div className="grid gap-1.5">
-                  <label htmlFor="unlock-login-email" className={labelClass}>
-                    Email <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    id="unlock-login-email"
-                    type="email"
-                    className={fieldClass}
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="you@example.com"
-                  />
-                </div>
-                <div className="grid gap-1.5">
-                  <label htmlFor="unlock-login-password" className={labelClass}>
-                    Password <span className="text-red-500">*</span>
-                  </label>
-                  <PasswordInput
-                    id="unlock-login-password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="••••••••"
-                    autoComplete="current-password"
-                    className={cn(fieldClass, "pr-10")}
-                  />
-                </div>
-                <Button
-                  className="mt-2 h-12 w-full rounded-xl bg-[#2b9dff] text-base font-bold text-white hover:bg-[#1f8eeb]"
-                  disabled={authBusy}
-                  onClick={() => void loginExisting()}
-                >
-                  {authBusy ? (
-                    <>
-                      <Spinner className="size-4" />
-                      Logging in…
-                    </>
-                  ) : (
-                    "Continue to payment"
-                  )}
-                </Button>
+              <div className="relative text-center text-xs text-slate-400 after:absolute after:inset-0 after:top-1/2 after:border-t after:border-slate-200">
+                <span className="relative z-10 bg-white px-2">or</span>
               </div>
-            )}
+
+              <GoogleButton
+                accountType="student"
+                onSuccess={() => void afterAuthSuccess()}
+              />
+            </div>
           </div>
         )}
 
@@ -744,33 +574,62 @@ export function QuizUnlockModal({
         )}
 
         {step === "pay" && !authBusy && (
-          <div>
-            <div className="space-y-5 p-5 sm:p-6">
-              <DialogHeader className="space-y-1.5 text-left">
-                <DialogTitle className="flex items-center gap-2 font-[family-name:var(--font-outfit)] text-xl font-bold text-[#123a6b]">
-                  <Lock className="size-5 text-[#123a6b]" />
-                  Unlock Quiz
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl">
+            <div className="min-h-0 flex-1 space-y-2.5 overflow-y-auto overscroll-contain p-3.5 sm:space-y-3 sm:p-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              <DialogHeader className="space-y-0.5 pr-6 text-left">
+                <DialogTitle className="font-[family-name:var(--font-outfit)] text-base font-bold text-[#123a6b] sm:text-lg">
+                  {useQuizPay ? "Unlock this quiz" : "Monthly subscription"}
                 </DialogTitle>
-                <DialogDescription className="text-sm text-slate-500">
-                  Pay to unlock{" "}
-                  <span className="font-semibold text-slate-700">
-                    &apos;{quiz?.title || "this quiz"}&apos;
-                  </span>{" "}
-                  and start attempting.
+                <DialogDescription className="text-xs text-slate-500 sm:text-sm">
+                  {useQuizPay ? (
+                    <>
+                      Pay once to unlock{" "}
+                      <span className="font-semibold text-slate-700">
+                        {quiz?.title ? `'${quiz.title}'` : "this quiz"}
+                      </span>
+                      {paymentMode === "MIXED"
+                        ? " (special price — not covered by monthly subscription)."
+                        : "."}
+                    </>
+                  ) : (
+                    <>
+                      Unlock{" "}
+                      <span className="font-semibold text-slate-700">
+                        {paymentMode === "MONTHLY_ONLY"
+                          ? "all locked quizzes"
+                          : "locked quizzes without a special price"}
+                      </span>{" "}
+                      for 30 days
+                      {quiz?.title ? <> (incl. &apos;{quiz.title}&apos;)</> : null}.
+                    </>
+                  )}
                 </DialogDescription>
               </DialogHeader>
 
-              <div className="rounded-xl bg-[#eef6ff] px-4 py-3">
-                <p className="text-[11px] font-semibold tracking-wider text-slate-400 uppercase">
-                  Price
-                </p>
-                <p className="mt-0.5 text-2xl font-bold text-[#2b7fff]">{priceLabel}</p>
+              <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-[#eef6ff] px-3.5 py-2.5">
+                <div>
+                  <p className="text-[10px] font-semibold tracking-wider text-slate-400 uppercase">
+                    {useQuizPay ? "Quiz price" : "Monthly fee"}
+                  </p>
+                  <p className="text-xl font-bold text-[#2b7fff]">{priceLabel}</p>
+                </div>
+                {!useQuizPay ? (
+                  <p className="flex items-center gap-1 text-[11px] text-slate-500">
+                    <CalendarDays className="size-3.5 shrink-0" />
+                    Renew at {renewAtLabel}
+                  </p>
+                ) : null}
               </div>
 
               <Button
-                className="h-12 w-full rounded-xl bg-[#2b9dff] text-base font-bold text-white hover:bg-[#1f8eeb]"
-                disabled={paying || !quiz}
-                onClick={() => void payWithPayHere()}
+                variant="brand"
+                className="h-10 w-full text-sm font-bold"
+                disabled={
+                  paying ||
+                  !quiz ||
+                  (useQuizPay ? !isSpecialPriced : monthlyFee == null)
+                }
+                onClick={() => void (useQuizPay ? payQuiz() : paySubscription())}
               >
                 {paying ? (
                   <>
@@ -779,34 +638,35 @@ export function QuizUnlockModal({
                   </>
                 ) : (
                   <>
-                    <WalletCards className="size-5" />
-                    Pay with PayHere
+                    <WalletCards className="size-4" />
+                    {useQuizPay ? "Pay with PayHere" : "Subscribe with PayHere"}
                   </>
                 )}
               </Button>
 
-              <div className="relative py-1 text-center">
+              <div className="relative text-center">
                 <div className="absolute inset-x-0 top-1/2 h-px bg-slate-200" />
-                <span className="relative bg-white px-3 text-xs font-medium text-slate-400">
-                  Other unlock methods
+                <span className="relative bg-white px-2.5 text-[11px] font-medium text-slate-400">
+                  Other payment options
                 </span>
               </div>
 
-              <div className="space-y-2">
-                <p className="flex items-center gap-1.5 text-sm font-medium text-slate-600">
-                  <Gift className="size-4 text-[#2b7fff]" />
+              <div className="space-y-1">
+                <p className="flex items-center gap-1.5 text-xs font-medium text-slate-600">
+                  <Gift className="size-3.5 text-[#2b7fff]" />
                   Have a promo code?
                 </p>
                 <div className="flex gap-2">
                   <input
-                    className={cn(fieldClass, "bg-white")}
+                    className={cn(fieldClass, "h-9 bg-white text-sm")}
                     value={voucherCode}
                     onChange={(e) => setVoucherCode(e.target.value.toUpperCase())}
                     placeholder="Enter code"
                   />
                   <Button
                     type="button"
-                    className="h-11 shrink-0 rounded-xl bg-[#2b9dff] px-5 font-semibold text-white hover:bg-[#1f8eeb]"
+                    variant="brand"
+                    className="h-9 shrink-0 px-3.5 text-sm font-semibold"
                     disabled={paying || !quiz}
                     onClick={() => void redeemVoucher()}
                   >
@@ -815,13 +675,13 @@ export function QuizUnlockModal({
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <p className="flex items-center gap-1.5 text-sm font-medium text-slate-600">
-                  <Camera className="size-4 text-[#2b7fff]" />
+              <div className="space-y-1">
+                <p className="flex items-center gap-1.5 text-xs font-medium text-slate-600">
+                  <Camera className="size-3.5 text-[#2b7fff]" />
                   Upload bank slip
                 </p>
                 <input
-                  className={cn(fieldClass, "bg-white")}
+                  className={cn(fieldClass, "h-9 bg-white text-sm")}
                   value={bankReference}
                   onChange={(e) => setBankReference(e.target.value)}
                   placeholder="bank-reference number"
@@ -836,12 +696,10 @@ export function QuizUnlockModal({
                     }
                     slipInputRef.current?.click();
                   }}
-                  className="flex w-full flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-slate-300 bg-[#f7f9fc] px-4 py-8 text-center transition hover:border-[#2b7fff]/50 hover:bg-[#eef6ff]"
+                  className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-slate-300 bg-[#f7f9fc] px-3 py-2.5 text-center transition hover:border-[#2b7fff]/50 hover:bg-[#eef6ff]"
                 >
-                  <div className="flex size-12 items-center justify-center rounded-full bg-white text-[#2b7fff] shadow-sm ring-1 ring-slate-200">
-                    <Camera className="size-5" />
-                  </div>
-                  <span className="text-sm text-slate-500">
+                  <Camera className="size-4 text-[#2b7fff]" />
+                  <span className="truncate text-xs text-slate-500">
                     {paying ? "Uploading…" : slipFile ? slipFile.name : "Click to upload image"}
                   </span>
                 </button>
@@ -860,9 +718,9 @@ export function QuizUnlockModal({
               </div>
             </div>
 
-            <div className="flex items-center justify-center gap-2 border-t border-[#d6e8ff] bg-[#eef6ff] px-4 py-3">
-              <ShieldCheck className="size-3.5 text-slate-400" />
-              <p className="text-[10px] font-semibold tracking-wider text-slate-400 uppercase">
+            <div className="flex items-center justify-center gap-1.5 border-t border-[#d6e8ff] bg-[#eef6ff] px-3 py-2">
+              <ShieldCheck className="size-3 text-slate-400" />
+              <p className="text-[9px] font-semibold tracking-wider text-slate-400 uppercase">
                 Secure 128-bit encrypted transaction
               </p>
             </div>

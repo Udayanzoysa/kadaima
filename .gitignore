@@ -35,6 +35,10 @@ yarn-error.log*
 # vercel
 .vercel
 
+# whatsapp-web.js local session cache (created by whatsapp-bot.js)
+.wwebjs_auth/
+.wwebjs_cache/
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts

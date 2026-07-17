@@ -8,6 +8,7 @@ import { ImagePlus, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { BulkImportQuestions } from "./bulk-import-questions";
+import { AiImportPdfQuestions } from "./ai-import-pdf-questions";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -272,7 +273,18 @@ export function QuestionEditor({ questionId }: QuestionEditorProps) {
             Support MCQ (text / image / tables), fill-in-blank, numeric, sequencing, and essays.
           </p>
         </div>
-        {!isEdit && <BulkImportQuestions variant="outline" onImported={() => router.push("/admin/questions")} />}
+        {!isEdit && (
+          <div className="flex flex-wrap gap-2">
+            <AiImportPdfQuestions
+              variant="outline"
+              onImported={() => router.push("/admin/questions")}
+            />
+            <BulkImportQuestions
+              variant="outline"
+              onImported={() => router.push("/admin/questions")}
+            />
+          </div>
+        )}
       </div>
 
       <Card className="border-border">

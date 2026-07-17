@@ -8,6 +8,7 @@ import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { Clock3, Lock, Play, UserRound } from "lucide-react";
 import { toast } from "sonner";
 
+import { GoogleButton } from "@/app/(main)/auth/_components/social-auth/google-button";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -82,43 +83,58 @@ export function PublicQuizDetail() {
     setQuiz(await res.json());
   };
 
-  useEffect(() => {
-    (async () => {
-      const token = getClientCookie("session_token");
-      if (!token) {
-        setAuthUser(null);
-        setAuthChecking(false);
-        const lead = getOrCreateGuestLead();
-        if (lead?.studentName) {
-          setStudentName(lead.studentName);
-          setSchool(lead.school);
-          setMobileNumber(lead.mobileNumber);
-          setEmail(lead.email ?? "");
-        }
-        return;
+  const refreshAuthUser = async (): Promise<AuthUser | null> => {
+    const token = getClientCookie("session_token");
+    if (!token) {
+      setAuthUser(null);
+      const lead = getOrCreateGuestLead();
+      if (lead?.studentName) {
+        setStudentName(lead.studentName);
+        setSchool(lead.school);
+        setMobileNumber(lead.mobileNumber);
+        setEmail(lead.email ?? "");
       }
+      return null;
+    }
 
-      try {
-        const res = await fetch(`${APP_CONFIG.apiUrl}/auth/me`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (!res.ok) {
-          deleteClientCookie("session_token");
-          setAuthUser(null);
-          return;
-        }
-        const me = (await res.json()) as AuthUser;
-        setAuthUser(me);
-        // Logged-in users should not reuse stale guest lead cookies/details.
-        clearGuestLead();
-      } catch {
+    try {
+      const res = await fetch(`${APP_CONFIG.apiUrl}/auth/me`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) {
         deleteClientCookie("session_token");
         setAuthUser(null);
-      } finally {
-        setAuthChecking(false);
+        return null;
       }
+      const me = (await res.json()) as AuthUser;
+      setAuthUser(me);
+      // Logged-in users should not reuse stale guest lead cookies/details.
+      clearGuestLead();
+      return me;
+    } catch {
+      deleteClientCookie("session_token");
+      setAuthUser(null);
+      return null;
+    }
+  };
+
+  useEffect(() => {
+    (async () => {
+      await refreshAuthUser();
+      setAuthChecking(false);
     })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const handleGoogleSignedIn = async () => {
+    const me = await refreshAuthUser();
+    try {
+      await loadQuiz(me?.id);
+    } catch {
+      /* ignore — quiz was already loaded */
+    }
+    toast.success(t("public.readyToStart"));
+  };
 
   useEffect(() => {
     if (authChecking) return;
@@ -218,6 +234,7 @@ export function PublicQuizDetail() {
           school: lead.school,
           mobileNumber: lead.mobileNumber,
           email: lead.email,
+          userId: authUser?.id,
         }),
       });
 
@@ -252,7 +269,7 @@ export function PublicQuizDetail() {
       <PublicQuizShell>
         <div className="flex flex-1 flex-col items-center justify-center gap-4 px-4 text-center">
           <p className="text-slate-600">{error ?? t("public.quizNotFound")}</p>
-          <Button asChild className="rounded-xl bg-[#2b7fff] font-semibold hover:bg-[#1f6ae0]">
+          <Button asChild variant="brand" className="font-semibold">
             <Link href="/">{t("public.backToQuizzes")}</Link>
           </Button>
         </div>
@@ -328,8 +345,9 @@ export function PublicQuizDetail() {
             </h2>
             <p className="mt-1 text-sm text-slate-500">{t("public.unlockHint")}</p>
             <Button
+              variant="brand"
               size="lg"
-              className="mt-5 rounded-xl bg-[#1e3a5f] font-semibold hover:bg-[#254a75]"
+              className="mt-5 w-full font-semibold sm:w-auto"
               onClick={() => setUnlockOpen(true)}
             >
               <Lock className="size-4" />
@@ -357,10 +375,11 @@ export function PublicQuizDetail() {
               </p>
               <p className="mt-2 text-xs text-slate-400">{t("public.accountDetailsHint")}</p>
               <Button
+                variant="brand"
                 size="lg"
                 disabled={starting}
                 onClick={() => void startAsLoggedIn()}
-                className="mt-5 w-full rounded-xl bg-[#2b7fff] font-bold text-white hover:bg-[#1f6ae0]"
+                className="mt-5 w-full font-bold"
               >
                 {starting ? (
                   <>
@@ -437,9 +456,10 @@ export function PublicQuizDetail() {
 
               <Button
                 type="submit"
+                variant="brand"
                 size="lg"
                 disabled={starting}
-                className="mt-2 rounded-xl bg-white font-bold text-[#2b7fff] ring-1 ring-[#2b7fff]/30 hover:bg-[#2b7fff]/5 md:bg-[#2b7fff] md:text-white md:ring-0 md:hover:bg-[#1f6ae0]"
+                className="mt-2 w-full font-bold"
               >
                 {starting ? (
                   <>
@@ -454,6 +474,14 @@ export function PublicQuizDetail() {
                 )}
               </Button>
             </form>
+
+            <div className="mx-auto mt-4 grid max-w-md gap-4">
+              <div className="relative text-center text-xs text-slate-400 after:absolute after:inset-0 after:top-1/2 after:border-t after:border-slate-200">
+                <span className="relative z-10 bg-white px-2">{t("public.or")}</span>
+              </div>
+
+              <GoogleButton accountType="student" onSuccess={() => void handleGoogleSignedIn()} />
+            </div>
           </section>
         )}
       </main>

@@ -9,6 +9,7 @@ import { Archive, ChevronLeft, ChevronRight, Pencil, Plus, Trash2 } from "lucide
 import { toast } from "sonner";
 
 import { BulkImportQuestions } from "./bulk-import-questions";
+import { AiImportPdfQuestions } from "./ai-import-pdf-questions";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -237,6 +238,7 @@ export function QuestionsBankList() {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <AiImportPdfQuestions onImported={() => void load(1)} />
           <BulkImportQuestions onImported={() => void load(1)} />
           <Button asChild>
             <Link href="/admin/questions/new">

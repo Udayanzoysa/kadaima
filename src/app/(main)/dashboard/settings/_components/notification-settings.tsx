@@ -79,8 +79,6 @@ export function NotificationSettings() {
   const [testTo, setTestTo] = useState("");
   const [testingEmail, setTestingEmail] = useState(false);
   const [testResult, setTestResult] = useState<TestEmailResult | null>(null);
-  const [templateHtml, setTemplateHtml] = useState("");
-  const [loadingTemplate, setLoadingTemplate] = useState(false);
 
   const [smtpHost, setSmtpHost] = useState(DEFAULT_SMTP.host);
   const [smtpPort, setSmtpPort] = useState(String(DEFAULT_SMTP.port));
@@ -157,30 +155,6 @@ export function NotificationSettings() {
     if (value === "STARTTLS") setSmtpPort("587");
   };
 
-  const loadTemplatePreview = async (email?: string) => {
-    setLoadingTemplate(true);
-    try {
-      const q = email ? `?email=${encodeURIComponent(email)}` : "";
-      const res = await fetch(`${APP_CONFIG.apiUrl}/settings/notifications/email-template${q}`, {
-        headers: authHeaders(),
-      });
-      if (!res.ok) throw new Error("Could not load email template");
-      const data = await res.json();
-      setTemplateHtml(data.html || "");
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Could not load template");
-    } finally {
-      setLoadingTemplate(false);
-    }
-  };
-
-  useEffect(() => {
-    if (!loading) {
-      void loadTemplatePreview(testTo || "student@example.com");
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- preview once settings load
-  }, [loading]);
-
   const sendTestEmail = async () => {
     const email = testTo.trim();
     if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
@@ -205,8 +179,7 @@ export function NotificationSettings() {
       }
 
       setTestResult(data as TestEmailResult);
-      setTemplateHtml(data.html || "");
-      toast.success(data.delivered ? "Test email sent" : "Preview ready (SMTP not fully configured)", {
+      toast.success(data.delivered ? "Test email sent" : "SMTP not fully configured", {
         description: data.message,
       });
     } catch (err) {
@@ -421,10 +394,9 @@ export function NotificationSettings() {
             <div className="space-y-3 rounded-lg border border-border bg-muted/20 p-4">
               <div className="font-medium text-sm">Test SMTP / password-reset email</div>
               <p className="text-muted-foreground text-xs">
-                Enter a registered user email. If the address is not in the system (e.g.
-                superadmin@gmail.com with no account), you will see{" "}
-                <strong>No user found for that email</strong>. Otherwise the real template is
-                sent and shown below.
+                Enter a registered user email. If the address is not in the system, you will see{" "}
+                <strong>No user found for that email</strong>. Otherwise a real password-reset
+                email is sent.
               </p>
               <Field className="gap-1.5">
                 <FieldLabel htmlFor="test-email">Send test to</FieldLabel>
@@ -445,14 +417,6 @@ export function NotificationSettings() {
                 >
                   {testingEmail ? <Spinner className="size-4" /> : <Send className="size-4" />}
                   {testingEmail ? "Sending…" : "Send test email"}
-                </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  disabled={loadingTemplate}
-                  onClick={() => void loadTemplatePreview(testTo || "student@example.com")}
-                >
-                  Preview template
                 </Button>
               </div>
               {testResult ? (
@@ -589,37 +553,6 @@ export function NotificationSettings() {
           </CardContent>
         </Card>
       </div>
-
-      <Card className="border-border bg-card">
-        <CardHeader className="space-y-1.5 p-6">
-          <CardTitle className="font-semibold text-xl leading-none tracking-tight">
-            Email template preview
-          </CardTitle>
-          <CardDescription className="text-muted-foreground text-sm">
-            This is the HTML email users receive. The “Reset My Password” button opens the reset
-            page with email + code in the URL (password fields only).
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="p-6">
-          {loadingTemplate && !templateHtml ? (
-            <div className="flex h-40 items-center justify-center gap-2">
-              <Spinner className="size-5" />
-              <span className="text-muted-foreground text-sm">Loading template…</span>
-            </div>
-          ) : templateHtml ? (
-            <div className="overflow-hidden rounded-lg border border-border bg-[#f4f6f8]">
-              <iframe
-                title="Password reset email template"
-                className="h-[520px] w-full bg-white"
-                sandbox=""
-                srcDoc={templateHtml}
-              />
-            </div>
-          ) : (
-            <p className="text-muted-foreground text-sm">No template loaded yet.</p>
-          )}
-        </CardContent>
-      </Card>
     </div>
   );
 }

@@ -4,17 +4,9 @@ import { useEffect, useMemo, useState } from "react";
 
 import { useRouter } from "next/navigation";
 
-import {
-  Bookmark,
-  ChevronLeft,
-  ChevronRight,
-  Clock3,
-  Lock,
-  Play,
-  Users,
-} from "lucide-react";
+import { Play } from "lucide-react";
 
-import { BrandLogo } from "@/components/brand/brand-logo";
+import { PublicQuizCard } from "@/components/quiz/public-quiz-card";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { APP_CONFIG } from "@/config/app-config";
@@ -22,12 +14,12 @@ import { useI18n } from "@/hooks/use-i18n";
 import { getClientCookie } from "@/lib/cookie.client";
 import { ensureGuestSessionId, getOrCreateGuestLead } from "@/lib/guest-session";
 import { cn } from "@/lib/utils";
-import { localize, mediaUrl, type LocalizedText } from "@/types/quiz";
+import { localize, type LocalizedText } from "@/types/quiz";
 
 import { PublicQuizShell } from "./public-quiz-shell";
 import { QuizUnlockModal, type UnlockQuizTarget } from "./quiz-unlock-modal";
 
-interface PublicQuizCard {
+interface CatalogQuiz {
   id: string;
   title: LocalizedText;
   description: LocalizedText | null;
@@ -48,43 +40,75 @@ interface InProgressSummary {
   totalQuestions: number;
 }
 
+type CourseGroup = {
+  courseId: string;
+  courseTitle: string;
+  shortLabel: string;
+  modules: { id: string; title: string }[];
+  items: CatalogQuiz[];
+};
+
 function plainFromHtml(html: string | null | undefined) {
   if (!html) return "";
   return html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
 }
 
-function formatAttempts(count: number | undefined) {
-  const n = count ?? 0;
-  if (n >= 1000) return `${(n / 1000).toFixed(n >= 10000 ? 0 : 1).replace(/\.0$/, "")}k`;
-  return String(n);
-}
-
-function courseLabel(course: PublicQuizCard["course"], locale: string) {
+function courseLabel(course: CatalogQuiz["course"], locale: string) {
   return localize(course.title as LocalizedText, locale as "en" | "si" | "ta");
 }
 
-function moduleLabel(mod: PublicQuizCard["module"], locale: string) {
+function moduleLabel(mod: CatalogQuiz["module"], locale: string) {
   if (!mod) return null;
   return localize(mod.title as LocalizedText, locale as "en" | "si" | "ta");
 }
 
-const ACCENTS = [
-  "from-[#dbeafe] to-[#eff6ff]",
-  "from-[#d1fae5] to-[#ecfdf5]",
-  "from-[#ede9fe] to-[#f5f3ff]",
-  "from-[#ffedd5] to-[#fff7ed]",
-] as const;
+/** Compact labels for the category nav (prefer English title for matching). */
+function shortCourseLabel(course: CatalogQuiz["course"], locale: string): string {
+  const fullTitle = courseLabel(course, locale);
+  const enTitle =
+    typeof course.title === "object" && course.title && "en" in course.title
+      ? String((course.title as LocalizedText).en ?? "")
+      : fullTitle;
+  const t = `${enTitle} ${fullTitle}`.toLowerCase();
+  if (t.includes("scholarship") || t.includes("ශිෂ්‍යත්ව") || t.includes("புலமை")) {
+    return locale === "si" ? "ශිෂ්‍යත්ව" : locale === "ta" ? "புலமைப்பரிசில்" : "Scholarship";
+  }
+  if (t.includes("ordinary") || t.includes("(o/l)") || t.includes("o/l") || t.includes("සාමාන්‍ය") || t.includes("சாதாரண")) {
+    return "O/L";
+  }
+  if (t.includes("advanced") || t.includes("(a/l)") || t.includes("a/l") || t.includes("උසස්") || t.includes("உயர்")) {
+    return "A/L";
+  }
+  if (t.includes("cambridge") || t.includes("edexcel") || t.includes("international") || t.includes("ජාත්‍යන්තර") || t.includes("சர்வதேச")) {
+    return locale === "si" ? "ජාත්‍යන්තර" : locale === "ta" ? "சர்வதேச" : "International";
+  }
+  return fullTitle.length > 22 ? `${fullTitle.slice(0, 20)}…` : fullTitle;
+}
+
+/** Fixed display order: Scholarship, O/L, A/L, International, then anything else. */
+function categoryRank(course: CatalogQuiz["course"]): number {
+  const enTitle =
+    typeof course.title === "object" && course.title && "en" in course.title
+      ? String((course.title as LocalizedText).en ?? "")
+      : String(course.title ?? "");
+  const t = enTitle.toLowerCase();
+  if (t.includes("scholarship")) return 0;
+  if (t.includes("ordinary") || t.includes("(o/l)") || /\bo\/l\b/.test(t)) return 1;
+  if (t.includes("advanced") || t.includes("(a/l)") || /\ba\/l\b/.test(t)) return 2;
+  if (t.includes("cambridge") || t.includes("edexcel") || t.includes("international")) return 3;
+  return 4;
+}
 
 export function PublicQuizCatalog() {
   const router = useRouter();
-  const { locale } = useI18n();
-  const [quizzes, setQuizzes] = useState<PublicQuizCard[]>([]);
+  const { locale, t } = useI18n();
+  const [quizzes, setQuizzes] = useState<CatalogQuiz[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeIndex, setActiveIndex] = useState(0);
-  const [challengeIndex, setChallengeIndex] = useState(0);
   const [inProgressByQuiz, setInProgressByQuiz] = useState<Record<string, InProgressSummary>>({});
   const [unlockTarget, setUnlockTarget] = useState<UnlockQuizTarget | null>(null);
+  const [activeCourseId, setActiveCourseId] = useState<string | null>(null);
+  const [activeModuleId, setActiveModuleId] = useState<string | "all">("all");
 
   const reloadQuizzes = async () => {
     const guestSessionId = ensureGuestSessionId();
@@ -165,32 +189,68 @@ export function PublicQuizCatalog() {
     })();
   }, []);
 
-  const featured = useMemo(() => quizzes.slice(0, 3), [quizzes]);
-  const rest = useMemo(() => quizzes.slice(3), [quizzes]);
-  const byCourse = useMemo(() => {
-    const map = new Map<string, { courseId: string; courseTitle: string; items: PublicQuizCard[] }>();
-    for (const quiz of rest) {
+  const byCourse = useMemo((): CourseGroup[] => {
+    const map = new Map<string, CourseGroup & { rank: number }>();
+    for (const quiz of quizzes) {
       const title = courseLabel(quiz.course, locale);
-      const existing = map.get(quiz.course.id);
-      if (existing) existing.items.push(quiz);
-      else map.set(quiz.course.id, { courseId: quiz.course.id, courseTitle: title, items: [quiz] });
+      let group = map.get(quiz.course.id);
+      if (!group) {
+        group = {
+          courseId: quiz.course.id,
+          courseTitle: title,
+          shortLabel: shortCourseLabel(quiz.course, locale),
+          modules: [],
+          items: [],
+          rank: categoryRank(quiz.course),
+        };
+        map.set(quiz.course.id, group);
+      }
+      group.items.push(quiz);
+      if (quiz.module?.id) {
+        const modTitle = moduleLabel(quiz.module, locale) ?? "";
+        if (!group.modules.some((m) => m.id === quiz.module!.id)) {
+          group.modules.push({ id: quiz.module.id, title: modTitle });
+        }
+      }
     }
-    return Array.from(map.values());
-  }, [rest, locale]);
+    return Array.from(map.values()).sort((a, b) => a.rank - b.rank);
+  }, [quizzes, locale]);
 
-  const subtitleCourse = quizzes[0] ? courseLabel(quizzes[0].course, locale) : null;
+  // Keep selection in sync when quizzes load / locale changes.
+  useEffect(() => {
+    if (byCourse.length === 0) {
+      setActiveCourseId(null);
+      return;
+    }
+    if (!activeCourseId || !byCourse.some((c) => c.courseId === activeCourseId)) {
+      setActiveCourseId(byCourse[0].courseId);
+      setActiveModuleId("all");
+    }
+  }, [byCourse, activeCourseId]);
 
-  const activeQuiz = quizzes[activeIndex] ?? null;
-  const goPrev = () => setActiveIndex((i) => (i <= 0 ? Math.max(quizzes.length - 1, 0) : i - 1));
-  const goNext = () => setActiveIndex((i) => (i >= quizzes.length - 1 ? 0 : i + 1));
+  const activeCourse = useMemo(
+    () => byCourse.find((c) => c.courseId === activeCourseId) ?? null,
+    [byCourse, activeCourseId],
+  );
 
-  const needsUnlock = (quiz: PublicQuizCard) =>
+  const filteredQuizzes = useMemo(() => {
+    if (!activeCourse) return [];
+    if (activeModuleId === "all") return activeCourse.items;
+    return activeCourse.items.filter((q) => q.module?.id === activeModuleId);
+  }, [activeCourse, activeModuleId]);
+
+  const firstInProgressId = useMemo(
+    () => Object.keys(inProgressByQuiz)[0] ?? null,
+    [inProgressByQuiz],
+  );
+
+  const needsUnlock = (quiz: CatalogQuiz) =>
     Boolean(quiz.requiresUnlock) && quiz.unlocked !== true;
 
-  const startHref = (quiz: PublicQuizCard) =>
+  const startHref = (quiz: CatalogQuiz) =>
     inProgressByQuiz[quiz.id] ? `/quiz/${quiz.id}/take` : `/quiz/${quiz.id}`;
 
-  const handlePrimary = (quiz: PublicQuizCard) => {
+  const handlePrimary = (quiz: CatalogQuiz) => {
     if (needsUnlock(quiz)) {
       setUnlockTarget({
         id: quiz.id,
@@ -202,323 +262,192 @@ export function PublicQuizCatalog() {
     router.push(startHref(quiz));
   };
 
-  const descPlain = activeQuiz
-    ? plainFromHtml(localize(activeQuiz.description, locale))
-    : "";
-
-  const scrollToCourses = () => {
+  const handleResume = () => {
+    if (firstInProgressId) {
+      router.push(`/quiz/${firstInProgressId}/take`);
+      return;
+    }
     document.getElementById("quizzes-by-course")?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  const selectCourse = (courseId: string) => {
+    setActiveCourseId(courseId);
+    setActiveModuleId("all");
   };
 
   return (
     <PublicQuizShell activeNav="quiz">
       <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 md:px-6 md:py-8">
+        <section className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-[#0b2a4a] via-[#1a4a7a] to-[#3b9eff] p-6 text-white shadow-[0_20px_50px_-24px_rgba(11,42,74,0.55)] md:p-10 lg:p-12">
+          <div
+            aria-hidden
+            className="pointer-events-none absolute -right-10 -top-10 size-56 rounded-full bg-white/10 blur-2xl md:size-80"
+          />
+          <div
+            aria-hidden
+            className="pointer-events-none absolute bottom-0 right-0 hidden h-full w-1/2 bg-[radial-gradient(ellipse_at_80%_50%,_rgba(255,255,255,0.16),_transparent_55%)] md:block"
+          />
+
+          <div className="relative max-w-2xl">
+            <span className="inline-flex rounded-full bg-white/15 px-3 py-1 text-[11px] font-semibold tracking-wide text-white ring-1 ring-white/25">
+              {t("public.hero.badge")}
+            </span>
+            <h1 className="mt-4 font-[family-name:var(--font-outfit)] text-3xl font-extrabold leading-tight tracking-tight md:text-4xl lg:text-[2.75rem]">
+              {t("public.hero.title")}
+            </h1>
+            <p className="mt-3 max-w-xl text-sm leading-relaxed text-white/85 md:text-base">
+              {t("public.hero.description")}
+            </p>
+            <div className="mt-7 flex flex-wrap gap-3">
+              <Button
+                variant="brand"
+                size="lg"
+                className="px-6 font-semibold"
+                onClick={handleResume}
+              >
+                <Play className="size-4 fill-current" />
+                {firstInProgressId
+                  ? t("public.hero.resumeLastQuiz")
+                  : t("public.hero.browseQuizzes")}
+              </Button>
+              <Button
+                size="lg"
+                variant="outline"
+                className="rounded-xl border-white/50 bg-transparent px-6 font-semibold text-white hover:bg-white/10 hover:text-white"
+                onClick={() => router.push("/quiz/in-progress")}
+              >
+                {t("public.hero.viewProgress")}
+              </Button>
+            </div>
+          </div>
+        </section>
+
         {loading && (
-          <div className="flex h-64 items-center justify-center gap-2 text-slate-500">
+          <div className="mt-10 flex h-48 items-center justify-center gap-2 text-slate-500">
             <Spinner className="size-6" />
-            Loading quizzes...
+            {t("public.loadingQuizzes")}
           </div>
         )}
 
         {error && (
-          <div className="rounded-2xl border border-red-200 bg-red-50 px-5 py-4 text-sm text-red-700">
+          <div className="mt-8 rounded-2xl border border-red-200 bg-red-50 px-5 py-4 text-sm text-red-700">
             {error}
           </div>
         )}
 
         {!loading && !error && quizzes.length === 0 && (
-          <div className="rounded-2xl border border-dashed border-slate-200 bg-white px-6 py-16 text-center text-slate-500">
-            No published quizzes yet. Check back soon!
+          <div className="mt-8 rounded-2xl border border-dashed border-slate-200 bg-white px-6 py-16 text-center text-slate-500">
+            {t("public.noQuizzesYet")}
           </div>
         )}
 
-        {!loading && activeQuiz && (
-          <>
-            {/* Hero carousel */}
-            <div className="relative">
-              {quizzes.length > 1 && (
-                <>
-                  <button
-                    type="button"
-                    onClick={goPrev}
-                    className="absolute top-1/2 -left-1 z-20 hidden size-10 -translate-y-1/2 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-md transition hover:border-[#2b7fff]/40 hover:text-[#2b7fff] md:-left-4 md:flex"
-                    aria-label="Previous quiz"
-                  >
-                    <ChevronLeft className="size-5" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={goNext}
-                    className="absolute top-1/2 -right-1 z-20 hidden size-10 -translate-y-1/2 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-md transition hover:border-[#2b7fff]/40 hover:text-[#2b7fff] md:-right-4 md:flex"
-                    aria-label="Next quiz"
-                  >
-                    <ChevronRight className="size-5" />
-                  </button>
-                </>
-              )}
-
-              <section className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#2b7fff] via-[#3b9eff] to-[#5ec4c0] p-5 text-white shadow-[0_20px_50px_-24px_rgba(43,127,255,0.55)] md:p-8 lg:p-10">
-                <div
-                  aria-hidden
-                  className="pointer-events-none absolute -right-8 -top-8 size-48 rounded-full bg-white/10 blur-2xl md:size-72"
-                />
-                <div
-                  aria-hidden
-                  className="pointer-events-none absolute bottom-0 right-0 hidden h-full w-[42%] bg-[radial-gradient(ellipse_at_70%_50%,_rgba(255,255,255,0.18),_transparent_60%)] md:block"
-                />
-
-                <div className="relative grid gap-6 md:grid-cols-[1.2fr_0.8fr] md:items-center">
-                  <div>
-                    <span className="inline-flex rounded-full bg-white/90 px-3 py-1 text-[11px] font-semibold tracking-wide text-[#2b7fff]">
-                      {needsUnlock(activeQuiz) ? "Premium" : "New Challenge"}
-                    </span>
-                    <h1 className="mt-4 font-[family-name:var(--font-outfit)] text-2xl font-extrabold leading-tight tracking-tight md:text-4xl">
-                      {localize(activeQuiz.title, locale)}
-                    </h1>
-                    <p className="mt-2 text-sm text-white/85">
-                      {courseLabel(activeQuiz.course, locale)}
-                      {moduleLabel(activeQuiz.module, locale)
-                        ? ` · ${moduleLabel(activeQuiz.module, locale)}`
-                        : ""}
-                    </p>
-                    <p className="mt-3 max-w-xl text-sm text-white/90 md:text-base">
-                      {descPlain
-                        ? descPlain.slice(0, 140) + (descPlain.length > 140 ? "…" : "")
-                        : `Master the fundamentals with our expert-curated time-bound simulation. ${activeQuiz._count.questions} Questions • ${activeQuiz.durationMinutes} Minutes.`}
-                    </p>
-                    <div className="mt-3 flex flex-wrap gap-3 text-xs text-white/85 md:text-sm">
-                      <span className="inline-flex items-center gap-1.5">
-                        <Clock3 className="size-3.5" />
-                        {activeQuiz.durationMinutes} mins
-                      </span>
-                      <span>•</span>
-                      <span>{activeQuiz._count.questions} Questions</span>
-                      {inProgressByQuiz[activeQuiz.id] && (
-                        <>
-                          <span>•</span>
-                          <span>
-                            {inProgressByQuiz[activeQuiz.id].answeredCount}/
-                            {inProgressByQuiz[activeQuiz.id].totalQuestions} answered
-                          </span>
-                        </>
+        {!loading && !error && byCourse.length > 0 && (
+          <section id="quizzes-by-course" className="mt-8 scroll-mt-24 md:mt-10">
+            {/* Category nav */}
+            <nav
+              aria-label={t("public.categoryNav")}
+              className="sticky top-14 z-20 -mx-4 border-b border-slate-200/80 bg-[#f4f7fb]/95 px-4 backdrop-blur-md md:top-16 md:-mx-0 md:rounded-2xl md:border md:bg-white/90 md:px-2 md:py-2 md:shadow-sm"
+            >
+              <div className="flex gap-1 overflow-x-auto py-2 [scrollbar-width:none] md:flex-wrap md:overflow-visible md:py-0 [&::-webkit-scrollbar]:hidden">
+                {byCourse.map((group) => {
+                  const selected = group.courseId === activeCourseId;
+                  return (
+                    <button
+                      key={group.courseId}
+                      type="button"
+                      onClick={() => selectCourse(group.courseId)}
+                      className={cn(
+                        "shrink-0 rounded-xl px-3.5 py-2 text-sm font-semibold transition",
+                        selected
+                          ? "bg-[#2b7fff] text-white shadow-sm"
+                          : "text-slate-600 hover:bg-slate-100 hover:text-slate-900",
                       )}
-                    </div>
+                    >
+                      {group.shortLabel}
+                    </button>
+                  );
+                })}
+              </div>
+            </nav>
 
-                    <div className="mt-6 flex flex-wrap gap-3">
-                      <Button
-                        size="lg"
-                        className="rounded-xl bg-white px-6 font-bold text-[#2b7fff] hover:bg-white/90"
-                        onClick={() => handlePrimary(activeQuiz)}
-                      >
-                        {needsUnlock(activeQuiz) ? (
-                          <>
-                            <Lock className="size-4" />
-                            Unlock
-                          </>
-                        ) : (
-                          <>
-                            <Play className="size-4 fill-current" />
-                            {inProgressByQuiz[activeQuiz.id] ? "Resume" : "Start Now"}
-                          </>
-                        )}
-                      </Button>
-                      <Button
-                        size="lg"
-                        variant="outline"
-                        className="rounded-xl border-white/40 bg-transparent px-6 font-semibold text-white hover:bg-white/10 hover:text-white"
-                        onClick={() => router.push(`/quiz/${activeQuiz.id}`)}
-                      >
-                        View Details
-                      </Button>
-                    </div>
-                  </div>
-
-                  <div className="relative hidden aspect-[4/3] overflow-hidden rounded-2xl border border-white/20 bg-white/10 shadow-inner md:block">
-                    {activeQuiz.coverImageUrl ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={mediaUrl(activeQuiz.coverImageUrl, APP_CONFIG.apiUrl) ?? ""}
-                        alt={localize(activeQuiz.title, locale)}
-                        className="absolute inset-0 size-full object-cover"
-                      />
-                    ) : (
-                      <div className="absolute inset-0 flex items-center justify-center">
-                        <BrandLogo className="h-12 w-auto opacity-90 brightness-0 invert" />
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {quizzes.length > 1 && (
-                  <div className="relative mt-5 flex items-center justify-between md:mt-6">
-                    <div className="flex gap-2 md:hidden">
-                      <button
-                        type="button"
-                        onClick={goPrev}
-                        className="flex size-9 items-center justify-center rounded-full bg-white/20"
-                        aria-label="Previous"
-                      >
-                        <ChevronLeft className="size-4" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={goNext}
-                        className="flex size-9 items-center justify-center rounded-full bg-white/20"
-                        aria-label="Next"
-                      >
-                        <ChevronRight className="size-4" />
-                      </button>
-                    </div>
-                    <div className="ml-auto flex gap-1.5">
-                      {quizzes.map((q, i) => (
-                        <button
-                          key={q.id}
-                          type="button"
-                          aria-label={`Go to quiz ${i + 1}`}
-                          onClick={() => setActiveIndex(i)}
-                          className={cn(
-                            "h-1.5 rounded-full transition-all",
-                            i === activeIndex ? "w-6 bg-white" : "w-1.5 bg-white/40",
-                          )}
-                        />
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </section>
-            </div>
-
-            {/* Upcoming Challenges — live data */}
-            <section className="mt-10 md:mt-12">
-              <div className="mb-5 flex items-end justify-between gap-3">
-                <div>
-                  <h2 className="font-[family-name:var(--font-outfit)] text-xl font-bold text-slate-900 md:text-2xl">
-                    Upcoming Challenges
+            {activeCourse ? (
+              <div className="mt-6">
+                <div className="mb-4">
+                  <h2 className="font-[family-name:var(--font-outfit)] text-2xl font-bold tracking-tight text-slate-900 md:text-[1.75rem]">
+                    {activeCourse.courseTitle}
                   </h2>
-                  <p className="mt-1 text-sm text-slate-500">
-                    {subtitleCourse
-                      ? `Recommended quizzes for ${subtitleCourse}.`
-                      : "Recommended quizzes for you."}
+                  <p className="mt-1.5 text-sm text-slate-500 md:text-[15px]">
+                    {t("public.categorySubtitle")}
                   </p>
                 </div>
-                {byCourse.length > 0 && (
+
+                {/* Module sub-nav */}
+                <nav
+                  aria-label={t("public.moduleNav")}
+                  className="mb-5 flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+                >
                   <button
                     type="button"
-                    onClick={scrollToCourses}
-                    className="shrink-0 text-sm font-semibold text-[#2b7fff]"
+                    onClick={() => setActiveModuleId("all")}
+                    className={cn(
+                      "shrink-0 rounded-full border px-3.5 py-1.5 text-xs font-semibold transition sm:text-[13px]",
+                      activeModuleId === "all"
+                        ? "border-[#2b7fff] bg-[#2b7fff]/10 text-[#1a5fcc]"
+                        : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:text-slate-900",
+                    )}
                   >
-                    View All →
+                    {t("public.allModules")}
                   </button>
-                )}
-              </div>
-
-              {featured.length > 0 && (
-                <div className="relative">
-                  {featured.length > 1 && (
-                    <>
+                  {activeCourse.modules.map((mod) => {
+                    const selected = activeModuleId === mod.id;
+                    return (
                       <button
+                        key={mod.id}
                         type="button"
-                        onClick={() =>
-                          setChallengeIndex((i) =>
-                            i <= 0 ? featured.length - 1 : i - 1,
-                          )
-                        }
-                        className="absolute top-1/2 -left-1 z-10 hidden size-9 -translate-y-1/2 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-sm md:-left-3 md:flex"
-                        aria-label="Previous challenge"
+                        onClick={() => setActiveModuleId(mod.id)}
+                        className={cn(
+                          "shrink-0 rounded-full border px-3.5 py-1.5 text-xs font-semibold transition sm:text-[13px]",
+                          selected
+                            ? "border-[#2b7fff] bg-[#2b7fff]/10 text-[#1a5fcc]"
+                            : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:text-slate-900",
+                        )}
                       >
-                        <ChevronLeft className="size-4" />
+                        {mod.title}
                       </button>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setChallengeIndex((i) =>
-                            i >= featured.length - 1 ? 0 : i + 1,
-                          )
-                        }
-                        className="absolute top-1/2 -right-1 z-10 hidden size-9 -translate-y-1/2 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-sm md:-right-3 md:flex"
-                        aria-label="Next challenge"
-                      >
-                        <ChevronRight className="size-4" />
-                      </button>
-                    </>
-                  )}
+                    );
+                  })}
+                </nav>
 
-                  {/* Desktop: show up to 3 in a row; carousel highlights active on smaller desktop */}
-                  <div className="hidden gap-4 md:grid md:grid-cols-3">
-                    {featured.map((quiz, i) => (
-                      <UpcomingCard
-                        key={quiz.id}
-                        quiz={quiz}
-                        locale={locale}
-                        accent={ACCENTS[i % ACCENTS.length]}
-                        locked={needsUnlock(quiz)}
-                        onPrimary={() => handlePrimary(quiz)}
-                      />
-                    ))}
+                {filteredQuizzes.length === 0 ? (
+                  <div className="rounded-2xl border border-dashed border-slate-200 bg-white px-6 py-12 text-center text-sm text-slate-500">
+                    {t("public.noQuizzesInModule")}
                   </div>
-
-                  {/* Mobile carousel: one card at a time */}
-                  <div className="md:hidden">
-                    {featured[challengeIndex] && (
-                      <UpcomingCard
-                        quiz={featured[challengeIndex]}
-                        locale={locale}
-                        accent={ACCENTS[challengeIndex % ACCENTS.length]}
-                        locked={needsUnlock(featured[challengeIndex])}
-                        onPrimary={() => handlePrimary(featured[challengeIndex])}
-                      />
-                    )}
-                    {featured.length > 1 && (
-                      <div className="mt-3 flex items-center justify-center gap-2">
-                        {featured.map((q, i) => (
-                          <button
-                            key={q.id}
-                            type="button"
-                            aria-label={`Challenge ${i + 1}`}
-                            onClick={() => setChallengeIndex(i)}
-                            className={cn(
-                              "h-1.5 rounded-full transition-all",
-                              i === challengeIndex
-                                ? "w-6 bg-[#2b7fff]"
-                                : "w-1.5 bg-slate-300",
-                            )}
-                          />
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-            </section>
-
-            {/* Remaining quizzes by course */}
-            {byCourse.length > 0 && (
-              <section id="quizzes-by-course" className="mt-12 scroll-mt-24 space-y-10">
-                {byCourse.map((group) => (
-                  <div key={group.courseId}>
-                    <h3 className="font-[family-name:var(--font-outfit)] text-lg font-bold text-slate-900">
-                      {group.courseTitle}
-                    </h3>
-                    <p className="mt-1 text-sm text-slate-500">
-                      {group.items.length} quiz{group.items.length === 1 ? "" : "zes"} in this course
-                    </p>
-                    <div className="mt-4 grid gap-4 sm:grid-cols-2">
-                      {group.items.map((quiz, i) => (
-                        <UpcomingCard
+                ) : (
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                    {filteredQuizzes.map((quiz, i) => {
+                      const desc =
+                        plainFromHtml(localize(quiz.description, locale as "en" | "si" | "ta")) ||
+                        moduleLabel(quiz.module, locale) ||
+                        t("public.cardFallbackDesc");
+                      return (
+                        <PublicQuizCard
                           key={quiz.id}
-                          quiz={quiz}
-                          locale={locale}
-                          accent={ACCENTS[i % ACCENTS.length]}
+                          title={localize(quiz.title, locale as "en" | "si" | "ta")}
+                          description={desc}
+                          durationMinutes={quiz.durationMinutes}
+                          questionCount={quiz._count.questions}
+                          iconIndex={i}
+                          isNew={i === 0}
                           locked={needsUnlock(quiz)}
                           onPrimary={() => handlePrimary(quiz)}
                         />
-                      ))}
-                    </div>
+                      );
+                    })}
                   </div>
-                ))}
-              </section>
-            )}
-          </>
+                )}
+              </div>
+            ) : null}
+          </section>
         )}
       </main>
 
@@ -538,93 +467,5 @@ export function PublicQuizCatalog() {
         }}
       />
     </PublicQuizShell>
-  );
-}
-
-function UpcomingCard({
-  quiz,
-  locale,
-  accent,
-  locked,
-  onPrimary,
-}: {
-  quiz: PublicQuizCard;
-  locale: string;
-  accent: string;
-  locked: boolean;
-  onPrimary: () => void;
-}) {
-  const title = localize(quiz.title, locale as "en" | "si" | "ta");
-  const category = courseLabel(quiz.course, locale);
-  const moduleName = moduleLabel(quiz.module, locale);
-  const initial = title.charAt(0).toUpperCase() || "?";
-
-  return (
-    <article className="flex gap-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:shadow-md">
-      <div
-        className={cn(
-          "flex size-20 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br",
-          accent,
-        )}
-      >
-        <span className="text-2xl font-bold text-[#2b7fff]/70">{initial}</span>
-      </div>
-      <div className="min-w-0 flex-1">
-        <div className="flex items-start justify-between gap-2">
-          <div className="flex flex-wrap gap-1.5">
-            {locked && (
-              <span className="rounded-full bg-[#2b7fff]/10 px-2 py-0.5 text-[10px] font-bold uppercase text-[#2b7fff]">
-                Premium
-              </span>
-            )}
-            <span className="rounded-full bg-teal-500/10 px-2 py-0.5 text-[10px] font-bold uppercase text-teal-700">
-              {category}
-            </span>
-          </div>
-          <button type="button" className="text-slate-300 hover:text-[#2b7fff]" aria-label="Save">
-            <Bookmark className="size-4" />
-          </button>
-        </div>
-        <h3 className="mt-2 truncate font-semibold text-slate-900">{title}</h3>
-        <p className="mt-0.5 truncate text-xs text-slate-500">
-          {category}
-          {moduleName ? ` · ${moduleName}` : ""}
-        </p>
-        <p className="mt-1 flex flex-wrap gap-2 text-xs text-slate-500">
-          <span className="inline-flex items-center gap-1">
-            <Clock3 className="size-3" />
-            {quiz.durationMinutes} Mins
-          </span>
-          <span>•</span>
-          <span>{quiz._count.questions} Questions</span>
-        </p>
-        <div className="mt-3 flex items-center justify-between gap-2">
-          <span className="inline-flex items-center gap-1 text-xs text-slate-400">
-            <Users className="size-3.5" />
-            {formatAttempts(quiz._count.attempts)} Students Attempted
-          </span>
-          <Button
-            size="sm"
-            variant={locked ? "default" : "outline"}
-            className={cn(
-              "rounded-lg font-semibold",
-              locked
-                ? "bg-[#1e3a5f] text-white hover:bg-[#254a75]"
-                : "border-[#2b7fff] text-[#2b7fff] hover:bg-[#2b7fff]/5",
-            )}
-            onClick={onPrimary}
-          >
-            {locked ? (
-              <>
-                <Lock className="size-3.5" />
-                Unlock
-              </>
-            ) : (
-              "Start"
-            )}
-          </Button>
-        </div>
-      </div>
-    </article>
   );
 }

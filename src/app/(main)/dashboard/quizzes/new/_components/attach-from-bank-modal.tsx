@@ -21,6 +21,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { APP_CONFIG } from "@/config/app-config";
 import { getClientCookie } from "@/lib/cookie.client";
 import {
+  hasLocaleContent,
   localize,
   type BankQuestion,
   type LocalizedText,
@@ -40,35 +41,12 @@ type PaginatedResponse = {
 type Props = {
   /** Already attached question IDs (hidden / disabled in picker). */
   excludeIds: string[];
+  /** Only questions with text in this language can be attached. */
+  language: SupportedLocale;
   onAttach: (questions: BankQuestion[]) => void;
 };
 
-function LangBlock({
-  label,
-  text,
-}: {
-  label: string;
-  text: string;
-}) {
-  if (!text.trim()) {
-    return (
-      <div className="text-muted-foreground text-xs">
-        <span className="font-semibold uppercase tracking-wide">{label}</span>
-        <span className="ml-2 italic">—</span>
-      </div>
-    );
-  }
-  return (
-    <div className="text-xs leading-snug">
-      <span className="mr-2 font-semibold uppercase tracking-wide text-muted-foreground">
-        {label}
-      </span>
-      <span className="text-foreground">{text}</span>
-    </div>
-  );
-}
-
-export function AttachFromBankModal({ excludeIds, onAttach }: Props) {
+export function AttachFromBankModal({ excludeIds, language, onAttach }: Props) {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [items, setItems] = useState<BankQuestion[]>([]);
@@ -92,16 +70,22 @@ export function AttachFromBankModal({ excludeIds, onAttach }: Props) {
       const data = (await res.json()) as PaginatedResponse | BankQuestion[];
 
       if (Array.isArray(data)) {
+        const compatible = data.filter((q) =>
+          hasLocaleContent(q.questionText as LocalizedText, language, 3),
+        );
         const start = (pageNum - 1) * PAGE_SIZE;
-        const slice = data.slice(start, start + PAGE_SIZE);
+        const slice = compatible.slice(start, start + PAGE_SIZE);
         setItems(slice);
-        setTotal(data.length);
-        setTotalPages(Math.max(1, Math.ceil(data.length / PAGE_SIZE)));
+        setTotal(compatible.length);
+        setTotalPages(Math.max(1, Math.ceil(compatible.length / PAGE_SIZE)));
         setPage(pageNum);
       } else {
-        setItems(data.items ?? []);
-        setTotal(data.total ?? 0);
-        setTotalPages(data.totalPages ?? 1);
+        const filtered = (data.items ?? []).filter((q) =>
+          hasLocaleContent(q.questionText as LocalizedText, language, 3),
+        );
+        setItems(filtered);
+        setTotal(filtered.length);
+        setTotalPages(Math.max(1, data.totalPages ?? 1));
         setPage(data.page ?? pageNum);
       }
     } catch (err) {
@@ -109,7 +93,7 @@ export function AttachFromBankModal({ excludeIds, onAttach }: Props) {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [language]);
 
   useEffect(() => {
     if (!open) return;
@@ -156,8 +140,7 @@ export function AttachFromBankModal({ excludeIds, onAttach }: Props) {
     setOpen(false);
   };
 
-  const textAt = (q: BankQuestion, lang: SupportedLocale) =>
-    localize(q.questionText as LocalizedText, lang);
+  const textAt = (q: BankQuestion) => localize(q.questionText as LocalizedText, language);
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -171,7 +154,8 @@ export function AttachFromBankModal({ excludeIds, onAttach }: Props) {
         <DialogHeader className="shrink-0 border-b px-6 py-4">
           <DialogTitle>Attach from question bank</DialogTitle>
           <DialogDescription>
-            Select published questions (EN / SI / TA). Already attached items are disabled.
+            Only questions with {language.toUpperCase()} text are shown — this quiz is{" "}
+            {language.toUpperCase()} only.
           </DialogDescription>
         </DialogHeader>
 
@@ -188,7 +172,7 @@ export function AttachFromBankModal({ excludeIds, onAttach }: Props) {
           </label>
           <span className="text-muted-foreground text-xs">
             {selected.size} selected
-            {total > 0 ? ` · ${total} in bank` : ""}
+            {total > 0 ? ` · ${total} matching` : ""}
           </span>
         </div>
 
@@ -200,7 +184,7 @@ export function AttachFromBankModal({ excludeIds, onAttach }: Props) {
             </div>
           ) : items.length === 0 ? (
             <p className="py-10 text-center text-muted-foreground text-sm">
-              No published questions in the bank.
+              No published questions with {language.toUpperCase()} text in the bank.
             </p>
           ) : (
             <ul className="space-y-2">
@@ -220,12 +204,15 @@ export function AttachFromBankModal({ excludeIds, onAttach }: Props) {
                         checked={attached ? true : checked}
                         disabled={attached || loading}
                         onCheckedChange={(v) => toggleOne(q, v === true)}
-                        aria-label={`Select ${textAt(q, "en")}`}
+                        aria-label={`Select ${textAt(q)}`}
                       />
                       <div className="min-w-0 flex-1 space-y-1.5">
                         <div className="flex flex-wrap items-center gap-2">
                           <Badge variant="outline" className="text-[10px] uppercase">
                             {q.type?.replace("_", " ") ?? "MCQ"}
+                          </Badge>
+                          <Badge variant="secondary" className="text-[10px] uppercase">
+                            {language}
                           </Badge>
                           <span className="text-muted-foreground text-xs">{q.points} pts</span>
                           {attached && (
@@ -234,9 +221,7 @@ export function AttachFromBankModal({ excludeIds, onAttach }: Props) {
                             </Badge>
                           )}
                         </div>
-                        <LangBlock label="EN" text={textAt(q, "en")} />
-                        <LangBlock label="SI" text={textAt(q, "si")} />
-                        <LangBlock label="TA" text={textAt(q, "ta")} />
+                        <p className="text-sm leading-snug">{textAt(q)}</p>
                       </div>
                     </div>
                   </li>

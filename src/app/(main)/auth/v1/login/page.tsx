@@ -20,11 +20,11 @@ export default function LoginV1() {
         <GoogleButton accountType="student" />
         <p className="text-center text-xs text-slate-500">
           New here?{" "}
-          <Link prefetch={false} href="/student/register" className="font-medium text-sky-600 hover:text-sky-700">
+          <Link prefetch={false} href="/student/register" className="font-medium text-[#2b7fff] hover:text-[#1f6ae0]">
             Student
           </Link>
           {" · "}
-          <Link prefetch={false} href="/teacher/register" className="font-medium text-sky-600 hover:text-sky-700">
+          <Link prefetch={false} href="/teacher/register" className="font-medium text-[#2b7fff] hover:text-[#1f6ae0]">
             Teacher
           </Link>
         </p>

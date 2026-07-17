@@ -245,7 +245,7 @@ export function LoginForm({ redirectTo = "/admin", onSuccess }: LoginFormProps) 
                 <Link
                   prefetch={false}
                   href="/forgot-password"
-                  className="text-xs font-medium text-sky-600 hover:text-sky-700 hover:underline"
+                  className="text-xs font-medium text-[#2b7fff] hover:text-[#1f6ae0] hover:underline"
                 >
                   Forgot password?
                 </Link>

@@ -28,16 +28,20 @@ import { APP_CONFIG } from "@/config/app-config";
 import { useI18n } from "@/hooks/use-i18n";
 import { useResilientTimer, type HeartbeatResponse } from "@/hooks/use-resilient-timer";
 import { getClientCookie } from "@/lib/cookie.client";
-import { LOCALES } from "@/lib/i18n";
 import { safeJson } from "@/lib/safe-json";
 import { cn } from "@/lib/utils";
-import { localize, type AttemptDetail, type QuizAttempt } from "@/types/quiz";
+import {
+  localize,
+  resolveQuizLanguage,
+  type AttemptDetail,
+  type QuizAttempt,
+} from "@/types/quiz";
 
 export function TakeQuiz() {
   const params = useParams<{ id: string }>();
   const quizId = params.id;
   const router = useRouter();
-  const { t, locale, setLocale } = useI18n();
+  const { t, setLocale } = useI18n();
 
   const [attempt, setAttempt] = useState<AttemptDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -228,6 +232,16 @@ export function TakeQuiz() {
     return () => window.removeEventListener("beforeunload", handler);
   }, [attempt]);
 
+  const contentLocale = attempt
+    ? resolveQuizLanguage(attempt.quiz.title, attempt.quiz.language)
+    : "en";
+
+  // Lock UI chrome + content to the quiz's single language.
+  useEffect(() => {
+    if (!attempt) return;
+    setLocale(resolveQuizLanguage(attempt.quiz.title, attempt.quiz.language));
+  }, [attempt, setLocale]);
+
   const handleAnswer = (questionId: string, next: AnswerValue) => {
     setAnswers((prev) => ({ ...prev, [questionId]: next }));
     answerTimestampsRef.current[questionId] = Date.now();
@@ -280,23 +294,17 @@ export function TakeQuiz() {
       <div className="sticky top-0 z-10 -mx-4 -mt-4 border-b bg-background/95 px-4 py-3 backdrop-blur-sm md:-mx-6 md:-mt-6 md:px-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h1 className="font-semibold text-lg leading-tight md:text-xl">{localize(attempt.quiz.title, locale)}</h1>
-            <p className="text-muted-foreground text-xs">{localize(attempt.quiz.course.title, locale)}</p>
+            <h1 className="font-semibold text-lg leading-tight md:text-xl">
+              {localize(attempt.quiz.title, contentLocale)}
+            </h1>
+            <p className="text-muted-foreground text-xs">
+              {localize(attempt.quiz.course.title, contentLocale)}
+            </p>
           </div>
           <div className="flex items-center gap-3">
-            <div className="flex flex-wrap gap-1">
-              {LOCALES.map((l) => (
-                <Button
-                  key={l.code}
-                  type="button"
-                  size="sm"
-                  variant={locale === l.code ? "default" : "outline"}
-                  onClick={() => setLocale(l.code)}
-                >
-                  {l.label}
-                </Button>
-              ))}
-            </div>
+            <Badge variant="outline" className="text-xs uppercase">
+              {contentLocale}
+            </Badge>
             <Badge
               variant={isUrgent ? "destructive" : "secondary"}
               className={cn("gap-1.5 font-mono text-sm tabular-nums", isUrgent && "animate-pulse")}
@@ -339,7 +347,7 @@ export function TakeQuiz() {
                       <Badge variant="secondary" className="text-[10px] uppercase">
                         {question.type.replace("_", " ")}
                       </Badge>
-                      <QuestionPrompt question={question} locale={locale} />
+                      <QuestionPrompt question={question} locale={contentLocale} />
                     </div>
                   </div>
                   <Badge variant="secondary" className="shrink-0 text-xs">
@@ -350,7 +358,7 @@ export function TakeQuiz() {
               <CardContent>
                 <QuestionAnswerInput
                   question={question}
-                  locale={locale}
+                  locale={contentLocale}
                   value={selected ?? {}}
                   onChange={(next) => handleAnswer(question.id, next)}
                   disabled={submitting}

@@ -27,7 +27,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { APP_CONFIG } from "@/config/app-config";
 import { getClientCookie } from "@/lib/cookie.client";
 
+import { AiChatSettings } from "./_components/ai-chat-settings";
 import { NotificationSettings } from "./_components/notification-settings";
+import { SubscriptionBillingSettings } from "./_components/subscription-billing-settings";
 
 export default function SettingsPage() {
   const [loading, setLoading] = useState(true);
@@ -272,7 +274,9 @@ export default function SettingsPage() {
         <h1 className="font-semibold text-3xl tracking-tight">Settings</h1>
         <p className="text-muted-foreground text-sm">
           Manage your account, security
-          {isSuperAdmin ? ", and platform mail/SMS gateways for password reset delivery." : "."}
+          {isSuperAdmin
+            ? ", subscription pricing, AI chat, and platform mail/SMS gateways."
+            : "."}
         </p>
       </div>
 
@@ -280,6 +284,8 @@ export default function SettingsPage() {
         <TabsList variant="line" className="h-auto w-full flex-wrap justify-start gap-1">
           <TabsTrigger value="account">Account</TabsTrigger>
           <TabsTrigger value="security">Security & password</TabsTrigger>
+          {isSuperAdmin ? <TabsTrigger value="subscription">Payments</TabsTrigger> : null}
+          {isSuperAdmin ? <TabsTrigger value="ai">AI Chat</TabsTrigger> : null}
           {isSuperAdmin ? <TabsTrigger value="platform">SMTP & SMS</TabsTrigger> : null}
         </TabsList>
 
@@ -594,6 +600,18 @@ export default function SettingsPage() {
             </Card>
           </div>
         </TabsContent>
+
+        {isSuperAdmin ? (
+          <TabsContent value="subscription" className="mt-0">
+            <SubscriptionBillingSettings />
+          </TabsContent>
+        ) : null}
+
+        {isSuperAdmin ? (
+          <TabsContent value="ai" className="mt-0">
+            <AiChatSettings />
+          </TabsContent>
+        ) : null}
 
         {isSuperAdmin ? (
           <TabsContent value="platform" className="mt-0">

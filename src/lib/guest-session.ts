@@ -130,8 +130,26 @@ export function getGuestProgress(quizId: string): GuestProgressLocal | null {
   }
 }
 
+/** Clears lead PII but keeps guestSessionId so prior unlocks stay linked. */
 export function clearGuestLead() {
   if (typeof window === "undefined") return;
+  try {
+    const existing = getOrCreateGuestLead();
+    if (existing?.guestSessionId) {
+      localStorage.setItem(
+        GUEST_SESSION_KEY,
+        JSON.stringify({
+          guestSessionId: existing.guestSessionId,
+          studentName: "",
+          school: "",
+          mobileNumber: "",
+        } satisfies GuestLeadLocal),
+      );
+      return;
+    }
+  } catch {
+    /* fall through */
+  }
   localStorage.removeItem(GUEST_SESSION_KEY);
 }
 

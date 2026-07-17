@@ -188,7 +188,7 @@ export function ResetPasswordForm() {
   if (isEmailMagicLink && linkStatus === "checking") {
     return (
       <div className="flex flex-col items-center justify-center gap-3 py-10">
-        <Spinner className="size-6 text-sky-500" />
+        <Spinner className="size-6 text-[#2b7fff]" />
         <p className="text-sm text-slate-500">Validating your reset link…</p>
       </div>
     );
@@ -330,7 +330,7 @@ export function ResetPasswordForm() {
           </FieldGroup>
         </>
       ) : (
-        <p className="rounded-xl border border-sky-100 bg-sky-50 px-3 py-2.5 text-center text-sm text-sky-800">
+        <p className="rounded-xl border border-[#bcd8ff] bg-[#eef6ff] px-3 py-2.5 text-center text-sm text-[#1a5fcc]">
           Link verified. Choose a new password below.
         </p>
       )}
@@ -388,7 +388,7 @@ export function ResetPasswordForm() {
 
       <p className="text-center text-xs text-slate-500">
         Didn&apos;t get a link?{" "}
-        <Link prefetch={false} href="/forgot-password" className="font-medium text-sky-600 hover:text-sky-700">
+        <Link prefetch={false} href="/forgot-password" className="font-medium text-[#2b7fff] hover:text-[#1f6ae0]">
           Request again
         </Link>
       </p>

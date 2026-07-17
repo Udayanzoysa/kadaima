@@ -4,6 +4,41 @@ export type LocalizedText = Record<SupportedLocale, string>;
 
 export const emptyLocalizedText = (): LocalizedText => ({ en: "", si: "", ta: "" });
 
+/** Store content in exactly one locale slot (one quiz = one language). */
+export function monoLocalizedText(value: string, language: SupportedLocale): LocalizedText {
+  return {
+    en: language === "en" ? value : "",
+    si: language === "si" ? value : "",
+    ta: language === "ta" ? value : "",
+  };
+}
+
+export function plainTextFromLocalized(value: string | null | undefined): string {
+  if (!value) return "";
+  return value.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+}
+
+export function hasLocaleContent(
+  text: LocalizedText | null | undefined,
+  language: SupportedLocale,
+  minLen = 1,
+): boolean {
+  if (!text) return false;
+  return plainTextFromLocalized(text[language]).length >= minLen;
+}
+
+/** Prefer API `language`; otherwise infer from which title locale is filled. */
+export function resolveQuizLanguage(
+  title: LocalizedText | null | undefined,
+  language?: SupportedLocale | string | null,
+): SupportedLocale {
+  if (language === "en" || language === "si" || language === "ta") return language;
+  if (hasLocaleContent(title, "en")) return "en";
+  if (hasLocaleContent(title, "si")) return "si";
+  if (hasLocaleContent(title, "ta")) return "ta";
+  return "en";
+}
+
 export interface AnswerChoiceForm {
   id: string;
   choiceText: LocalizedText;
@@ -22,6 +57,8 @@ export interface QuestionForm {
 }
 
 export interface QuizFormState {
+  /** Single content language for the whole quiz. */
+  language: SupportedLocale;
   title: LocalizedText;
   description: LocalizedText;
   coverImageUrl: string | null;
@@ -40,6 +77,7 @@ export interface QuizFormState {
 }
 
 export const initialQuizFormState = (): QuizFormState => ({
+  language: "en",
   title: emptyLocalizedText(),
   description: emptyLocalizedText(),
   coverImageUrl: null,
@@ -85,6 +123,7 @@ export type AttemptStatus = "In_Progress" | "Submitted" | "Timed_Out";
 
 export interface QuizSummary {
   id: string;
+  language?: SupportedLocale;
   title: LocalizedText;
   description: LocalizedText | null;
   coverImageUrl?: string | null;
@@ -217,6 +256,7 @@ export interface AttemptDetail extends QuizAttempt {
   responses: AttemptResponse[];
   quiz: {
     id: string;
+    language?: SupportedLocale;
     title: LocalizedText;
     description: LocalizedText | null;
     durationMinutes: number;
@@ -232,7 +272,8 @@ export function localize(
 ): string {
   if (!text) return "";
   if (typeof text === "string") return text;
-  return text[locale] || text.en || "";
+  // Prefer requested locale, then any filled slot (mono-language quizzes).
+  return text[locale] || text.en || text.si || text.ta || "";
 }
 
 /** Strip scripts/handlers from teacher HTML (tables / rich prompts). */

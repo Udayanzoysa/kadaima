@@ -1,12 +1,18 @@
 "use client";
 
+import { useEffect, useState } from "react";
+
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 import { ClipboardList, Globe, HelpCircle, Timer } from "lucide-react";
 
 import { BrandLogo } from "@/components/brand/brand-logo";
+import { ProfileMenu, type SiteAuthUser } from "@/components/site/profile-menu";
+import { SupportChatWidget } from "@/components/site/support-chat-widget";
 import { useI18n } from "@/hooks/use-i18n";
+import { APP_CONFIG } from "@/config/app-config";
+import { deleteClientCookie, getClientCookie } from "@/lib/cookie.client";
 import { LOCALES } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
@@ -26,6 +32,31 @@ export function PublicQuizShell({
   const pathname = usePathname();
   const { locale, setLocale, t } = useI18n();
   const localeMeta = LOCALES.find((l) => l.code === locale) ?? LOCALES[0];
+  const [authUser, setAuthUser] = useState<SiteAuthUser | null | undefined>(undefined);
+
+  useEffect(() => {
+    const token = getClientCookie("session_token");
+    if (!token) {
+      setAuthUser(null);
+      return;
+    }
+    (async () => {
+      try {
+        const res = await fetch(`${APP_CONFIG.apiUrl}/auth/me`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!res.ok) {
+          deleteClientCookie("session_token");
+          setAuthUser(null);
+          return;
+        }
+        const data = await res.json();
+        setAuthUser({ name: data.name, email: data.email, team: data.team });
+      } catch {
+        setAuthUser(null);
+      }
+    })();
+  }, []);
 
   const resolvedActive =
     activeNav ??
@@ -76,23 +107,53 @@ export function PublicQuizShell({
               <Globe className="size-3.5" />
               <span className="max-w-[4.5rem] truncate">{localeMeta.label}</span>
             </button>
-            <Link
-              href="/login"
-              className="flex size-9 items-center justify-center rounded-full bg-[#2b7fff] text-xs font-bold text-white shadow-sm"
-              aria-label="Account"
-            >
-              JD
-            </Link>
+
+            {authUser ? (
+              <ProfileMenu user={authUser} />
+            ) : (
+              <div className="flex items-center gap-1.5">
+                <Link
+                  href="/login"
+                  className="inline-flex h-9 items-center rounded-full border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-600 shadow-sm transition hover:border-[#2b7fff]/40 hover:text-[#2b7fff] sm:px-3.5"
+                >
+                  {t("public.nav.login")}
+                </Link>
+                <Link
+                  href="/student/register"
+                  className="inline-flex h-9 items-center rounded-full bg-[#2b7fff] px-3 text-xs font-semibold text-white shadow-sm transition hover:bg-[#1f6fe6] sm:px-3.5"
+                >
+                  {t("public.nav.register")}
+                </Link>
+              </div>
+            )}
           </div>
         </div>
       </header>
 
       <div className="relative z-10 flex flex-1 flex-col pb-20 md:pb-0">{children}</div>
 
-      <footer className="relative z-10 mt-auto hidden border-t border-slate-200 bg-white md:block">
-        <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-4 px-6 py-5 text-xs text-slate-400">
-          <BrandLogo className="h-6 w-auto" />
-          <span>{t("public.footerRights").replace("{year}", String(new Date().getFullYear()))}</span>
+      <footer className="relative z-10 mt-auto border-t border-slate-200 bg-white pb-[max(4.5rem,env(safe-area-inset-bottom))] md:pb-0">
+        <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-4 py-5 text-xs text-slate-500 md:flex-row md:items-center md:justify-between md:gap-6 md:px-6">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4">
+            <BrandLogo className="h-6 w-auto" />
+            <span className="text-slate-400">
+              {t("public.footerRights").replace("{year}", String(new Date().getFullYear()))}
+            </span>
+          </div>
+          <nav className="flex flex-wrap items-center gap-x-4 gap-y-2">
+            <Link href="/about" className="transition hover:text-[#2b7fff]">
+              {t("public.footer.about")}
+            </Link>
+            <Link href="/contact" className="transition hover:text-[#2b7fff]">
+              {t("public.footer.contact")}
+            </Link>
+            <Link href="/privacy-policy" className="transition hover:text-[#2b7fff]">
+              {t("public.footer.privacy")}
+            </Link>
+            <Link href="/terms" className="transition hover:text-[#2b7fff]">
+              {t("public.footer.terms")}
+            </Link>
+          </nav>
         </div>
       </footer>
 
@@ -118,6 +179,8 @@ export function PublicQuizShell({
           })}
         </div>
       </nav>
+
+      <SupportChatWidget />
     </div>
   );
 }

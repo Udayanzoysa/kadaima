@@ -15,6 +15,7 @@ import { Input } from "@/components/ui/input";
 import { PasswordInput } from "@/components/ui/password-input";
 import { Spinner } from "@/components/ui/spinner";
 import { APP_CONFIG } from "@/config/app-config";
+import { setClientCookie } from "@/lib/cookie.client";
 
 import { authInputClass, authPrimaryButtonClass } from "./auth-shell";
 
@@ -34,9 +35,11 @@ type AccountType = "student" | "teacher";
 
 interface AccountRegisterFormProps {
   accountType: AccountType;
+  /** Called after register + auto-login when provided (e.g. unlock modal). */
+  onSuccess?: () => void;
 }
 
-export function AccountRegisterForm({ accountType }: AccountRegisterFormProps) {
+export function AccountRegisterForm({ accountType, onSuccess }: AccountRegisterFormProps) {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const isTeacher = accountType === "teacher";
@@ -71,6 +74,25 @@ export function AccountRegisterForm({ accountType }: AccountRegisterFormProps) {
           ? result.message.join(", ")
           : result.message || "Registration failed.";
         throw new Error(errMsg);
+      }
+
+      if (onSuccess) {
+        const loginRes = await fetch(`${APP_CONFIG.apiUrl}/auth/login`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: data.email, password: data.password }),
+        });
+        const loginBody = await loginRes.json().catch(() => ({}));
+        if (loginRes.ok && loginBody.accessToken) {
+          setClientCookie("session_token", loginBody.accessToken, 7);
+          toast.success(isTeacher ? "Teacher account created" : "Student account created");
+          onSuccess();
+          return;
+        }
+        toast.success(isTeacher ? "Teacher account created" : "Student account created", {
+          description: "Please log in to continue.",
+        });
+        return;
       }
 
       toast.success(isTeacher ? "Teacher account created" : "Student account created", {

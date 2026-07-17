@@ -19,6 +19,12 @@ const buttonVariants = cva(
         destructive:
           "bg-destructive/10 text-destructive hover:bg-destructive/20 focus-visible:border-destructive/40 focus-visible:ring-destructive/20 dark:bg-destructive/20 dark:hover:bg-destructive/30 dark:focus-visible:ring-destructive/40",
         link: "text-primary underline-offset-4 hover:underline",
+        // Public-site brand buttons (Kadaima blue). Used across all public-facing
+        // pages (quiz catalog, auth, results, teacher landing, etc.) — not /admin.
+        brand:
+          "rounded-xl bg-[#2b7fff] text-white shadow-sm hover:bg-[#1f6ae0] focus-visible:border-[#2b7fff] focus-visible:ring-[#2b7fff]/30",
+        brandOutline:
+          "rounded-xl border-slate-200 bg-white text-slate-700 shadow-sm hover:border-[#2b7fff]/40 hover:bg-[#eef6ff] hover:text-[#2b7fff]",
       },
       size: {
         default:
