@@ -8,7 +8,6 @@ import { useRouter } from "next/navigation";
 import { Clock3, PlayCircle } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { KadaimaLoader } from "@/components/site/kadaima-loader";
 import { APP_CONFIG } from "@/config/app-config";
 import { useI18n } from "@/hooks/use-i18n";
 import { getClientCookie } from "@/lib/cookie.client";
@@ -16,6 +15,7 @@ import { ensureGuestSessionId, getOrCreateGuestLead } from "@/lib/guest-session"
 import { localize, type LocalizedText } from "@/types/quiz";
 
 import { PublicQuizShell } from "../../_components/public-quiz-shell";
+import { QuizListSkeleton } from "../../_components/quiz-list-skeleton";
 
 interface InProgressItem {
   id: string;
@@ -94,7 +94,7 @@ export function InProgressList() {
           </p>
         </div>
 
-        {loading && <KadaimaLoader variant="inline" label="Kadaima is loading…" />}
+        {loading && <QuizListSkeleton />}
 
         {error && (
           <div className="rounded-2xl border border-red-200 bg-red-50 px-5 py-4 text-sm text-red-700">
@@ -106,6 +106,7 @@ export function InProgressList() {
           <EmptyState message="No quizzes in progress right now." cta="Start a quiz" />
         )}
 
+        {!loading && !error && items.length > 0 ? (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           {items.map((item) => {
             const remainingMins =
@@ -168,6 +169,7 @@ export function InProgressList() {
             );
           })}
         </div>
+        ) : null}
       </main>
     </PublicQuizShell>
   );

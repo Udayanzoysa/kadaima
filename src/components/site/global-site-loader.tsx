@@ -91,6 +91,16 @@ export function GlobalSiteLoader() {
         url.pathname === window.location.pathname && url.search === window.location.search;
       if (samePath) return;
 
+      // Admin/teacher already have PermissionGuard + route loading — avoid a second blur overlay.
+      const isDashboardPath = (path: string) =>
+        path === "/admin" ||
+        path.startsWith("/admin/") ||
+        path === "/teacher" ||
+        path.startsWith("/teacher/");
+      if (isDashboardPath(url.pathname) || isDashboardPath(window.location.pathname)) {
+        return;
+      }
+
       showNav();
     };
 

@@ -16,6 +16,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { clearPermissionCache } from "@/app/(main)/dashboard/_components/sidebar/permission-guard";
+import { notifyAuthChanged } from "@/lib/auth-redirect";
 import { deleteClientCookie, getClientCookie } from "@/lib/cookie.client";
 import { getInitials } from "@/lib/utils";
 
@@ -56,8 +58,10 @@ export function AccountSwitcher() {
 
   const handleLogout = () => {
     deleteClientCookie("session_token");
+    clearPermissionCache();
+    notifyAuthChanged();
     toast.success("Logged out successfully");
-    router.push("/login");
+    window.location.assign("/login");
   };
 
   return (
