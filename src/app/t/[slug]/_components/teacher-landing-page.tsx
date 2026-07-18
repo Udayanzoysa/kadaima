@@ -20,7 +20,7 @@ import {
 
 import { BrandLogo } from "@/components/brand/brand-logo";
 import { PublicQuizCard } from "@/components/quiz/public-quiz-card";
-import { KadaimaLoader } from "@/components/site/kadaima-loader";
+import { PublicContentSkeleton } from "@/components/site/public-content-skeleton";
 import { SimpleIcon } from "@/components/simple-icon";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -607,11 +607,9 @@ export function TeacherLandingPage({ slug }: { slug: string }) {
 
   if (loading) {
     return (
-      <KadaimaLoader
-        variant="page"
-        label={t("public.loadingSite")}
-        className="min-h-dvh"
-      />
+      <div className="min-h-dvh bg-[#eef3f7]">
+        <PublicContentSkeleton className="py-16" />
+      </div>
     );
   }
 

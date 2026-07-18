@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { PasswordInput } from "@/components/ui/password-input";
+import { PublicContentSkeleton } from "@/components/site/public-content-skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { APP_CONFIG } from "@/config/app-config";
 import { I18nProvider, useI18n } from "@/hooks/use-i18n";
@@ -130,10 +131,7 @@ function ProfilePageInner() {
   if (loading || !profile) {
     return (
       <PublicQuizShell>
-        <div className="flex h-64 items-center justify-center gap-2 text-slate-500">
-          <Spinner className="size-6" />
-          Loading...
-        </div>
+        <PublicContentSkeleton variant="form" />
       </PublicQuizShell>
     );
   }

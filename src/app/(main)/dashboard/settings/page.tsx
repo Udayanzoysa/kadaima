@@ -21,7 +21,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Checkbox } from "@/components/ui/checkbox";
 import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { KadaimaLoader } from "@/components/site/kadaima-loader";
 import { Spinner } from "@/components/ui/spinner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
@@ -268,7 +267,12 @@ export default function SettingsPage() {
   const canSubmitPassword = currentPassword && newPassword && confirmPassword && isPasswordValid && passwordsMatch;
 
   if (loading) {
-    return <KadaimaLoader variant="inline" label="Kadaima is loading…" className="h-96" />;
+    return (
+      <div className="flex h-96 items-center justify-center gap-2 text-muted-foreground">
+        <Spinner className="size-6" />
+        <span className="text-sm">Loading settings…</span>
+      </div>
+    );
   }
 
   return (

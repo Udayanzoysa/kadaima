@@ -17,7 +17,7 @@ import {
 import { PublicQuizShell } from "@/app/quiz/_components/public-quiz-shell";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Spinner } from "@/components/ui/spinner";
+import { PublicContentSkeleton } from "@/components/site/public-content-skeleton";
 import { APP_CONFIG } from "@/config/app-config";
 import { I18nProvider, useI18n } from "@/hooks/use-i18n";
 import { deleteClientCookie, getClientCookie } from "@/lib/cookie.client";
@@ -102,10 +102,7 @@ function PaymentsPageInner() {
   if (loading || !data) {
     return (
       <PublicQuizShell>
-        <div className="flex h-64 items-center justify-center gap-2 text-slate-500">
-          <Spinner className="size-6" />
-          Loading...
-        </div>
+        <PublicContentSkeleton variant="form" />
       </PublicQuizShell>
     );
   }

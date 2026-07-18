@@ -1,5 +1,5 @@
-import { KadaimaLoader } from "@/components/site/kadaima-loader";
+import { PublicContentSkeleton } from "@/components/site/public-content-skeleton";
 
 export default function Loading() {
-  return <KadaimaLoader variant="page" label="Kadaima is loading…" />;
+  return <PublicContentSkeleton className="min-h-dvh py-16" />;
 }

@@ -567,9 +567,11 @@ export function QuizUnlockModal({
         )}
 
         {step === "pay" && authBusy && (
-          <div className="flex flex-col items-center justify-center gap-3 px-6 py-16">
-            <Spinner className="size-7 text-[#2b7fff]" />
-            <p className="text-sm text-slate-500">Checking your unlock status…</p>
+          <div className="space-y-3 px-6 py-10" aria-busy="true" aria-label="Checking unlock status">
+            <div className="h-5 w-40 animate-pulse rounded-md bg-slate-200/80" />
+            <div className="h-4 w-full animate-pulse rounded-md bg-slate-200/70" />
+            <div className="h-24 w-full animate-pulse rounded-xl bg-slate-200/70" />
+            <div className="h-11 w-full animate-pulse rounded-xl bg-slate-200/80" />
           </div>
         )}
 

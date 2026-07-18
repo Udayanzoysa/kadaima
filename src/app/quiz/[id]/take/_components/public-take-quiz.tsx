@@ -524,9 +524,16 @@ export function PublicTakeQuiz() {
 
   if (loading) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center gap-2 text-slate-500" style={{ background: PAGE_BG }}>
-        <Spinner className="size-8" />
-        {t("student.startingQuiz")}
+      <div className="min-h-screen px-4 py-10" style={{ background: PAGE_BG }}>
+        <div className="mx-auto w-full max-w-3xl space-y-4">
+          <div className="h-8 w-48 animate-pulse rounded-md bg-slate-200/80" />
+          <div className="h-4 w-72 max-w-full animate-pulse rounded-md bg-slate-200/70" />
+          <div className="h-48 w-full animate-pulse rounded-2xl bg-slate-200/70" />
+          <div className="flex gap-2">
+            <div className="h-10 w-28 animate-pulse rounded-xl bg-slate-200/80" />
+            <div className="h-10 w-28 animate-pulse rounded-xl bg-slate-200/80" />
+          </div>
+        </div>
       </div>
     );
   }
