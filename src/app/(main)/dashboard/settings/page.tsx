@@ -30,6 +30,7 @@ import { getClientCookie } from "@/lib/cookie.client";
 import { hideGlobalLoader, showGlobalLoader } from "@/stores/global-loader-store";
 
 import { AiChatSettings } from "./_components/ai-chat-settings";
+import { BrandingSeoSettings } from "./_components/branding-seo-settings";
 import { NotificationSettings } from "./_components/notification-settings";
 import { SubscriptionBillingSettings } from "./_components/subscription-billing-settings";
 
@@ -277,7 +278,7 @@ export default function SettingsPage() {
         <p className="text-muted-foreground text-sm">
           Manage your account, security
           {isSuperAdmin
-            ? ", subscription pricing, AI chat, and platform mail/SMS gateways."
+            ? ", branding/SEO, subscription pricing, AI chat, and platform mail/SMS gateways."
             : "."}
         </p>
       </div>
@@ -286,6 +287,7 @@ export default function SettingsPage() {
         <TabsList variant="line" className="h-auto w-full flex-wrap justify-start gap-1">
           <TabsTrigger value="account">Account</TabsTrigger>
           <TabsTrigger value="security">Security & password</TabsTrigger>
+          {isSuperAdmin ? <TabsTrigger value="branding">Branding & SEO</TabsTrigger> : null}
           {isSuperAdmin ? <TabsTrigger value="subscription">Payments</TabsTrigger> : null}
           {isSuperAdmin ? <TabsTrigger value="ai">AI Chat</TabsTrigger> : null}
           {isSuperAdmin ? <TabsTrigger value="platform">SMTP & SMS</TabsTrigger> : null}
@@ -602,6 +604,12 @@ export default function SettingsPage() {
             </Card>
           </div>
         </TabsContent>
+
+        {isSuperAdmin ? (
+          <TabsContent value="branding" className="mt-0">
+            <BrandingSeoSettings />
+          </TabsContent>
+        ) : null}
 
         {isSuperAdmin ? (
           <TabsContent value="subscription" className="mt-0">

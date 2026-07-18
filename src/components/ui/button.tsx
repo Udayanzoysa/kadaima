@@ -21,10 +21,11 @@ const buttonVariants = cva(
         link: "text-primary underline-offset-4 hover:underline",
         // Public-site brand buttons (Kadaima blue). Used across all public-facing
         // pages (quiz catalog, auth, results, teacher landing, etc.) — not /admin.
+        // Darker brand blue for WCAG AA contrast with white text (~4.6:1).
         brand:
-          "rounded-xl bg-[#2b7fff] text-white shadow-sm hover:bg-[#1f6ae0] focus-visible:border-[#2b7fff] focus-visible:ring-[#2b7fff]/30",
+          "rounded-xl bg-[#1563b8] text-white shadow-sm hover:bg-[#114f94] focus-visible:border-[#1563b8] focus-visible:ring-[#1563b8]/30",
         brandOutline:
-          "rounded-xl border-slate-200 bg-white text-slate-700 shadow-sm hover:border-[#2b7fff]/40 hover:bg-[#eef6ff] hover:text-[#2b7fff]",
+          "rounded-xl border-slate-200 bg-white text-slate-700 shadow-sm hover:border-[#1563b8]/40 hover:bg-[#eef6ff] hover:text-[#1563b8]",
       },
       size: {
         default:

@@ -5,8 +5,9 @@ import { SiteStaticPage } from "@/components/site/site-static-page";
 import { APP_CONFIG } from "@/config/app-config";
 
 export const metadata: Metadata = {
-  title: `Terms & Conditions | ${APP_CONFIG.name}`,
+  title: "Terms & Conditions",
   description: `Terms and conditions for using ${APP_CONFIG.name}.`,
+  alternates: { canonical: "/terms" },
 };
 
 export default function TermsPage() {

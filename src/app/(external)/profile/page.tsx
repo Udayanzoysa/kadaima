@@ -1,12 +1,11 @@
 import type { Metadata } from "next";
 
-import { APP_CONFIG } from "@/config/app-config";
-
 import { ProfilePageContent } from "./_components/profile-page-content";
 
 export const metadata: Metadata = {
-  title: `My Profile | ${APP_CONFIG.name}`,
+  title: "My Profile",
   description: "View and update your account details.",
+  robots: { index: false, follow: false },
 };
 
 export default function ProfilePage() {

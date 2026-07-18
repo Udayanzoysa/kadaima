@@ -3,7 +3,6 @@
 import { useState } from "react";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { LockKeyhole, Mail } from "lucide-react";
@@ -19,6 +18,7 @@ import { InputOTP, InputOTPGroup, InputOTPSeparator, InputOTPSlot } from "@/comp
 import { PasswordInput } from "@/components/ui/password-input";
 import { Spinner } from "@/components/ui/spinner";
 import { APP_CONFIG } from "@/config/app-config";
+import { notifyAuthChanged, postLoginPath } from "@/lib/auth-redirect";
 import { setClientCookie } from "@/lib/cookie.client";
 import { cn } from "@/lib/utils";
 import { hideGlobalLoader, showGlobalLoader } from "@/stores/global-loader-store";
@@ -37,14 +37,13 @@ const formSchema = z.object({
 });
 
 interface LoginFormProps {
-  /** Where to go after login. Defaults to /admin. */
+  /** Where to go after login. Defaults by role (students → /, staff → /admin). */
   redirectTo?: string;
   /** Called instead of navigating when provided (e.g. unlock modal). */
   onSuccess?: () => void;
 }
 
-export function LoginForm({ redirectTo = "/admin", onSuccess }: LoginFormProps) {
-  const router = useRouter();
+export function LoginForm({ redirectTo, onSuccess }: LoginFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [show2FA, setShow2FA] = useState(false);
   const [preAuthToken, setPreAuthToken] = useState("");
@@ -61,12 +60,14 @@ export function LoginForm({ redirectTo = "/admin", onSuccess }: LoginFormProps) 
 
   const finishLogin = (accessToken: string, remember?: boolean) => {
     setClientCookie("session_token", accessToken, remember ? 30 : 7);
+    notifyAuthChanged();
     toast.success("Logged in successfully!");
     if (onSuccess) {
       onSuccess();
       return;
     }
-    router.push(redirectTo);
+    const dest = redirectTo ?? postLoginPath(accessToken, "/admin/default");
+    window.location.assign(dest);
   };
 
   const onSubmit = async (data: z.infer<typeof formSchema>) => {

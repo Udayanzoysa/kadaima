@@ -171,7 +171,7 @@ function WorkspaceCell({ workspaces }: { workspaces: string[] }) {
 }
 
 export const getUsersColumns = (
-  isUdaya: boolean,
+  isPlatformOwner: boolean,
   onTogglePermission: (userId: string, field: "canViewOthers" | "canManagePermissions", currentValue: boolean) => void,
   onAction?: (action: "view" | "edit", user: UserRow) => void,
   onSoftDelete?: (user: UserRow) => void,
@@ -246,7 +246,7 @@ export const getUsersColumns = (
       <div className="flex items-center justify-center">
         <Checkbox
           checked={row.original.canViewOthers || false}
-          disabled={!isUdaya}
+          disabled={!isPlatformOwner}
           onCheckedChange={() => {
             if (row.original.id) {
               onTogglePermission(row.original.id, "canViewOthers", row.original.canViewOthers || false);
@@ -264,7 +264,7 @@ export const getUsersColumns = (
       <div className="flex items-center justify-center">
         <Checkbox
           checked={row.original.canManagePermissions || false}
-          disabled={!isUdaya}
+          disabled={!isPlatformOwner}
           onCheckedChange={() => {
             if (row.original.id) {
               onTogglePermission(row.original.id, "canManagePermissions", row.original.canManagePermissions || false);

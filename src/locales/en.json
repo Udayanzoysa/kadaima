@@ -134,6 +134,7 @@
       "login": "Log in",
       "register": "Register",
       "dashboard": "Dashboard",
+      "welcome": "Welcome, {name}",
       "profile": "Profile",
       "payments": "Payments",
       "logout": "Log out"
@@ -189,7 +190,9 @@
       "whatsapp": "Chat on WhatsApp",
       "whatsappHint": "Opens WhatsApp — our bot replies on your phone",
       "unreadLabel": "1 new message",
-      "teaserMessage": "Hi! Need help with a quiz or your account? Tap to chat."
+      "teaserMessage": "Hi! Need help with a quiz or your account? Tap to chat.",
+      "expandDock": "Show WhatsApp and chat",
+      "collapseDock": "Hide WhatsApp and chat"
     },
     "footerRights": "© {year} Kadaima. All rights reserved.",
     "featureEvent": "Feature Event",

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 
@@ -27,7 +28,11 @@ import {
 import { localize, type LocalizedText } from "@/types/quiz";
 
 import { PublicQuizShell } from "../../_components/public-quiz-shell";
-import { QuizUnlockModal } from "../../_components/quiz-unlock-modal";
+
+const QuizUnlockModal = dynamic(
+  () => import("../../_components/quiz-unlock-modal").then((m) => m.QuizUnlockModal),
+  { ssr: false },
+);
 
 interface PublicQuizDetailData {
   id: string;

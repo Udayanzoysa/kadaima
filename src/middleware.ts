@@ -78,16 +78,18 @@ export function middleware(req: NextRequest) {
   const token = req.cookies.get("session_token")?.value;
   const { pathname } = req.nextUrl;
 
-  // Logged-in users on auth pages → admin home
+  // Logged-in users on auth pages → role home (students must not land on /admin)
   if (token && isAuthPage(pathname)) {
-    return NextResponse.redirect(new URL("/admin/default", req.url));
+    const payload = decodeJwtPayload(token);
+    const dest = payload?.team === "Student" ? "/" : "/admin/default";
+    return NextResponse.redirect(new URL(dest, req.url));
   }
 
-  // Students don't get the /admin or /teacher dashboards — only their own account pages.
+  // Students don't get the /admin or /teacher dashboards — send them to quizzes home.
   if (token && (pathname.startsWith("/admin") || isTeacherAppPath(pathname))) {
     const payload = decodeJwtPayload(token);
     if (payload?.team === "Student") {
-      return NextResponse.redirect(new URL("/unauthorized", req.url));
+      return NextResponse.redirect(new URL("/", req.url));
     }
   }
 

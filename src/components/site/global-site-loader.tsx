@@ -26,17 +26,14 @@ function loadingLabel(fallback = "Kadaima is loading…") {
 }
 
 /**
- * Full-site Kadaima loader:
- * - First paint / hard refresh until the page is ready
- * - Client-side navigations (all routes)
- * - Imperative tasks via showGlobalLoader / withGlobalLoader (login, uploads, fetches)
+ * Full-site Kadaima loader for navigations + imperative tasks (login, uploads).
+ * Intentionally does NOT block first paint / LCP with a boot splash.
  */
 export function GlobalSiteLoader() {
   const pathname = usePathname();
   const count = useGlobalLoaderStore((s) => s.count);
   const storeLabel = useGlobalLoaderStore((s) => s.label);
   const [navigating, setNavigating] = useState(false);
-  const [booting, setBooting] = useState(true);
   const navShowTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const navSafetyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -57,35 +54,14 @@ export function GlobalSiteLoader() {
     navShowTimer.current = setTimeout(() => {
       setNavigating(true);
       navSafetyTimer.current = setTimeout(hideNav, 12_000);
-    }, 120);
+    }, 160);
   };
 
-  // Initial hard-load splash until the document finishes loading
-  useEffect(() => {
-    const finishBoot = () => setBooting(false);
-
-    if (document.readyState === "complete") {
-      const t = window.setTimeout(finishBoot, 320);
-      return () => window.clearTimeout(t);
-    }
-
-    const onLoad = () => finishBoot();
-    window.addEventListener("load", onLoad);
-    const safety = window.setTimeout(finishBoot, 8_000);
-
-    return () => {
-      window.removeEventListener("load", onLoad);
-      window.clearTimeout(safety);
-    };
-  }, []);
-
-  // Hide navigation overlay when the route settles
   useEffect(() => {
     hideNav();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- settle on pathname only
   }, [pathname]);
 
-  // Intercept same-origin link clicks site-wide
   useEffect(() => {
     const onClick = (event: MouseEvent) => {
       if (event.defaultPrevented) return;
@@ -125,7 +101,7 @@ export function GlobalSiteLoader() {
     };
   }, [pathname]);
 
-  const visible = booting || navigating || count > 0;
+  const visible = navigating || count > 0;
   if (!visible) return null;
 
   const label = count > 0 ? storeLabel : loadingLabel();

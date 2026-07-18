@@ -2,13 +2,14 @@
 
 import { useEffect, useMemo, useState } from "react";
 
+import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 
 import { Play } from "lucide-react";
 
 import { PublicQuizCard } from "@/components/quiz/public-quiz-card";
 import { Button } from "@/components/ui/button";
-import { KadaimaLoader } from "@/components/site/kadaima-loader";
+import { Skeleton } from "@/components/ui/skeleton";
 import { APP_CONFIG } from "@/config/app-config";
 import { useI18n } from "@/hooks/use-i18n";
 import { getClientCookie } from "@/lib/cookie.client";
@@ -17,7 +18,54 @@ import { cn } from "@/lib/utils";
 import { localize, type LocalizedText } from "@/types/quiz";
 
 import { PublicQuizShell } from "./public-quiz-shell";
-import { QuizUnlockModal, type UnlockQuizTarget } from "./quiz-unlock-modal";
+import type { UnlockQuizTarget } from "./quiz-unlock-modal";
+
+const QuizUnlockModal = dynamic(
+  () => import("./quiz-unlock-modal").then((m) => m.QuizUnlockModal),
+  { ssr: false },
+);
+
+/** Quiet placeholders — avoid a second branded logo under an already-visible shell. */
+function QuizCatalogSkeleton({ label }: { label: string }) {
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      aria-busy="true"
+      aria-label={label}
+      className="mt-8 md:mt-10"
+    >
+      <div className="flex gap-2 overflow-hidden py-2 md:flex-wrap">
+        {Array.from({ length: 5 }).map((_, i) => (
+          <Skeleton key={i} className="h-9 w-24 shrink-0 rounded-xl bg-slate-200/80" />
+        ))}
+      </div>
+      <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {Array.from({ length: 6 }).map((_, i) => (
+          <div
+            key={i}
+            className="rounded-2xl border border-slate-200 bg-white p-3.5 shadow-sm sm:p-4"
+          >
+            <div className="flex gap-3.5 sm:gap-4">
+              <Skeleton className="size-12 shrink-0 rounded-xl bg-slate-200/80" />
+              <div className="min-w-0 flex-1 space-y-2">
+                <Skeleton className="h-4 w-3/4 bg-slate-200/80" />
+                <Skeleton className="h-3 w-full bg-slate-200/70" />
+                <Skeleton className="h-3 w-2/3 bg-slate-200/70" />
+                <div className="flex gap-3 pt-1">
+                  <Skeleton className="h-3 w-16 bg-slate-200/70" />
+                  <Skeleton className="h-3 w-20 bg-slate-200/70" />
+                </div>
+              </div>
+            </div>
+            <Skeleton className="mt-3 h-9 w-full rounded-xl bg-slate-200/80" />
+          </div>
+        ))}
+      </div>
+      <span className="sr-only">{label}</span>
+    </div>
+  );
+}
 
 interface CatalogQuiz {
   id: string;
@@ -99,7 +147,12 @@ function categoryRank(course: CatalogQuiz["course"]): number {
   return 4;
 }
 
-export function PublicQuizCatalog() {
+export function PublicQuizCatalog({
+  /** When true, only render the quiz list (hero/shell provided by the parent page). */
+  embed = false,
+}: {
+  embed?: boolean;
+} = {}) {
   const router = useRouter();
   const { locale, t } = useI18n();
   const [quizzes, setQuizzes] = useState<CatalogQuiz[]>([]);
@@ -275,6 +328,153 @@ export function PublicQuizCatalog() {
     setActiveModuleId("all");
   };
 
+  const list = (
+    <>
+      <div id="quizzes-by-course" className="scroll-mt-24">
+        {loading && <QuizCatalogSkeleton label={t("public.loadingQuizzes")} />}
+
+        {error && (
+          <div className="mt-8 rounded-2xl border border-red-200 bg-red-50 px-5 py-4 text-sm text-red-700">
+            {error}
+          </div>
+        )}
+
+        {!loading && !error && quizzes.length === 0 && (
+          <div className="mt-8 rounded-2xl border border-dashed border-slate-200 bg-white px-6 py-16 text-center text-slate-500">
+            {t("public.noQuizzesYet")}
+          </div>
+        )}
+
+        {!loading && !error && byCourse.length > 0 && (
+          <section className="mt-8 md:mt-10">
+            {/* Category nav */}
+            <nav
+              aria-label={t("public.categoryNav")}
+              className="sticky top-14 z-20 -mx-4 border-b border-slate-200/80 bg-[#f4f7fb]/95 px-4 backdrop-blur-md md:top-16 md:-mx-0 md:rounded-2xl md:border md:bg-white/90 md:px-2 md:py-2 md:shadow-sm"
+            >
+              <div className="flex gap-1 overflow-x-auto py-2 [scrollbar-width:none] md:flex-wrap md:overflow-visible md:py-0 [&::-webkit-scrollbar]:hidden">
+                {byCourse.map((group) => {
+                  const selected = group.courseId === activeCourseId;
+                  return (
+                    <button
+                      key={group.courseId}
+                      type="button"
+                      onClick={() => selectCourse(group.courseId)}
+                      className={cn(
+                        "shrink-0 rounded-xl px-3.5 py-2 text-sm font-semibold transition",
+                        selected
+                          ? "bg-[#1563b8] text-white shadow-sm"
+                          : "text-slate-600 hover:bg-slate-100 hover:text-slate-900",
+                      )}
+                    >
+                      {group.shortLabel}
+                    </button>
+                  );
+                })}
+              </div>
+            </nav>
+
+            {activeCourse ? (
+              <div className="mt-6">
+                <div className="mb-4">
+                  <h2 className="font-[family-name:var(--font-outfit)] text-2xl font-bold tracking-tight text-slate-900 md:text-[1.75rem]">
+                    {activeCourse.courseTitle}
+                  </h2>
+                  <p className="mt-1.5 text-sm text-slate-600 md:text-[15px]">
+                    {t("public.categorySubtitle")}
+                  </p>
+                </div>
+
+                {/* Module sub-nav */}
+                <nav
+                  aria-label={t("public.moduleNav")}
+                  className="mb-5 flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+                >
+                  <button
+                    type="button"
+                    onClick={() => setActiveModuleId("all")}
+                    className={cn(
+                      "shrink-0 rounded-full border px-3.5 py-1.5 text-xs font-semibold transition sm:text-[13px]",
+                      activeModuleId === "all"
+                        ? "border-[#1563b8] bg-[#1563b8]/10 text-[#1563b8]"
+                        : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:text-slate-900",
+                    )}
+                  >
+                    {t("public.allModules")}
+                  </button>
+                  {activeCourse.modules.map((mod) => {
+                    const selected = activeModuleId === mod.id;
+                    return (
+                      <button
+                        key={mod.id}
+                        type="button"
+                        onClick={() => setActiveModuleId(mod.id)}
+                        className={cn(
+                          "shrink-0 rounded-full border px-3.5 py-1.5 text-xs font-semibold transition sm:text-[13px]",
+                          selected
+                            ? "border-[#1563b8] bg-[#1563b8]/10 text-[#1563b8]"
+                            : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:text-slate-900",
+                        )}
+                      >
+                        {mod.title}
+                      </button>
+                    );
+                  })}
+                </nav>
+
+                {filteredQuizzes.length === 0 ? (
+                  <div className="rounded-2xl border border-dashed border-slate-200 bg-white px-6 py-12 text-center text-sm text-slate-500">
+                    {t("public.noQuizzesInModule")}
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                    {filteredQuizzes.map((quiz, i) => {
+                      const desc =
+                        plainFromHtml(localize(quiz.description, locale as "en" | "si" | "ta")) ||
+                        moduleLabel(quiz.module, locale) ||
+                        t("public.cardFallbackDesc");
+                      return (
+                        <PublicQuizCard
+                          key={quiz.id}
+                          title={localize(quiz.title, locale as "en" | "si" | "ta")}
+                          description={desc}
+                          durationMinutes={quiz.durationMinutes}
+                          questionCount={quiz._count.questions}
+                          iconIndex={i}
+                          isNew={i === 0}
+                          locked={needsUnlock(quiz)}
+                          onPrimary={() => handlePrimary(quiz)}
+                        />
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            ) : null}
+          </section>
+        )}
+      </div>
+
+      <QuizUnlockModal
+        open={Boolean(unlockTarget)}
+        onOpenChange={(open) => {
+          if (!open) setUnlockTarget(null);
+        }}
+        quiz={unlockTarget}
+        onUnlocked={async (quizId) => {
+          try {
+            await reloadQuizzes();
+          } catch {
+            /* ignore */
+          }
+          router.push(`/quiz/${quizId}`);
+        }}
+      />
+    </>
+  );
+
+  if (embed) return list;
+
   return (
     <PublicQuizShell activeNav="quiz">
       <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 md:px-6 md:py-8">
@@ -321,152 +521,8 @@ export function PublicQuizCatalog() {
             </div>
           </div>
         </section>
-
-        {loading && (
-          <KadaimaLoader
-            variant="inline"
-            label={t("public.loadingQuizzes")}
-            className="mt-6"
-          />
-        )}
-
-        {error && (
-          <div className="mt-8 rounded-2xl border border-red-200 bg-red-50 px-5 py-4 text-sm text-red-700">
-            {error}
-          </div>
-        )}
-
-        {!loading && !error && quizzes.length === 0 && (
-          <div className="mt-8 rounded-2xl border border-dashed border-slate-200 bg-white px-6 py-16 text-center text-slate-500">
-            {t("public.noQuizzesYet")}
-          </div>
-        )}
-
-        {!loading && !error && byCourse.length > 0 && (
-          <section id="quizzes-by-course" className="mt-8 scroll-mt-24 md:mt-10">
-            {/* Category nav */}
-            <nav
-              aria-label={t("public.categoryNav")}
-              className="sticky top-14 z-20 -mx-4 border-b border-slate-200/80 bg-[#f4f7fb]/95 px-4 backdrop-blur-md md:top-16 md:-mx-0 md:rounded-2xl md:border md:bg-white/90 md:px-2 md:py-2 md:shadow-sm"
-            >
-              <div className="flex gap-1 overflow-x-auto py-2 [scrollbar-width:none] md:flex-wrap md:overflow-visible md:py-0 [&::-webkit-scrollbar]:hidden">
-                {byCourse.map((group) => {
-                  const selected = group.courseId === activeCourseId;
-                  return (
-                    <button
-                      key={group.courseId}
-                      type="button"
-                      onClick={() => selectCourse(group.courseId)}
-                      className={cn(
-                        "shrink-0 rounded-xl px-3.5 py-2 text-sm font-semibold transition",
-                        selected
-                          ? "bg-[#2b7fff] text-white shadow-sm"
-                          : "text-slate-600 hover:bg-slate-100 hover:text-slate-900",
-                      )}
-                    >
-                      {group.shortLabel}
-                    </button>
-                  );
-                })}
-              </div>
-            </nav>
-
-            {activeCourse ? (
-              <div className="mt-6">
-                <div className="mb-4">
-                  <h2 className="font-[family-name:var(--font-outfit)] text-2xl font-bold tracking-tight text-slate-900 md:text-[1.75rem]">
-                    {activeCourse.courseTitle}
-                  </h2>
-                  <p className="mt-1.5 text-sm text-slate-500 md:text-[15px]">
-                    {t("public.categorySubtitle")}
-                  </p>
-                </div>
-
-                {/* Module sub-nav */}
-                <nav
-                  aria-label={t("public.moduleNav")}
-                  className="mb-5 flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-                >
-                  <button
-                    type="button"
-                    onClick={() => setActiveModuleId("all")}
-                    className={cn(
-                      "shrink-0 rounded-full border px-3.5 py-1.5 text-xs font-semibold transition sm:text-[13px]",
-                      activeModuleId === "all"
-                        ? "border-[#2b7fff] bg-[#2b7fff]/10 text-[#1a5fcc]"
-                        : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:text-slate-900",
-                    )}
-                  >
-                    {t("public.allModules")}
-                  </button>
-                  {activeCourse.modules.map((mod) => {
-                    const selected = activeModuleId === mod.id;
-                    return (
-                      <button
-                        key={mod.id}
-                        type="button"
-                        onClick={() => setActiveModuleId(mod.id)}
-                        className={cn(
-                          "shrink-0 rounded-full border px-3.5 py-1.5 text-xs font-semibold transition sm:text-[13px]",
-                          selected
-                            ? "border-[#2b7fff] bg-[#2b7fff]/10 text-[#1a5fcc]"
-                            : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:text-slate-900",
-                        )}
-                      >
-                        {mod.title}
-                      </button>
-                    );
-                  })}
-                </nav>
-
-                {filteredQuizzes.length === 0 ? (
-                  <div className="rounded-2xl border border-dashed border-slate-200 bg-white px-6 py-12 text-center text-sm text-slate-500">
-                    {t("public.noQuizzesInModule")}
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                    {filteredQuizzes.map((quiz, i) => {
-                      const desc =
-                        plainFromHtml(localize(quiz.description, locale as "en" | "si" | "ta")) ||
-                        moduleLabel(quiz.module, locale) ||
-                        t("public.cardFallbackDesc");
-                      return (
-                        <PublicQuizCard
-                          key={quiz.id}
-                          title={localize(quiz.title, locale as "en" | "si" | "ta")}
-                          description={desc}
-                          durationMinutes={quiz.durationMinutes}
-                          questionCount={quiz._count.questions}
-                          iconIndex={i}
-                          isNew={i === 0}
-                          locked={needsUnlock(quiz)}
-                          onPrimary={() => handlePrimary(quiz)}
-                        />
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            ) : null}
-          </section>
-        )}
+        {list}
       </main>
-
-      <QuizUnlockModal
-        open={Boolean(unlockTarget)}
-        onOpenChange={(open) => {
-          if (!open) setUnlockTarget(null);
-        }}
-        quiz={unlockTarget}
-        onUnlocked={async (quizId) => {
-          try {
-            await reloadQuizzes();
-          } catch {
-            /* ignore */
-          }
-          router.push(`/quiz/${quizId}`);
-        }}
-      />
     </PublicQuizShell>
   );
 }

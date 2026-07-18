@@ -1,8 +1,6 @@
 import {
   DM_Sans,
   Figtree,
-  Geist,
-  Geist_Mono,
   Inter,
   JetBrains_Mono,
   Lora,
@@ -10,7 +8,6 @@ import {
   Noto_Sans,
   Noto_Serif,
   Nunito_Sans,
-  Outfit,
   Playfair_Display,
   Public_Sans,
   Raleway,
@@ -20,91 +17,111 @@ import {
 
 import { GeistPixelSquare } from "geist/font/pixel";
 
+import { geist, geistMono, outfit } from "./core";
+import type { FontKey } from "./keys";
+
+export type { FontKey } from "./keys";
+export { FONT_KEYS } from "./keys";
+export { coreFontVars } from "./core";
+
 const inter = Inter({
   subsets: ["latin"],
   variable: "--font-inter",
+  display: "swap",
+  preload: false,
 });
 
 const notoSans = Noto_Sans({
   subsets: ["latin"],
   variable: "--font-noto-sans",
+  display: "swap",
+  preload: false,
 });
 
 const roboto = Roboto({
   subsets: ["latin"],
   weight: ["400", "500", "700"],
   variable: "--font-roboto",
-});
-
-const geist = Geist({
-  subsets: ["latin"],
-  variable: "--font-geist",
-});
-
-const outfit = Outfit({
-  subsets: ["latin"],
-  variable: "--font-outfit",
-});
-
-const geistMono = Geist_Mono({
-  subsets: ["latin"],
-  variable: "--font-geist-mono",
+  display: "swap",
+  preload: false,
 });
 
 const dmSans = DM_Sans({
   subsets: ["latin"],
   variable: "--font-dm-sans",
+  display: "swap",
+  preload: false,
 });
 
 const nunitoSans = Nunito_Sans({
   subsets: ["latin"],
   variable: "--font-nunito-sans",
+  display: "swap",
+  preload: false,
 });
 
 const figtree = Figtree({
   subsets: ["latin"],
   variable: "--font-figtree",
+  display: "swap",
+  preload: false,
 });
 
 const raleway = Raleway({
   subsets: ["latin"],
   variable: "--font-raleway",
+  display: "swap",
+  preload: false,
 });
 
 const publicSans = Public_Sans({
   subsets: ["latin"],
   variable: "--font-public-sans",
+  display: "swap",
+  preload: false,
 });
 
 const jetBrainsMono = JetBrains_Mono({
   subsets: ["latin"],
   variable: "--font-jetbrains-mono",
+  display: "swap",
+  preload: false,
 });
 
 const notoSerif = Noto_Serif({
   subsets: ["latin"],
   variable: "--font-noto-serif",
+  display: "swap",
+  preload: false,
 });
 
 const robotoSlab = Roboto_Slab({
   subsets: ["latin"],
   variable: "--font-roboto-slab",
+  display: "swap",
+  preload: false,
 });
 
 const merriweather = Merriweather({
   subsets: ["latin"],
   weight: ["400", "700"],
   variable: "--font-merriweather",
+  display: "swap",
+  preload: false,
 });
 
 const lora = Lora({
   subsets: ["latin"],
   variable: "--font-lora",
+  display: "swap",
+  preload: false,
 });
 
 const playfairDisplay = Playfair_Display({
   subsets: ["latin"],
   variable: "--font-playfair-display",
+  display: "swap",
+  preload: false,
 });
 
 export const fontRegistry = {
@@ -180,13 +197,21 @@ export const fontRegistry = {
     label: "Playfair Display",
     font: playfairDisplay,
   },
-} as const;
+} as const satisfies Record<FontKey, { label: string; font: { variable: string } }>;
 
-export type FontKey = keyof typeof fontRegistry;
+/** Fonts loaded on every page (public LCP-critical set). */
+const CORE_FONT_KEYS = ["geist", "geistMono", "outfit"] as const satisfies readonly FontKey[];
 
-export const fontVars = (Object.values(fontRegistry) as Array<(typeof fontRegistry)[FontKey]>)
-  .map((f) => f.font.variable)
+/** Extra admin theme fonts — loaded only under dashboard to cut public CSS/font cost. */
+export const adminFontVars = (
+  Object.entries(fontRegistry) as Array<[FontKey, (typeof fontRegistry)[FontKey]]>
+)
+  .filter(([key]) => !(CORE_FONT_KEYS as readonly string[]).includes(key))
+  .map(([, f]) => f.font.variable)
   .join(" ");
+
+/** @deprecated Prefer coreFontVars + adminFontVars; kept for compatibility. */
+export { coreFontVars as fontVars } from "./core";
 
 export const fontOptions = (Object.entries(fontRegistry) as Array<[FontKey, (typeof fontRegistry)[FontKey]]>).map(
   ([key, f]) => ({

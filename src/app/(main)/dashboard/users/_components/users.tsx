@@ -167,13 +167,15 @@ export function Users({ users: initialUsers }: { users?: UserRow[] }) {
     pageSize: 10,
   });
 
-  // Decode identity token
-  const [isUdaya, setIsUdaya] = useState(false);
+  // Platform owner / SUPER_ADMIN can manage delegation flags
+  const [isPlatformOwner, setIsPlatformOwner] = useState(false);
 
   useEffect(() => {
     const token = getClientCookie("session_token");
     const decoded = getDecodedToken(token);
-    setIsUdaya(decoded?.email === "udaya@gmail.com");
+    setIsPlatformOwner(
+      decoded?.role === "SUPER_ADMIN" || decoded?.email === "unzoysa.un@gmail.com",
+    );
   }, []);
 
   const fetchData = useCallback(async () => {
@@ -252,8 +254,8 @@ export function Users({ users: initialUsers }: { users?: UserRow[] }) {
           team: newUserTeam,
           customRoleId: newUserRoleId,
           status: "Active",
-          canViewOthers: isUdaya ? newCanViewOthers : false,
-          canManagePermissions: isUdaya ? newCanManagePermissions : false,
+          canViewOthers: isPlatformOwner ? newCanViewOthers : false,
+          canManagePermissions: isPlatformOwner ? newCanManagePermissions : false,
         }),
       });
 
@@ -294,8 +296,8 @@ export function Users({ users: initialUsers }: { users?: UserRow[] }) {
           name: editUserName,
           team: editUserTeam,
           customRoleId: editUserRoleId === "None" || !editUserRoleId ? null : editUserRoleId,
-          canViewOthers: isUdaya ? editCanViewOthers : undefined,
-          canManagePermissions: isUdaya ? editCanManagePermissions : undefined,
+          canViewOthers: isPlatformOwner ? editCanViewOthers : undefined,
+          canManagePermissions: isPlatformOwner ? editCanManagePermissions : undefined,
         }),
       });
 
@@ -390,7 +392,7 @@ export function Users({ users: initialUsers }: { users?: UserRow[] }) {
 
   const columns = useMemo(() => {
     return getUsersColumns(
-      isUdaya,
+      isPlatformOwner,
       async (userId, field, currentValue) => {
         const token = getClientCookie("session_token");
         try {
@@ -431,7 +433,7 @@ export function Users({ users: initialUsers }: { users?: UserRow[] }) {
       },
       (user) => setActivateTarget(user),
     );
-  }, [isUdaya, fetchData]);
+  }, [isPlatformOwner, fetchData]);
 
   const table = useReactTable({
     data: usersList,
@@ -733,7 +735,7 @@ export function Users({ users: initialUsers }: { users?: UserRow[] }) {
               </Select>
             </Field>
 
-            {isUdaya && (
+            {isPlatformOwner && (
               <div className="space-y-2 pt-2 border-t border-border">
                 <div className="flex items-center gap-2">
                   <Checkbox
@@ -841,7 +843,7 @@ export function Users({ users: initialUsers }: { users?: UserRow[] }) {
               </Select>
             </Field>
 
-            {isUdaya && (
+            {isPlatformOwner && (
               <div className="space-y-2 pt-2 border-t border-border">
                 <div className="flex items-center gap-2">
                   <Checkbox

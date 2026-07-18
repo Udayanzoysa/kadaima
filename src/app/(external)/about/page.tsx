@@ -5,8 +5,9 @@ import { SiteStaticPage } from "@/components/site/site-static-page";
 import { APP_CONFIG } from "@/config/app-config";
 
 export const metadata: Metadata = {
-  title: `About | ${APP_CONFIG.name}`,
+  title: "About",
   description: `Learn about ${APP_CONFIG.name}, Sri Lanka’s online exam and quiz portal.`,
+  alternates: { canonical: "/about" },
 };
 
 export default function AboutPage() {

@@ -17,7 +17,7 @@ export default function RegisterStudentV1() {
         <div className="relative text-center text-xs text-slate-400 after:absolute after:inset-0 after:top-1/2 after:border-t after:border-slate-200">
           <span className="relative z-10 bg-white px-2">or</span>
         </div>
-        <GoogleButton accountType="student" />
+        <GoogleButton accountType="student" redirectTo="/" />
         <p className="text-center text-xs text-slate-500">
           Teaching instead?{" "}
           <Link

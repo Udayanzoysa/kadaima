@@ -2,13 +2,12 @@
 
 import { useEffect, useRef, useState } from "react";
 
-import { useRouter } from "next/navigation";
-
 import { GoogleLogin, GoogleOAuthProvider } from "@react-oauth/google";
 import { toast } from "sonner";
 
 import { Spinner } from "@/components/ui/spinner";
 import { APP_CONFIG } from "@/config/app-config";
+import { notifyAuthChanged, postLoginPath } from "@/lib/auth-redirect";
 import { setClientCookie } from "@/lib/cookie.client";
 import { cn } from "@/lib/utils";
 import { hideGlobalLoader, showGlobalLoader } from "@/stores/global-loader-store";
@@ -17,7 +16,7 @@ type AccountType = "student" | "teacher";
 
 interface GoogleButtonProps {
   className?: string;
-  /** Where to go after login. Defaults to /admin. */
+  /** Where to go after login. Defaults by role (students → /, staff → /admin). */
   redirectTo?: string;
   /**
    * Used only when Google creates a brand-new account.
@@ -34,11 +33,10 @@ const GOOGLE_BTN_MAX = 400;
 
 function GoogleSignInControl({
   className,
-  redirectTo = "/admin",
+  redirectTo,
   accountType = "student",
   onSuccess,
 }: GoogleButtonProps) {
-  const router = useRouter();
   const [busy, setBusy] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const [buttonWidth, setButtonWidth] = useState<number | null>(null);
@@ -50,7 +48,10 @@ function GoogleSignInControl({
     const measure = () => {
       const width = Math.floor(el.getBoundingClientRect().width);
       if (width <= 0) return;
-      setButtonWidth(Math.max(GOOGLE_BTN_MIN, Math.min(GOOGLE_BTN_MAX, width)));
+      // Google paints the outline inside the iframe; using the full container
+      // width often clips the right border by 1px (subpixel / rounding).
+      const usable = Math.max(GOOGLE_BTN_MIN, Math.min(GOOGLE_BTN_MAX, width - 2));
+      setButtonWidth(usable);
     };
 
     measure();
@@ -62,12 +63,17 @@ function GoogleSignInControl({
 
   const finishWithToken = (accessToken: string) => {
     setClientCookie("session_token", accessToken, 7);
+    notifyAuthChanged();
     toast.success("Signed in with Google");
     if (onSuccess) {
       onSuccess();
       return;
     }
-    router.push(redirectTo);
+    const dest =
+      redirectTo ??
+      postLoginPath(accessToken, accountType === "teacher" ? "/admin/default" : "/");
+    // Full navigation so public shell reloads auth state (Welcome button).
+    window.location.assign(dest);
   };
 
   const handleGoogleCredential = async (credential?: string) => {
@@ -129,14 +135,7 @@ function GoogleSignInControl({
           className="h-11 w-full rounded-xl border border-slate-300 bg-white shadow-sm"
         />
       ) : (
-        <div
-          className={cn(
-            // Full form width; overflow visible so Google’s outline border isn’t clipped
-            "flex w-full justify-start overflow-visible",
-            "[&>div]:w-full [&>div>div]:w-full",
-            "[&_iframe]:!w-full [&_iframe]:!max-w-none",
-          )}
-        >
+        <div className="flex w-full justify-center overflow-visible">
           <GoogleLogin
             key={buttonWidth}
             onSuccess={(res) => void handleGoogleCredential(res.credential)}

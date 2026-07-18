@@ -61,7 +61,7 @@ export function PublicQuizCard({
         <div
           className={cn(
             "relative flex size-[4.75rem] shrink-0 items-center justify-center rounded-xl sm:size-24",
-            locked ? "bg-slate-200 text-slate-500" : "bg-[#eef6ff] text-[#2b7fff]",
+            locked ? "bg-slate-200 text-slate-500" : "bg-[#eef6ff] text-[#1563b8]",
           )}
         >
           {isNew && !locked ? (

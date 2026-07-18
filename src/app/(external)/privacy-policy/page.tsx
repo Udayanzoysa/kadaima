@@ -5,8 +5,9 @@ import { SiteStaticPage } from "@/components/site/site-static-page";
 import { APP_CONFIG } from "@/config/app-config";
 
 export const metadata: Metadata = {
-  title: `Privacy Policy | ${APP_CONFIG.name}`,
+  title: "Privacy Policy",
   description: `How ${APP_CONFIG.name} collects, uses, and protects your personal information.`,
+  alternates: { canonical: "/privacy-policy" },
 };
 
 export default function PrivacyPolicyPage() {

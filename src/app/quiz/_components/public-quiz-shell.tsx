@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -9,12 +10,17 @@ import { ClipboardList, Globe, HelpCircle, Timer } from "lucide-react";
 
 import { BrandLogo } from "@/components/brand/brand-logo";
 import { ProfileMenu, type SiteAuthUser } from "@/components/site/profile-menu";
-import { SupportChatWidget } from "@/components/site/support-chat-widget";
 import { useI18n } from "@/hooks/use-i18n";
 import { APP_CONFIG } from "@/config/app-config";
+import { AUTH_CHANGED_EVENT } from "@/lib/auth-redirect";
 import { deleteClientCookie, getClientCookie } from "@/lib/cookie.client";
 import { LOCALES } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
+
+const SupportChatWidget = dynamic(
+  () => import("@/components/site/support-chat-widget").then((m) => m.SupportChatWidget),
+  { ssr: false },
+);
 
 const NAV = [
   { id: "quiz", labelKey: "public.nav.quiz", href: "/", icon: HelpCircle },
@@ -35,27 +41,40 @@ export function PublicQuizShell({
   const [authUser, setAuthUser] = useState<SiteAuthUser | null | undefined>(undefined);
 
   useEffect(() => {
-    const token = getClientCookie("session_token");
-    if (!token) {
-      setAuthUser(null);
-      return;
-    }
-    (async () => {
+    let cancelled = false;
+
+    const syncAuth = async () => {
+      const token = getClientCookie("session_token");
+      if (!token) {
+        if (!cancelled) setAuthUser(null);
+        return;
+      }
       try {
         const res = await fetch(`${APP_CONFIG.apiUrl}/auth/me`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         if (!res.ok) {
           deleteClientCookie("session_token");
-          setAuthUser(null);
+          if (!cancelled) setAuthUser(null);
           return;
         }
         const data = await res.json();
-        setAuthUser({ name: data.name, email: data.email, team: data.team });
+        if (!cancelled) {
+          setAuthUser({ name: data.name, email: data.email, team: data.team });
+        }
       } catch {
-        setAuthUser(null);
+        if (!cancelled) setAuthUser(null);
       }
-    })();
+    };
+
+    void syncAuth();
+    window.addEventListener(AUTH_CHANGED_EVENT, syncAuth);
+    window.addEventListener("focus", syncAuth);
+    return () => {
+      cancelled = true;
+      window.removeEventListener(AUTH_CHANGED_EVENT, syncAuth);
+      window.removeEventListener("focus", syncAuth);
+    };
   }, []);
 
   const resolvedActive =
@@ -84,9 +103,9 @@ export function PublicQuizShell({
                   href={item.href}
                   className={cn(
                     "relative pb-1 text-sm font-medium transition-colors",
-                    isActive ? "text-[#2b7fff]" : "text-slate-500 hover:text-slate-800",
+                    isActive ? "text-[#1563b8]" : "text-slate-500 hover:text-slate-800",
                     isActive &&
-                      "after:absolute after:inset-x-0 after:-bottom-[15px] after:h-0.5 after:rounded-full after:bg-[#2b7fff]",
+                      "after:absolute after:inset-x-0 after:-bottom-[15px] after:h-0.5 after:rounded-full after:bg-[#1563b8]",
                   )}
                 >
                   {t(item.labelKey)}
@@ -98,7 +117,7 @@ export function PublicQuizShell({
           <div className="flex items-center gap-2">
             <button
               type="button"
-              className="inline-flex h-9 items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 text-xs font-medium text-slate-600 shadow-sm transition hover:border-[#2b7fff]/40 hover:text-[#2b7fff]"
+              className="inline-flex h-9 items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 text-xs font-medium text-slate-600 shadow-sm transition hover:border-[#1563b8]/40 hover:text-[#1563b8]"
               onClick={() => {
                 const idx = LOCALES.findIndex((l) => l.code === locale);
                 setLocale(LOCALES[(idx + 1) % LOCALES.length].code);
@@ -108,19 +127,28 @@ export function PublicQuizShell({
               <span className="max-w-[4.5rem] truncate">{localeMeta.label}</span>
             </button>
 
-            {authUser ? (
+            {authUser === undefined ? (
+              <div
+                className="flex items-center gap-1.5"
+                aria-busy="true"
+                aria-label="Loading account"
+              >
+                <span className="hidden h-9 w-[4.5rem] animate-pulse rounded-full bg-slate-200/90 sm:inline-block" />
+                <span className="inline-block h-9 w-[7.5rem] animate-pulse rounded-full bg-slate-200/90 sm:w-[9.5rem]" />
+              </div>
+            ) : authUser ? (
               <ProfileMenu user={authUser} />
             ) : (
               <div className="flex items-center gap-1.5">
                 <Link
                   href="/login"
-                  className="inline-flex h-9 items-center rounded-full border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-600 shadow-sm transition hover:border-[#2b7fff]/40 hover:text-[#2b7fff] sm:px-3.5"
+                  className="inline-flex h-9 items-center rounded-full border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-600 shadow-sm transition hover:border-[#1563b8]/40 hover:text-[#1563b8] sm:px-3.5"
                 >
                   {t("public.nav.login")}
                 </Link>
                 <Link
                   href="/student/register"
-                  className="inline-flex h-9 items-center rounded-full bg-[#2b7fff] px-3 text-xs font-semibold text-white shadow-sm transition hover:bg-[#1f6fe6] sm:px-3.5"
+                  className="inline-flex h-9 items-center rounded-full bg-[#1563b8] px-3 text-xs font-semibold text-white shadow-sm transition hover:bg-[#114f94] sm:px-3.5"
                 >
                   {t("public.nav.register")}
                 </Link>
@@ -136,21 +164,21 @@ export function PublicQuizShell({
         <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-4 py-5 text-xs text-slate-500 md:flex-row md:items-center md:justify-between md:gap-6 md:px-6">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4">
             <BrandLogo className="h-6 w-auto" />
-            <span className="text-slate-400">
+            <span className="text-slate-500">
               {t("public.footerRights").replace("{year}", String(new Date().getFullYear()))}
             </span>
           </div>
           <nav className="flex flex-wrap items-center gap-x-4 gap-y-2">
-            <Link href="/about" className="transition hover:text-[#2b7fff]">
+            <Link href="/about" className="transition hover:text-[#1563b8]">
               {t("public.footer.about")}
             </Link>
-            <Link href="/contact" className="transition hover:text-[#2b7fff]">
+            <Link href="/contact" className="transition hover:text-[#1563b8]">
               {t("public.footer.contact")}
             </Link>
-            <Link href="/privacy-policy" className="transition hover:text-[#2b7fff]">
+            <Link href="/privacy-policy" className="transition hover:text-[#1563b8]">
               {t("public.footer.privacy")}
             </Link>
-            <Link href="/terms" className="transition hover:text-[#2b7fff]">
+            <Link href="/terms" className="transition hover:text-[#1563b8]">
               {t("public.footer.terms")}
             </Link>
           </nav>
@@ -169,7 +197,7 @@ export function PublicQuizShell({
                 href={item.href}
                 className={cn(
                   "flex flex-col items-center gap-1 rounded-xl px-2 py-2 text-[11px] font-medium transition",
-                  isActive ? "bg-[#2b7fff] text-white shadow-sm" : "text-slate-500",
+                  isActive ? "bg-[#1563b8] text-white shadow-sm" : "text-slate-500",
                 )}
               >
                 <Icon className="size-4" />

@@ -32,13 +32,15 @@ export function PublicQuizResult() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [quizCount, setQuizCount] = useState(0);
-  const [authUser, setAuthUser] = useState<SiteAuthUser | null>(null);
+  const [authUser, setAuthUser] = useState<SiteAuthUser | null | undefined>(undefined);
 
   useEffect(() => {
     setQuizCount(getGuestQuizCount());
 
     const authToken = getClientCookie("session_token");
-    if (authToken) {
+    if (!authToken) {
+      setAuthUser(null);
+    } else {
       (async () => {
         try {
           const res = await fetch(`${APP_CONFIG.apiUrl}/auth/me`, {
@@ -94,7 +96,12 @@ export function PublicQuizResult() {
             <span className="max-w-[4.5rem] truncate">{localeMeta.label}</span>
           </button>
 
-          {authUser ? (
+          {authUser === undefined ? (
+            <div className="flex items-center gap-1.5" aria-busy="true" aria-label="Loading account">
+              <span className="hidden h-9 w-[4.5rem] animate-pulse rounded-full bg-slate-200/90 sm:inline-block" />
+              <span className="inline-block h-9 w-[7.5rem] animate-pulse rounded-full bg-slate-200/90 sm:w-[9.5rem]" />
+            </div>
+          ) : authUser ? (
             <ProfileMenu user={authUser} />
           ) : (
             <div className="flex items-center gap-1.5">
