@@ -11,6 +11,7 @@ import { ClipboardList, HelpCircle, Timer } from "lucide-react";
 import { BrandLogo } from "@/components/brand/brand-logo";
 import { LanguageSwitcher } from "@/components/i18n/language-switcher";
 import { ProfileMenu, type SiteAuthUser } from "@/components/site/profile-menu";
+import { PublicSiteFooter } from "@/components/site/public-site-footer";
 import { APP_CONFIG } from "@/config/app-config";
 import { useI18n } from "@/hooks/use-i18n";
 import { AUTH_CHANGED_EVENT } from "@/lib/auth-redirect";
@@ -107,7 +108,7 @@ export function PublicQuizShell({
     "quiz";
 
   return (
-    <div className="relative flex min-h-dvh flex-col overflow-x-hidden bg-[#f4f7fb] text-slate-900">
+    <div className="relative flex min-h-dvh flex-col overflow-x-hidden bg-[#e8eef5] text-slate-900">
       <header className="sticky top-0 z-30 border-b border-slate-200/80 bg-white/90 backdrop-blur-md">
         <div className="mx-auto flex h-14 w-full max-w-6xl items-center justify-between gap-2 px-3 sm:px-4 md:h-16 md:gap-4 md:px-6">
           <Link href="/" className="flex min-w-0 shrink-0 items-center">
@@ -164,32 +165,35 @@ export function PublicQuizShell({
         </div>
       </header>
 
-      <div className="relative z-10 flex min-w-0 flex-1 flex-col pb-20 md:pb-0">{children}</div>
+      {/* flex-1 fills leftover viewport with the same tone as the footer — no pale empty slab */}
+      <div className="relative z-10 flex min-w-0 flex-1 flex-col bg-[#f4f7fb]">{children}</div>
 
-      <footer className="relative z-10 mt-auto border-t border-slate-200 bg-white pb-[max(4.5rem,env(safe-area-inset-bottom))] md:pb-0">
-        <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-4 py-5 text-xs text-slate-500 md:flex-row md:items-center md:justify-between md:gap-6 md:px-6">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4">
-            <BrandLogo className="h-6 w-auto" />
-            <span className="text-slate-500">
-              {t("public.footerRights").replace("{year}", String(new Date().getFullYear()))}
-            </span>
-          </div>
-          <nav className="flex flex-wrap items-center gap-x-4 gap-y-2">
-            <Link href="/about" className="transition hover:text-[#1563b8]">
-              {t("public.footer.about")}
-            </Link>
-            <Link href="/contact" className="transition hover:text-[#1563b8]">
-              {t("public.footer.contact")}
-            </Link>
-            <Link href="/privacy-policy" className="transition hover:text-[#1563b8]">
-              {t("public.footer.privacy")}
-            </Link>
-            <Link href="/terms" className="transition hover:text-[#1563b8]">
-              {t("public.footer.terms")}
-            </Link>
-          </nav>
-        </div>
-      </footer>
+      <PublicSiteFooter
+        copyright={t("public.footerRights").replace("{year}", String(new Date().getFullYear()))}
+        appStoresComingSoon={t("public.footer.appStoresComingSoon")}
+        aboutSummary={t("public.footer.aboutSummary")}
+        usefulLinksHeading={t("public.footer.usefulLinks")}
+        exploreLinksHeading={t("public.footer.explore")}
+        getAppHeading={t("public.footer.getTheApp")}
+        infoEmail={t("public.footer.infoEmail")}
+        whatsappDisplay={t("public.footer.whatsappShort")}
+        whatsappE164="94775075179"
+        emailLabel={t("public.footer.emailShort")}
+        poweredByBefore={t("public.footer.poweredBy")}
+        poweredByAfter={t("public.footer.techwingSolutions")}
+        links={[
+          { href: "/about", label: t("public.footer.about") },
+          { href: "/contact", label: t("public.footer.contact") },
+          { href: "/privacy-policy", label: t("public.footer.privacy") },
+          { href: "/terms", label: t("public.footer.terms") },
+        ]}
+        exploreLinks={[
+          { href: "/partner", label: t("public.footer.partner") },
+          { href: "/teacher/register", label: t("public.footer.teacherProfile") },
+          { href: "/faq", label: t("public.footer.faqs") },
+          { href: "/referral", label: t("public.footer.referral") },
+        ]}
+      />
 
       {/* Mobile bottom nav */}
       <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-white/95 px-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2 backdrop-blur-md md:hidden">

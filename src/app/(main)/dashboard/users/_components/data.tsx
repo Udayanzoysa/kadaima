@@ -3,18 +3,40 @@ import { BriefcaseBusiness, ShieldCheck, SquareUserRound, UserCog, UserRound } f
 
 export type UserStatus = "Active" | "Pending invite" | "Deactivated" | "Locked" | "Suspended";
 
-const teamValues = [
-  "Platform",
-  "Growth",
-  "Revenue",
-  "Customer Ops",
-  "Internal Tools",
-  "Compliance",
-  "People Ops",
-  "Finance",
-] as const;
+/** Matches API root owner — immutable, alone can grant SUPER_ADMIN. */
+export const PLATFORM_OWNER_EMAIL = "unzoysa.un@gmail.com";
 
-export type UserTeam = (typeof teamValues)[number];
+export type SystemRole = "SUPER_ADMIN" | "CUSTOMER_ADMIN" | "USER";
+
+export function isRootPlatformOwner(email?: string | null): boolean {
+  return (email ?? "").toLowerCase() === PLATFORM_OWNER_EMAIL.toLowerCase();
+}
+
+/** Workspace account teams used with custom roles (Owner/Teacher/Student). */
+export const ACCOUNT_TEAMS = ["Student", "Teacher", "Executive", "Platform"] as const;
+
+export type UserTeam = (typeof ACCOUNT_TEAMS)[number] | string;
+
+/** Suggest team when Super Admin picks a custom role (or clears it for Student). */
+export function suggestTeamForRole(roleName: string | null | undefined): UserTeam {
+  const name = (roleName ?? "").trim().toLowerCase();
+  if (!name || name === "none" || name === "student" || name === "user") return "Student";
+  if (name === "owner" || name === "admin") return "Executive";
+  if (name === "teacher") return "Teacher";
+  return "Platform";
+}
+
+/** Table label: prefer custom role; map bare USER + Student team → "Student". */
+export function displayUserRole(params: {
+  customRoleName?: string | null;
+  systemRole?: string | null;
+  team?: string | null;
+}): string {
+  if (params.customRoleName) return params.customRoleName;
+  if (params.team === "Student") return "Student";
+  if (params.systemRole === "USER") return "User";
+  return params.systemRole || "User";
+}
 
 export type AuthProvider = "google" | "email";
 
@@ -27,6 +49,8 @@ export type UserRow = {
   lastActive: number;
   name: string;
   role: string;
+  /** Prisma system Role enum from API */
+  systemRole?: SystemRole | string;
   status: UserStatus;
   team: UserTeam;
   workspace: string[];
@@ -297,20 +321,10 @@ export const users: UserRow[] = [
 ];
 
 export const filters = {
-  role: [
-    "All",
-    "Workspace Owner",
-    "Admin",
-    "Billing Admin",
-    "Security Admin",
-    "Team Lead",
-    "Contributor",
-    "Guest",
-    "Read-only",
-  ],
-  team: ["All", ...teamValues],
+  role: ["All", "Owner", "Admin", "Teacher", "Student", "User"],
+  team: ["All", ...ACCOUNT_TEAMS],
   status: ["All", "Active", "Pending invite", "Deactivated", "Locked", "Suspended"],
-  workspace: ["All", "Weblabs Studio", "Sandbox", "Internal Tools", "Acme Inc."],
+  workspace: ["All", "Weblabs Studio", "Sandbox", "Internal Tools", "Acme Inc.", "TL"],
 };
 
 export const roleMeta: Record<string, { className: string; icon: LucideIcon }> = {

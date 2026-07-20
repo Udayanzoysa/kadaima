@@ -12,7 +12,6 @@ import { cn } from "@/lib/utils";
 
 const FAB_DOCK_KEY = "kadaima-fab-dock-open";
 
-/** Inline WhatsApp mark — avoids pulling the full `simple-icons` package into the public bundle. */
 function WhatsAppIcon({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 24 24" aria-hidden className={cn("fill-current", className)}>
@@ -34,14 +33,7 @@ function randomId() {
     : Math.random().toString(36).slice(2);
 }
 
-/**
- * Floating "Ask Kadaima Expert" chat widget — mounted once in PublicQuizShell
- * so it appears on every public page. Talks to the lms-api `/support/chat`
- * endpoint (same brain as whatsapp-bot.js). Also offers a "Chat on WhatsApp"
- * deep link so visitors can continue on their phone with the linked bot number.
- */
 const FAB_SIZE = "h-14 w-14 min-h-14 min-w-14 md:h-16 md:w-16 md:min-h-16 md:min-w-16";
-/** Skip optimizer so the transparent circular badge renders correctly. */
 const BOT_ICON_SRC = "/brand/kadaima-expert-bot.png";
 
 function ChatBotAvatar({
@@ -60,7 +52,7 @@ function ChatBotAvatar({
       width={size}
       height={size}
       sizes={`${size}px`}
-      unoptimized
+      quality={75}
       loading="lazy"
       draggable={false}
       className={cn(
@@ -77,14 +69,15 @@ export function SupportChatWidget() {
   const [open, setOpen] = useState(false);
   const [showTeaser, setShowTeaser] = useState(false);
   const [hasUnread, setHasUnread] = useState(true);
-  /** Mobile: FABs slide off-screen until the arrow expands them. Desktop always open. */
   const [dockOpen, setDockOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
   const sessionId = useMemo(() => randomId(), []);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const whatsappUrl = APP_CONFIG.whatsappUrl;
+  const whatsappUrl =
+    APP_CONFIG.whatsappUrl ??
+    "https://wa.me/94775075179?text=" + encodeURIComponent("Hi Kadaima!");
 
   useEffect(() => {
     try {
@@ -278,23 +271,20 @@ export function SupportChatWidget() {
 
       {!open ? (
         <>
-          {/* Desktop — always visible, no toggle */}
           <div className="pointer-events-auto hidden items-end gap-3 md:flex">
-            {whatsappUrl ? (
-              <a
-                href={whatsappUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                aria-label={t("public.chat.whatsapp")}
-                title={t("public.chat.whatsappHint")}
-                className={cn(
-                  FAB_SIZE,
-                  "relative z-10 box-border flex shrink-0 items-center justify-center rounded-full bg-[#25D366] text-white shadow-xl ring-2 ring-[#25D366]/35 transition hover:scale-105 hover:bg-[#1ebe57]",
-                )}
-              >
-                <WhatsAppIcon className="size-7 fill-white" />
-              </a>
-            ) : null}
+            <a
+              href={whatsappUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label={t("public.chat.whatsapp")}
+              title={t("public.chat.whatsappHint")}
+              className={cn(
+                FAB_SIZE,
+                "relative z-10 box-border flex shrink-0 items-center justify-center rounded-full bg-[#25D366] text-white shadow-xl ring-2 ring-[#25D366]/35 transition hover:scale-105 hover:bg-[#1ebe57]",
+              )}
+            >
+              <WhatsAppIcon className="size-7 fill-white" />
+            </a>
             <button
               type="button"
               onClick={openChat}
@@ -323,7 +313,6 @@ export function SupportChatWidget() {
             </button>
           </div>
 
-          {/* Mobile — arrow glued to right edge; icons slide out to its left */}
           <div className="pointer-events-auto flex items-center justify-end md:hidden">
             <div
               className={cn(
@@ -332,19 +321,17 @@ export function SupportChatWidget() {
               )}
             >
               <div className="flex items-center gap-2 rounded-full bg-white/95 p-1.5 shadow-xl ring-1 ring-slate-200/90 backdrop-blur-sm">
-                {whatsappUrl ? (
-                  <a
-                    href={whatsappUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    aria-label={t("public.chat.whatsapp")}
-                    title={t("public.chat.whatsappHint")}
-                    tabIndex={dockOpen ? 0 : -1}
-                    className="box-border flex size-12 shrink-0 items-center justify-center rounded-full bg-[#25D366] text-white shadow-md transition active:scale-95"
-                  >
-                    <WhatsAppIcon className="size-6 fill-white" />
-                  </a>
-                ) : null}
+                <a
+                  href={whatsappUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label={t("public.chat.whatsapp")}
+                  title={t("public.chat.whatsappHint")}
+                  tabIndex={dockOpen ? 0 : -1}
+                  className="box-border flex size-12 shrink-0 items-center justify-center rounded-full bg-[#25D366] text-white shadow-md transition active:scale-95"
+                >
+                  <WhatsAppIcon className="size-6 fill-white" />
+                </a>
                 <button
                   type="button"
                   onClick={openChat}

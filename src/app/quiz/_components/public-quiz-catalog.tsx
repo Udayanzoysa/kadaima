@@ -380,9 +380,9 @@ export function PublicQuizCatalog({
         aria-label={t("public.categoryNav")}
         className="rounded-2xl border border-slate-200/80 bg-white p-2 shadow-sm"
       >
-        <h3 className="mb-1.5 px-2 pt-1 text-[10px] font-semibold tracking-[0.08em] text-slate-400 uppercase">
+        <p className="mb-1.5 px-2 pt-1 text-[10px] font-semibold tracking-[0.08em] text-slate-600 uppercase">
           {t("public.categories")}
-        </h3>
+        </p>
         <div className="space-y-0.5">
           {byCourse.map((group) => {
             const selected = group.courseId === activeCourseId;
@@ -414,7 +414,7 @@ export function PublicQuizCatalog({
                         "rounded-md px-1.5 py-0.5 text-[10px] font-bold",
                         selected
                           ? "bg-[#1563b8]/15 text-[#1563b8]"
-                          : "bg-slate-100 text-slate-500",
+                          : "bg-slate-100 text-slate-600",
                       )}
                     >
                       {group.items.length}
@@ -425,7 +425,7 @@ export function PublicQuizCatalog({
                       type="button"
                       aria-label={t("public.moduleNav")}
                       onClick={() => toggleExpanded(group.courseId)}
-                      className="rounded-lg px-1.5 text-slate-400 transition hover:bg-slate-50 hover:text-[#1563b8]"
+                      className="rounded-lg px-1.5 text-slate-600 transition hover:bg-slate-50 hover:text-[#1563b8]"
                     >
                       <ChevronDown
                         className={cn("size-3.5 transition-transform", expanded && "rotate-180")}
@@ -448,7 +448,7 @@ export function PublicQuizCatalog({
                             "block w-full rounded-lg px-2 py-1.5 text-left text-xs transition",
                             modSelected
                               ? "font-semibold text-[#1563b8]"
-                              : "text-slate-500 hover:text-[#1563b8]",
+                              : "text-slate-600 hover:text-[#1563b8]",
                           )}
                         >
                           {mod.title}
@@ -493,7 +493,7 @@ export function PublicQuizCatalog({
                 <h2 className="font-[family-name:var(--font-outfit)] text-lg font-bold tracking-tight text-[#123a6b] md:text-xl">
                   {group.courseTitle}
                 </h2>
-                <p className="mt-0.5 text-xs text-slate-500 sm:text-[13px]">
+                <p className="mt-0.5 text-xs text-slate-600 sm:text-[13px]">
                   {courseSectionSubtitle(group.kind, t)}
                 </p>
               </div>

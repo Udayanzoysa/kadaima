@@ -23,7 +23,7 @@ import { APP_CONFIG } from "@/config/app-config";
 import { getClientCookie } from "@/lib/cookie.client";
 import { cn, getInitials } from "@/lib/utils";
 
-import { statusMeta, type TeacherReviewStatus, type UserRow } from "./data";
+import { isRootPlatformOwner, statusMeta, type TeacherReviewStatus, type UserRow } from "./data";
 
 function AuthProviderBadge({ provider }: { provider?: UserRow["authProvider"] }) {
   if (provider === "google") {
@@ -54,16 +54,27 @@ function AuthProviderBadge({ provider }: { provider?: UserRow["authProvider"] })
 function RoleCell({
   role,
   team,
+  systemRole,
   teacherReviewStatus,
 }: {
   role: string;
   team: string;
+  systemRole?: string;
   teacherReviewStatus?: TeacherReviewStatus;
 }) {
+  const isSuperAdmin = systemRole === "SUPER_ADMIN";
   return (
     <div className="grid gap-0.5">
       <span className="whitespace-nowrap">{role}</span>
       <span className="text-muted-foreground text-xs">{team}</span>
+      {isSuperAdmin ? (
+        <Badge
+          variant="outline"
+          className="mt-0.5 w-fit border-emerald-200 bg-emerald-50 px-1.5 py-0 text-[10px] font-medium text-emerald-700"
+        >
+          Super Admin
+        </Badge>
+      ) : null}
       {teacherReviewStatus === "Pending" ? (
         <Badge
           variant="outline"
@@ -235,6 +246,7 @@ export const getUsersColumns = (
       <RoleCell
         role={row.original.role}
         team={row.original.team}
+        systemRole={row.original.systemRole}
         teacherReviewStatus={row.original.teacherProfile?.reviewStatus}
       />
     ),
@@ -242,38 +254,46 @@ export const getUsersColumns = (
   {
     accessorKey: "canViewOthers",
     header: "View Others",
-    cell: ({ row }) => (
-      <div className="flex items-center justify-center">
-        <Checkbox
-          checked={row.original.canViewOthers || false}
-          disabled={!isPlatformOwner}
-          onCheckedChange={() => {
-            if (row.original.id) {
+    cell: ({ row }) => {
+      const locked = isRootPlatformOwner(row.original.email);
+      return (
+        <div className="flex items-center justify-center">
+          <Checkbox
+            checked={row.original.canViewOthers || false}
+            disabled={!isPlatformOwner || locked}
+            onCheckedChange={() => {
+              if (locked || !row.original.id) return;
               onTogglePermission(row.original.id, "canViewOthers", row.original.canViewOthers || false);
-            }
-          }}
-          aria-label="Toggle can view others"
-        />
-      </div>
-    ),
+            }}
+            aria-label="Toggle can view others"
+          />
+        </div>
+      );
+    },
   },
   {
     accessorKey: "canManagePermissions",
     header: "Manage Perms",
-    cell: ({ row }) => (
-      <div className="flex items-center justify-center">
-        <Checkbox
-          checked={row.original.canManagePermissions || false}
-          disabled={!isPlatformOwner}
-          onCheckedChange={() => {
-            if (row.original.id) {
-              onTogglePermission(row.original.id, "canManagePermissions", row.original.canManagePermissions || false);
-            }
-          }}
-          aria-label="Toggle can manage permissions"
-        />
-      </div>
-    ),
+    cell: ({ row }) => {
+      const locked = isRootPlatformOwner(row.original.email);
+      return (
+        <div className="flex items-center justify-center">
+          <Checkbox
+            checked={row.original.canManagePermissions || false}
+            disabled={!isPlatformOwner || locked}
+            onCheckedChange={() => {
+              if (locked || !row.original.id) return;
+              onTogglePermission(
+                row.original.id,
+                "canManagePermissions",
+                row.original.canManagePermissions || false,
+              );
+            }}
+            aria-label="Toggle can manage permissions"
+          />
+        </div>
+      );
+    },
   },
   {
     accessorKey: "team",
@@ -302,66 +322,80 @@ export const getUsersColumns = (
   {
     id: "actions",
     header: () => <div className="text-right">Actions</div>,
-    cell: ({ row }) => (
-      <div className="text-right">
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
-              aria-label={`Open actions for ${row.original.name}`}
-              className="size-8 rounded-md text-muted-foreground hover:bg-muted/50"
-              size="icon-sm"
-              variant="ghost"
-            >
-              <MoreHorizontal className="size-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => onAction?.("view", row.original)}>View profile</DropdownMenuItem>
-            <DropdownMenuItem onClick={() => onAction?.("edit", row.original)}>Edit user</DropdownMenuItem>
-            {row.original.teacherProfile?.reviewStatus === "Pending" ? (
-              <>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => onActivateTeacher?.(row.original)}>
-                  Activate teacher profile
-                </DropdownMenuItem>
-              </>
-            ) : null}
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              onClick={async () => {
-                if (!row.original.id) return;
-                const token = getClientCookie("session_token");
-                try {
-                  const response = await fetch(`${APP_CONFIG.apiUrl}/users/${row.original.id}/invite`, {
-                    method: "POST",
-                    headers: {
-                      Authorization: `Bearer ${token}`,
-                    },
-                  });
-                  if (!response.ok) throw new Error("Failed to resend invite.");
-                  toast.success(`Onboarding invitation resent to ${row.original.email}`);
-                } catch (err) {
-                  const msg = err instanceof Error ? err.message : "Request failed";
-                  toast.error("Failed to invite", { description: msg });
-                }
-              }}
-            >
-              Resend invite
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              disabled={row.original.status === "Deactivated"}
-              onClick={() => onSoftDelete?.(row.original)}
-            >
-              Soft delete (deactivate)
-            </DropdownMenuItem>
-            <DropdownMenuItem variant="destructive" onClick={() => onHardDelete?.(row.original)}>
-              Hard delete (permanent)
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
-    ),
+    cell: ({ row }) => {
+      const isRoot = isRootPlatformOwner(row.original.email);
+      return (
+        <div className="text-right">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                aria-label={`Open actions for ${row.original.name}`}
+                className="size-8 rounded-md text-muted-foreground hover:bg-muted/50"
+                size="icon-sm"
+                variant="ghost"
+              >
+                <MoreHorizontal className="size-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => onAction?.("view", row.original)}>View profile</DropdownMenuItem>
+              {isRoot ? null : (
+                <DropdownMenuItem onClick={() => onAction?.("edit", row.original)}>Edit user</DropdownMenuItem>
+              )}
+              {row.original.teacherProfile?.reviewStatus === "Pending" && !isRoot ? (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => onActivateTeacher?.(row.original)}>
+                    Activate teacher profile
+                  </DropdownMenuItem>
+                </>
+              ) : null}
+              {!isRoot ? (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    onClick={async () => {
+                      if (!row.original.id) return;
+                      const token = getClientCookie("session_token");
+                      try {
+                        const response = await fetch(`${APP_CONFIG.apiUrl}/users/${row.original.id}/invite`, {
+                          method: "POST",
+                          headers: {
+                            Authorization: `Bearer ${token}`,
+                          },
+                        });
+                        if (!response.ok) throw new Error("Failed to resend invite.");
+                        toast.success(`Onboarding invitation resent to ${row.original.email}`);
+                      } catch (err) {
+                        const msg = err instanceof Error ? err.message : "Request failed";
+                        toast.error("Failed to invite", { description: msg });
+                      }
+                    }}
+                  >
+                    Resend invite
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    disabled={row.original.status === "Deactivated"}
+                    onClick={() => onSoftDelete?.(row.original)}
+                  >
+                    Soft delete (deactivate)
+                  </DropdownMenuItem>
+                  <DropdownMenuItem variant="destructive" onClick={() => onHardDelete?.(row.original)}>
+                    Hard delete (permanent)
+                  </DropdownMenuItem>
+                </>
+              ) : (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem disabled>Root owner — locked</DropdownMenuItem>
+                </>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      );
+    },
     enableHiding: false,
     enableSorting: false,
   },

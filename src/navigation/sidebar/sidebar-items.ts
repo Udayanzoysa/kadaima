@@ -2,6 +2,7 @@
   ClipboardList,
   BookOpen,
   CreditCard,
+  Database,
   GraduationCap,
   HelpCircle,
   LayoutDashboard,
@@ -136,6 +137,12 @@ export const sidebarItems: NavGroup[] = [
         title: "Settings",
         url: "/admin/settings",
         icon: Settings,
+      },
+      {
+        id: "backup",
+        title: "Database Backup",
+        url: "/admin/backup",
+        icon: Database,
       },
       {
         id: "log",

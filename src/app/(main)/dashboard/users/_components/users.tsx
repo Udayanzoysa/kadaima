@@ -48,9 +48,24 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { APP_CONFIG } from "@/config/app-config";
 import { getClientCookie } from "@/lib/cookie.client";
 
-import { filters, formatJoinedDate, type UserRow, type UserStatus, type UserTeam } from "./data";
+import {
+  ACCOUNT_TEAMS,
+  displayUserRole,
+  filters,
+  formatJoinedDate,
+  isRootPlatformOwner,
+  PLATFORM_OWNER_EMAIL,
+  suggestTeamForRole,
+  type SystemRole,
+  type UserRow,
+  type UserStatus,
+  type UserTeam,
+} from "./data";
 import { getUsersColumns } from "./users-columns";
 import { UsersTable } from "./users-table";
+
+const STUDENT_ROLE_VALUE = "None";
+type SystemPrivilege = "USER" | "SUPER_ADMIN";
 
 interface BackendRole {
   id: string;
@@ -112,8 +127,8 @@ export function Users({ users: initialUsers }: { users?: UserRow[] }) {
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [newUserName, setNewUserName] = useState("");
   const [newUserEmail, setNewUserEmail] = useState("");
-  const [newUserTeam, setNewUserTeam] = useState("Platform");
-  const [newUserRoleId, setNewUserRoleId] = useState("");
+  const [newUserTeam, setNewUserTeam] = useState<UserTeam>("Student");
+  const [newUserRoleId, setNewUserRoleId] = useState(STUDENT_ROLE_VALUE);
   const [newCanViewOthers, setNewCanViewOthers] = useState(false);
   const [newCanManagePermissions, setNewCanManagePermissions] = useState(false);
   const [isAdding, setIsAdding] = useState(false);
@@ -124,6 +139,7 @@ export function Users({ users: initialUsers }: { users?: UserRow[] }) {
   const [editUserName, setEditUserName] = useState("");
   const [editUserTeam, setEditUserTeam] = useState("Platform");
   const [editUserRoleId, setEditUserRoleId] = useState("");
+  const [editSystemPrivilege, setEditSystemPrivilege] = useState<SystemPrivilege>("USER");
   const [editCanViewOthers, setEditCanViewOthers] = useState(false);
   const [editCanManagePermissions, setEditCanManagePermissions] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
@@ -142,12 +158,16 @@ export function Users({ users: initialUsers }: { users?: UserRow[] }) {
       setEditUserName(selectedUserForModal.name);
       setEditUserTeam(selectedUserForModal.team);
       setEditUserRoleId(selectedUserForModal.customRoleId || "None");
+      setEditSystemPrivilege(
+        selectedUserForModal.systemRole === "SUPER_ADMIN" ? "SUPER_ADMIN" : "USER",
+      );
       setEditCanViewOthers(!!selectedUserForModal.canViewOthers);
       setEditCanManagePermissions(!!selectedUserForModal.canManagePermissions);
     } else {
       setEditUserName("");
       setEditUserTeam("Platform");
       setEditUserRoleId("");
+      setEditSystemPrivilege("USER");
       setEditCanViewOthers(false);
       setEditCanManagePermissions(false);
     }
@@ -167,15 +187,17 @@ export function Users({ users: initialUsers }: { users?: UserRow[] }) {
     pageSize: 10,
   });
 
-  // Platform owner / SUPER_ADMIN can manage delegation flags
+  // Platform owner / SUPER_ADMIN can manage delegation flags; root alone grants SUPER_ADMIN
   const [isPlatformOwner, setIsPlatformOwner] = useState(false);
+  const [isRootCaller, setIsRootCaller] = useState(false);
 
   useEffect(() => {
     const token = getClientCookie("session_token");
     const decoded = getDecodedToken(token);
-    setIsPlatformOwner(
-      decoded?.role === "SUPER_ADMIN" || decoded?.email === "unzoysa.un@gmail.com",
-    );
+    const email = decoded?.email as string | undefined;
+    const role = decoded?.role as string | undefined;
+    setIsRootCaller(isRootPlatformOwner(email));
+    setIsPlatformOwner(role === "SUPER_ADMIN" || isRootPlatformOwner(email));
   }, []);
 
   const fetchData = useCallback(async () => {
@@ -200,7 +222,12 @@ export function Users({ users: initialUsers }: { users?: UserRow[] }) {
         id: u.id,
         name: u.name ?? u.email.split("@")[0],
         email: u.email,
-        role: u.customRole ? u.customRole.name : u.role,
+        role: displayUserRole({
+          customRoleName: u.customRole?.name,
+          systemRole: u.role,
+          team: u.team,
+        }),
+        systemRole: u.role as SystemRole,
         team: (u.team ?? "Platform") as UserTeam,
         workspace: u.workspace?.name ? [u.workspace.name] : ["Workspace"],
         status: (u.status === "Inactive" ? "Deactivated" : u.status === "Active" ? "Active" : u.status) as UserStatus,
@@ -237,11 +264,27 @@ export function Users({ users: initialUsers }: { users?: UserRow[] }) {
     };
   }, [fetchData]);
 
+  const applyRoleSelection = (
+    roleId: string,
+    setRoleId: (id: string) => void,
+    setTeam: (team: UserTeam) => void,
+  ) => {
+    setRoleId(roleId);
+    if (roleId === STUDENT_ROLE_VALUE) {
+      setTeam("Student");
+      return;
+    }
+    const role = rolesList.find((r) => r.id === roleId);
+    setTeam(suggestTeamForRole(role?.name));
+  };
+
   const handleAddUser = async () => {
-    if (!newUserName || !newUserEmail || !newUserTeam || !newUserRoleId) return;
+    if (!newUserName || !newUserEmail || !newUserTeam) return;
     setIsAdding(true);
     const token = getClientCookie("session_token");
     try {
+      const customRoleId =
+        !newUserRoleId || newUserRoleId === STUDENT_ROLE_VALUE ? undefined : newUserRoleId;
       const response = await fetch(`${APP_CONFIG.apiUrl}/users`, {
         method: "POST",
         headers: {
@@ -252,7 +295,7 @@ export function Users({ users: initialUsers }: { users?: UserRow[] }) {
           name: newUserName,
           email: newUserEmail,
           team: newUserTeam,
-          customRoleId: newUserRoleId,
+          customRoleId,
           status: "Active",
           canViewOthers: isPlatformOwner ? newCanViewOthers : false,
           canManagePermissions: isPlatformOwner ? newCanManagePermissions : false,
@@ -268,8 +311,8 @@ export function Users({ users: initialUsers }: { users?: UserRow[] }) {
       setIsAddOpen(false);
       setNewUserName("");
       setNewUserEmail("");
-      setNewUserTeam("Platform");
-      setNewUserRoleId("");
+      setNewUserTeam("Student");
+      setNewUserRoleId(STUDENT_ROLE_VALUE);
       setNewCanViewOthers(false);
       setNewCanManagePermissions(false);
       await fetchData();
@@ -283,22 +326,32 @@ export function Users({ users: initialUsers }: { users?: UserRow[] }) {
 
   const handleUpdateUser = async () => {
     if (!selectedUserForModal?.id || !editUserName.trim()) return;
+    if (isRootPlatformOwner(selectedUserForModal.email)) {
+      toast.error("Root owner is locked", {
+        description: `${PLATFORM_OWNER_EMAIL} cannot be edited.`,
+      });
+      return;
+    }
     setIsUpdating(true);
     const token = getClientCookie("session_token");
     try {
+      const body: Record<string, unknown> = {
+        name: editUserName,
+        team: editUserTeam,
+        customRoleId: editUserRoleId === "None" || !editUserRoleId ? null : editUserRoleId,
+        canViewOthers: isPlatformOwner ? editCanViewOthers : undefined,
+        canManagePermissions: isPlatformOwner ? editCanManagePermissions : undefined,
+      };
+      if (isRootCaller) {
+        body.role = editSystemPrivilege;
+      }
       const response = await fetch(`${APP_CONFIG.apiUrl}/users/${selectedUserForModal.id}`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({
-          name: editUserName,
-          team: editUserTeam,
-          customRoleId: editUserRoleId === "None" || !editUserRoleId ? null : editUserRoleId,
-          canViewOthers: isPlatformOwner ? editCanViewOthers : undefined,
-          canManagePermissions: isPlatformOwner ? editCanManagePermissions : undefined,
-        }),
+        body: JSON.stringify(body),
       });
 
       if (!response.ok) {
@@ -394,6 +447,13 @@ export function Users({ users: initialUsers }: { users?: UserRow[] }) {
     return getUsersColumns(
       isPlatformOwner,
       async (userId, field, currentValue) => {
+        const target = usersList.find((u) => u.id === userId);
+        if (target && isRootPlatformOwner(target.email)) {
+          toast.error("Root owner is locked", {
+            description: `${PLATFORM_OWNER_EMAIL} permissions cannot be changed.`,
+          });
+          return;
+        }
         const token = getClientCookie("session_token");
         try {
           const response = await fetch(`${APP_CONFIG.apiUrl}/users/${userId}`, {
@@ -420,20 +480,38 @@ export function Users({ users: initialUsers }: { users?: UserRow[] }) {
         }
       },
       (action, user) => {
+        if (action === "edit" && isRootPlatformOwner(user.email)) {
+          toast.error("Root owner is locked", {
+            description: `${PLATFORM_OWNER_EMAIL} cannot be edited.`,
+          });
+          return;
+        }
         setSelectedUserForModal(user);
         setModalMode(action);
       },
       (user) => {
+        if (isRootPlatformOwner(user.email)) {
+          toast.error("Root owner is locked", {
+            description: `${PLATFORM_OWNER_EMAIL} cannot be deactivated.`,
+          });
+          return;
+        }
         setDeleteTarget(user);
         setDeleteMode("soft");
       },
       (user) => {
+        if (isRootPlatformOwner(user.email)) {
+          toast.error("Root owner is locked", {
+            description: `${PLATFORM_OWNER_EMAIL} cannot be deleted.`,
+          });
+          return;
+        }
         setDeleteTarget(user);
         setDeleteMode("hard");
       },
       (user) => setActivateTarget(user),
     );
-  }, [isPlatformOwner, fetchData]);
+  }, [isPlatformOwner, fetchData, usersList]);
 
   const table = useReactTable({
     data: usersList,
@@ -459,8 +537,14 @@ export function Users({ users: initialUsers }: { users?: UserRow[] }) {
     getSortedRowModel: getSortedRowModel(),
   });
 
+  const roleFilterOptions = useMemo(() => {
+    const fromApi = rolesList.map((r) => r.name);
+    const merged = new Set(["All", "Student", "User", ...fromApi, ...filters.role.slice(1)]);
+    return Array.from(merged);
+  }, [rolesList]);
+
   const searchQuery = (table.getColumn("search")?.getFilterValue() as string) ?? "";
-  const roleFilter = (table.getColumn("role")?.getFilterValue() as string) ?? filters.role[0];
+  const roleFilter = (table.getColumn("role")?.getFilterValue() as string) ?? "All";
   const teamFilter = (table.getColumn("team")?.getFilterValue() as string) ?? filters.team[0];
   const statusFilter = (table.getColumn("status")?.getFilterValue() as string) ?? filters.status[0];
   const workspaceFilter = (table.getColumn("workspace")?.getFilterValue() as string) ?? filters.workspace[0];
@@ -544,7 +628,23 @@ export function Users({ users: initialUsers }: { users?: UserRow[] }) {
               </SelectTrigger>
               <SelectContent position="popper" align="start">
                 <SelectGroup>
-                  {filters.role.map((option) => (
+                  {roleFilterOptions.map((option) => (
+                    <SelectItem key={option} value={option}>
+                      {option}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
+              </SelectContent>
+            </Select>
+
+            <Select value={teamFilter} onValueChange={(value) => setColumnSelectFilter("team", value)}>
+              <SelectTrigger size="sm">
+                <span className="text-muted-foreground">Team:</span>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent position="popper" align="start">
+                <SelectGroup>
+                  {filters.team.map((option) => (
                     <SelectItem key={option} value={option}>
                       {option}
                     </SelectItem>
@@ -721,11 +821,16 @@ export function Users({ users: initialUsers }: { users?: UserRow[] }) {
 
             <Field className="gap-1.5">
               <span className="font-semibold text-foreground text-xs">Role</span>
-              <Select value={newUserRoleId} onValueChange={(v) => setNewUserRoleId(v)} disabled={isAdding}>
+              <Select
+                value={newUserRoleId}
+                onValueChange={(v) => applyRoleSelection(v, setNewUserRoleId, setNewUserTeam)}
+                disabled={isAdding}
+              >
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder="Select workspace role" />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value={STUDENT_ROLE_VALUE}>Student (no custom role)</SelectItem>
                   {rolesList.map((role) => (
                     <SelectItem key={role.id} value={role.id}>
                       {role.name}
@@ -733,6 +838,30 @@ export function Users({ users: initialUsers }: { users?: UserRow[] }) {
                   ))}
                 </SelectContent>
               </Select>
+            </Field>
+
+            <Field className="gap-1.5">
+              <span className="font-semibold text-foreground text-xs">Team</span>
+              <Select
+                value={newUserTeam}
+                onValueChange={(v) => setNewUserTeam(v)}
+                disabled={isAdding}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select team" />
+                </SelectTrigger>
+                <SelectContent>
+                  {ACCOUNT_TEAMS.map((team) => (
+                    <SelectItem key={team} value={team}>
+                      {team}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-muted-foreground text-[11px]">
+                Owner → Executive · Teacher → Teacher · Student → Student. You can override team
+                manually.
+              </p>
             </Field>
 
             {isPlatformOwner && (
@@ -770,7 +899,7 @@ export function Users({ users: initialUsers }: { users?: UserRow[] }) {
             </Button>
             <Button
               onClick={handleAddUser}
-              disabled={isAdding || !newUserName || !newUserEmail || !newUserTeam || !newUserRoleId}
+              disabled={isAdding || !newUserName || !newUserEmail || !newUserTeam}
             >
               {isAdding && <Spinner className="mr-2" />}
               Invite User
@@ -825,15 +954,15 @@ export function Users({ users: initialUsers }: { users?: UserRow[] }) {
             <Field className="gap-1.5">
               <span className="font-semibold text-foreground text-xs">Role</span>
               <Select
-                value={editUserRoleId}
-                onValueChange={(v) => setEditUserRoleId(v)}
+                value={editUserRoleId || STUDENT_ROLE_VALUE}
+                onValueChange={(v) => applyRoleSelection(v, setEditUserRoleId, setEditUserTeam)}
                 disabled={modalMode === "view" || isUpdating}
               >
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder="Select custom role" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="None">None (Default standard permissions)</SelectItem>
+                  <SelectItem value={STUDENT_ROLE_VALUE}>Student (no custom role)</SelectItem>
                   {rolesList.map((role) => (
                     <SelectItem key={role.id} value={role.id}>
                       {role.name}
@@ -842,6 +971,61 @@ export function Users({ users: initialUsers }: { users?: UserRow[] }) {
                 </SelectContent>
               </Select>
             </Field>
+
+            <Field className="gap-1.5">
+              <span className="font-semibold text-foreground text-xs">Team</span>
+              <Select
+                value={
+                  ACCOUNT_TEAMS.includes(editUserTeam as (typeof ACCOUNT_TEAMS)[number])
+                    ? editUserTeam
+                    : editUserTeam || "Platform"
+                }
+                onValueChange={(v) => setEditUserTeam(v)}
+                disabled={modalMode === "view" || isUpdating}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select team" />
+                </SelectTrigger>
+                <SelectContent>
+                  {ACCOUNT_TEAMS.map((team) => (
+                    <SelectItem key={team} value={team}>
+                      {team}
+                    </SelectItem>
+                  ))}
+                  {editUserTeam &&
+                  !ACCOUNT_TEAMS.includes(editUserTeam as (typeof ACCOUNT_TEAMS)[number]) ? (
+                    <SelectItem value={editUserTeam}>{editUserTeam}</SelectItem>
+                  ) : null}
+                </SelectContent>
+              </Select>
+              <p className="text-muted-foreground text-[11px]">
+                Changing role auto-sets team (Owner → Executive, Teacher → Teacher, Student →
+                Student). Adjust team if needed before saving.
+              </p>
+            </Field>
+
+            {isRootCaller ? (
+              <Field className="gap-1.5">
+                <span className="font-semibold text-foreground text-xs">System privilege</span>
+                <Select
+                  value={editSystemPrivilege}
+                  onValueChange={(v) => setEditSystemPrivilege(v as SystemPrivilege)}
+                  disabled={modalMode === "view" || isUpdating}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="USER">Standard user</SelectItem>
+                    <SelectItem value="SUPER_ADMIN">Super Admin</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-muted-foreground text-[11px]">
+                  Only the root owner ({PLATFORM_OWNER_EMAIL}) can grant or revoke Super Admin.
+                  Super Admin gets full platform access (Settings, Users, Backup, Logs).
+                </p>
+              </Field>
+            ) : null}
 
             {isPlatformOwner && (
               <div className="space-y-2 pt-2 border-t border-border">

@@ -211,7 +211,7 @@ export function CourseQuizzesView({
           <h1 className="font-[family-name:var(--font-outfit)] text-lg font-bold tracking-tight break-words text-[#123a6b] sm:text-xl md:text-2xl">
             {courseTitle}
           </h1>
-          <p className="mt-1 text-sm text-slate-500">{sectionSubtitle(kind, t)}</p>
+          <p className="mt-1 text-sm text-slate-600">{sectionSubtitle(kind, t)}</p>
           <p className="mt-1 text-xs font-medium text-[#1563b8]">{countLabel}</p>
         </header>
 
@@ -224,9 +224,9 @@ export function CourseQuizzesView({
                 aria-label={t("public.moduleNav")}
                 className="rounded-2xl border border-slate-200/80 bg-white p-2 shadow-sm"
               >
-                <h3 className="mb-1.5 px-2 pt-1 text-[10px] font-semibold tracking-[0.08em] text-slate-400 uppercase">
+                <p className="mb-1.5 px-2 pt-1 text-[10px] font-semibold tracking-[0.08em] text-slate-600 uppercase">
                   {t("public.moduleNav")}
-                </h3>
+                </p>
                 <div className="space-y-0.5">
                   <button
                     type="button"

@@ -70,9 +70,9 @@ export function LanguageSwitcher({
             "inline-flex h-9 max-w-[10.5rem] items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 shadow-sm transition hover:border-[#1563b8]/40 hover:text-[#1563b8]",
             className,
           )}
-          aria-label="Change language"
+          aria-label={`${active.label}, change language`}
         >
-          {showIcon ? <Globe className="size-3.5 shrink-0 text-slate-500" /> : null}
+          {showIcon ? <Globe className="size-3.5 shrink-0 text-slate-500" aria-hidden /> : null}
           <span className="truncate">{active.label}</span>
           <ChevronDown className="size-3.5 shrink-0 opacity-60" />
         </button>

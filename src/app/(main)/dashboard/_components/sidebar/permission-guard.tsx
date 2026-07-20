@@ -105,6 +105,7 @@ function decidePath(
     pathname.startsWith("/admin/roles") ||
     pathname.startsWith("/admin/payments") ||
     pathname.startsWith("/admin/settings") ||
+    pathname.startsWith("/admin/backup") ||
     pathname.startsWith("/admin/logs");
 
   if (isAdminOnlyRoute) {

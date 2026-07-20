@@ -23,6 +23,7 @@ import { LanguageSwitcher } from "@/components/i18n/language-switcher";
 import { PublicQuizCard } from "@/components/quiz/public-quiz-card";
 import { PublicContentSkeleton } from "@/components/site/public-content-skeleton";
 import { PublicCenteredError } from "@/components/site/public-feedback";
+import { PublicSiteFooter } from "@/components/site/public-site-footer";
 import { SimpleIcon } from "@/components/simple-icon";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -1019,30 +1020,29 @@ export function TeacherLandingPage({ slug }: { slug: string }) {
         </div>
       ) : null}
 
-      <footer className="mt-6 border-t border-slate-200 bg-white pb-[calc(4.5rem+env(safe-area-inset-bottom))] md:mt-8 md:pb-0">
-        <div className="mx-auto grid w-full max-w-6xl grid-cols-1 items-center gap-3 px-3 py-5 sm:px-4 sm:py-6 md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] md:gap-4 md:px-6 md:py-5">
-          <Link href="/" className="flex justify-center md:justify-start">
-            <BrandLogo className="h-8 w-auto sm:h-9 md:h-10" />
-          </Link>
-          <p className="text-center text-xs font-medium text-slate-500 sm:text-sm">
-            © {new Date().getFullYear()} Kadaima Education. All rights reserved.
-          </p>
-          <nav
-            className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-xs font-medium tracking-tight sm:gap-x-5 sm:text-sm md:justify-end"
-            style={{ color: NAVY }}
-          >
-            <Link href="/privacy-policy" className="transition hover:opacity-80">
-              Privacy Policy
-            </Link>
-            <Link href="/terms" className="transition hover:opacity-80">
-              Terms of Service
-            </Link>
-            <Link href="#contact" className="transition hover:opacity-80">
-              Contact Support
-            </Link>
-          </nav>
-        </div>
-      </footer>
+      <PublicSiteFooter
+        copyright={`© ${new Date().getFullYear()} Kadaima Education. All rights reserved.`}
+        appStoresComingSoon="Coming soon on Play Store & App Store"
+        aboutSummary="Sri Lanka’s online exam & quiz portal for students and teachers — Scholarship, O/L, A/L, and more."
+        usefulLinksHeading="Useful links"
+        exploreLinksHeading="For teachers & partners"
+        getAppHeading="Get the app"
+        infoEmail="info@kadaima.com"
+        whatsappDisplay="WhatsApp"
+        whatsappE164="94775075179"
+        emailLabel="Email"
+        links={[
+          { href: "/privacy-policy", label: "Privacy Policy" },
+          { href: "/terms", label: "Terms of Service" },
+          { href: "#contact", label: "Contact Support" },
+        ]}
+        exploreLinks={[
+          { href: "/partner", label: "How to be a partner" },
+          { href: "/teacher/register", label: "Teacher profile" },
+          { href: "/faq", label: "FAQs" },
+          { href: "/referral", label: "Referral" },
+        ]}
+      />
 
       {/* Mobile bottom nav */}
       <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-slate-200 bg-white/95 px-1.5 pb-[max(0.4rem,env(safe-area-inset-bottom))] pt-1.5 backdrop-blur sm:px-2 sm:pt-2 md:hidden">
