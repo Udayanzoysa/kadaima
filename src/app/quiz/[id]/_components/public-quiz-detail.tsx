@@ -15,6 +15,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RichHtml } from "@/components/ui/rich-text-editor";
 import { PublicContentSkeleton } from "@/components/site/public-content-skeleton";
+import { PublicCenteredError } from "@/components/site/public-feedback";
 import { Spinner } from "@/components/ui/spinner";
 import { APP_CONFIG } from "@/config/app-config";
 import { useI18n } from "@/hooks/use-i18n";
@@ -25,6 +26,8 @@ import {
   getOrCreateGuestLead,
   saveGuestLead,
 } from "@/lib/guest-session";
+import { PUBLIC_HERO_GLOW_CLASS, PUBLIC_HERO_GRADIENT_CLASS } from "@/lib/public-brand";
+import { cn } from "@/lib/utils";
 import { localize, type LocalizedText } from "@/types/quiz";
 
 import { PublicQuizShell } from "../../_components/public-quiz-shell";
@@ -270,12 +273,10 @@ export function PublicQuizDetail() {
   if (error || !quiz) {
     return (
       <PublicQuizShell>
-        <div className="flex flex-1 flex-col items-center justify-center gap-4 px-4 text-center">
-          <p className="text-slate-600">{error ?? t("public.quizNotFound")}</p>
-          <Button asChild variant="brand" className="font-semibold">
-            <Link href="/">{t("public.backToQuizzes")}</Link>
-          </Button>
-        </div>
+        <PublicCenteredError
+          message={error ?? t("public.quizNotFound")}
+          backLabel={t("public.backToQuizzes")}
+        />
       </PublicQuizShell>
     );
   }
@@ -287,7 +288,7 @@ export function PublicQuizDetail() {
 
   return (
     <PublicQuizShell>
-      <main className="mx-auto w-full max-w-3xl flex-1 px-4 py-6 md:px-6 md:py-8">
+      <main className="mx-auto w-full min-w-0 max-w-3xl flex-1 px-3 py-4 sm:px-4 sm:py-6 md:px-6 md:py-8">
         <p className="mb-4 text-sm text-slate-500">
           {courseTitle}
           {moduleTitle ? (
@@ -298,20 +299,26 @@ export function PublicQuizDetail() {
           ) : null}
         </p>
 
-        <section className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#2b7fff] via-[#3b9eff] to-[#5ec4c0] p-6 text-white shadow-[0_20px_50px_-24px_rgba(43,127,255,0.55)] md:p-8">
+        <section
+          className={cn(
+            "relative overflow-hidden rounded-3xl p-6 text-white md:p-8",
+            PUBLIC_HERO_GRADIENT_CLASS,
+          )}
+        >
+          <div aria-hidden className={PUBLIC_HERO_GLOW_CLASS} />
           {locked ? (
-            <span className="inline-flex rounded-full bg-white/90 px-3 py-1 text-[11px] font-semibold text-[#2b7fff]">
+            <span className="relative inline-flex rounded-full bg-white/90 px-3 py-1 text-[11px] font-semibold text-[#1563b8]">
               {t("public.premium").replace("{price}", Number(quiz.priceLkr ?? 0).toFixed(0))}
             </span>
           ) : (
-            <span className="inline-flex rounded-full bg-white/90 px-3 py-1 text-[11px] font-semibold text-[#2b7fff]">
+            <span className="relative inline-flex rounded-full bg-white/15 px-3 py-1 text-[11px] font-semibold text-white ring-1 ring-white/25">
               {t("public.featureEvent")}
             </span>
           )}
-          <h1 className="mt-4 font-[family-name:var(--font-outfit)] text-2xl font-extrabold leading-tight md:text-3xl">
+          <h1 className="relative mt-4 font-[family-name:var(--font-outfit)] text-2xl font-extrabold leading-tight md:text-3xl">
             {localize(quiz.title, locale)}
           </h1>
-          <div className="mt-3 flex flex-wrap gap-4 text-sm text-white/90">
+          <div className="relative mt-3 flex flex-wrap gap-4 text-sm text-white/90">
             <span className="inline-flex items-center gap-1.5">
               <Clock3 className="size-4" />
               {t("public.mins").replace("{count}", String(quiz.durationMinutes))}
@@ -360,7 +367,7 @@ export function PublicQuizDetail() {
         ) : authUser ? (
           <section className="mt-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm md:p-6">
             <div className="mx-auto flex max-w-md flex-col items-center text-center">
-              <span className="flex size-12 items-center justify-center rounded-full bg-[#e8f1ff] text-[#2b7fff]">
+              <span className="flex size-12 items-center justify-center rounded-full bg-[#eef6ff] text-[#1563b8]">
                 <UserRound className="size-6" />
               </span>
               <h2 className="mt-3 font-[family-name:var(--font-outfit)] text-lg font-bold text-slate-900">
@@ -405,7 +412,7 @@ export function PublicQuizDetail() {
             </h2>
             <p className="mt-1 text-center text-sm text-slate-500">
               {t("public.noPasswordNeeded")}{" "}
-              <Link href="/login" className="font-medium text-[#2b7fff] hover:underline">
+              <Link href="/login" className="font-medium text-[#1563b8] hover:underline">
                 {t("public.alreadyHaveAccount")}
               </Link>
             </p>

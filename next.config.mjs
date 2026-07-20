@@ -2,10 +2,16 @@
 const nextConfig = {
   reactCompiler: true,
   output: "standalone",
+  compress: true,
   compiler: {
     removeConsole: process.env.NODE_ENV === "production",
   },
+  experimental: {
+    // lucide-react / date-fns / recharts are optimized by default; radix-ui is not.
+    optimizePackageImports: ["radix-ui"],
+  },
   images: {
+    formats: ["image/avif", "image/webp"],
     // Next 16 blocks optimizing images from localhost/private IPs (SSRF guard).
     // Required while the Nest API serves /uploads on localhost during local dev.
     dangerouslyAllowLocalIP: true,

@@ -16,7 +16,7 @@ import { PasswordInput } from "@/components/ui/password-input";
 import { PublicContentSkeleton } from "@/components/site/public-content-skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { APP_CONFIG } from "@/config/app-config";
-import { I18nProvider, useI18n } from "@/hooks/use-i18n";
+import { useI18n } from "@/hooks/use-i18n";
 import { deleteClientCookie, getClientCookie } from "@/lib/cookie.client";
 
 interface ProfileData {
@@ -140,7 +140,7 @@ function ProfilePageInner() {
     <PublicQuizShell>
       <main className="mx-auto w-full max-w-2xl flex-1 px-4 py-6 md:px-6 md:py-8">
         <div className="mb-6 flex items-center gap-3">
-          <div className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-[#eef6ff] text-[#2b7fff]">
+          <div className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-[#eef6ff] text-[#1563b8]">
             <UserIcon className="size-5" />
           </div>
           <div>
@@ -209,7 +209,7 @@ function ProfilePageInner() {
           className="mt-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6"
         >
           <h2 className="flex items-center gap-2 font-[family-name:var(--font-outfit)] text-lg font-semibold text-slate-900">
-            <KeyRound className="size-4.5 text-[#2b7fff]" />
+            <KeyRound className="size-4.5 text-[#1563b8]" />
             {t("public.profilePage.changePasswordTitle")}
           </h2>
           <FieldGroup className="mt-4 gap-4">
@@ -266,9 +266,5 @@ function ProfilePageInner() {
 }
 
 export function ProfilePageContent() {
-  return (
-    <I18nProvider>
-      <ProfilePageInner />
-    </I18nProvider>
-  );
+  return <ProfilePageInner />;
 }

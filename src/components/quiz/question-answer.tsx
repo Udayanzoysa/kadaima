@@ -44,7 +44,15 @@ function seededShuffle<T>(items: T[], seed: string): T[] {
   return arr;
 }
 
-function SortableItem({ id, label }: { id: string; label: string }) {
+function SortableItem({
+  id,
+  label,
+  imageSrc,
+}: {
+  id: string;
+  label: string;
+  imageSrc?: string | null;
+}) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id,
   });
@@ -65,7 +73,17 @@ function SortableItem({ id, label }: { id: string; label: string }) {
       >
         <GripVertical className="size-4" />
       </button>
-      <span className="flex-1">{label}</span>
+      <div className="flex min-w-0 flex-1 items-center gap-3">
+        {imageSrc && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={imageSrc}
+            alt=""
+            className="max-h-16 max-w-[7rem] shrink-0 rounded border object-contain"
+          />
+        )}
+        {label ? <span className="min-w-0 flex-1">{label}</span> : null}
+      </div>
     </div>
   );
 }
@@ -165,6 +183,8 @@ export function QuestionAnswerInput({
       >
         {question.choices.map((choice) => {
           const isSelected = value.choiceId === choice.id;
+          const label = localize(choice.choiceText, locale);
+          const img = mediaUrl(choice.imageUrl, APP_CONFIG.apiUrl);
           return (
             <label
               key={choice.id}
@@ -184,12 +204,32 @@ export function QuestionAnswerInput({
                 value={choice.id}
                 id={`${question.id}-${choice.id}`}
                 className={cn(
+                  "shrink-0",
                   exam &&
                     isSelected &&
                     "border-white text-white data-[state=checked]:border-white data-[state=checked]:bg-white data-[state=checked]:text-[#0c4a6e]",
                 )}
               />
-              <span className={cn(exam && "font-medium")}>{localize(choice.choiceText, locale)}</span>
+              <div className="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row sm:items-center">
+                {img && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={img}
+                    alt={label || "Answer choice"}
+                    className={cn(
+                      "max-h-36 max-w-full rounded-md border object-contain sm:max-w-[12rem]",
+                      exam
+                        ? isSelected
+                          ? "border-white/40 bg-white/10"
+                          : "border-slate-200 bg-slate-50"
+                        : "border-border bg-muted/20",
+                    )}
+                  />
+                )}
+                {label ? (
+                  <span className={cn(exam && "font-medium")}>{label}</span>
+                ) : null}
+              </div>
             </label>
           );
         })}
@@ -249,7 +289,12 @@ export function QuestionAnswerInput({
                 const choice = byId.get(id);
                 if (!choice) return null;
                 return (
-                  <SortableItem key={id} id={id} label={localize(choice.choiceText, locale)} />
+                  <SortableItem
+                    key={id}
+                    id={id}
+                    label={localize(choice.choiceText, locale)}
+                    imageSrc={mediaUrl(choice.imageUrl, APP_CONFIG.apiUrl)}
+                  />
                 );
               })}
             </div>

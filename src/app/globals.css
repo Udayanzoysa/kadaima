@@ -336,9 +336,29 @@ html {
 
 .kadaima-chat-wave {
   animation: kadaima-chat-wave 2.4s cubic-bezier(0.22, 1, 0.36, 1) infinite;
-  will-change: transform, opacity;
 }
 
 .kadaima-chat-wave-delay {
   animation-delay: 1.2s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .kadaima-chat-wave {
+    animation: none;
+    opacity: 0.35;
+  }
+}
+
+.lang-switch-btn-active {
+  background-color: #1563b8;
+  color: #fff;
+}
+
+.lang-switch-btn-idle {
+  color: #475569;
+}
+
+.lang-switch-btn-idle:hover {
+  background-color: #f8fafc;
+  color: #1563b8;
 }

@@ -2,17 +2,14 @@ import type { ReactNode } from "react";
 
 import type { Metadata, Viewport } from "next";
 
+import { DeferredAppChrome } from "@/components/site/deferred-app-chrome";
 import { GoogleAnalytics } from "@/components/site/google-analytics";
-import { GlobalSiteLoader } from "@/components/site/global-site-loader";
-import { Toaster } from "@/components/ui/sonner";
-import { TooltipProvider } from "@/components/ui/tooltip";
 import { APP_CONFIG } from "@/config/app-config";
 import { coreFontVars } from "@/lib/fonts/core";
 import { PREFERENCE_DEFAULTS } from "@/lib/preferences/preferences-config";
 import { DEFAULT_SITE_SEO, getSiteSeo } from "@/lib/site-seo";
 import { getSiteUrl } from "@/lib/site-url";
 import { ThemeBootScript } from "@/scripts/theme-boot";
-import { PreferencesStoreProvider } from "@/stores/preferences/preferences-provider";
 
 import "./globals.css";
 
@@ -125,22 +122,11 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
         <link rel="manifest" href="/site.webmanifest" />
       </head>
       <body className={`${coreFontVars} min-h-screen overflow-x-hidden antialiased`}>
-        {/* beforeInteractive boot script — must live in root layout body */}
+        {/* beforeInteractive — admin theme flash prevention; public keeps light defaults */}
         <ThemeBootScript />
         <GoogleAnalytics measurementId={seo.googleAnalyticsId} />
-        <TooltipProvider>
-          <PreferencesStoreProvider
-            themeMode={theme_mode}
-            themePreset={theme_preset}
-            contentLayout={content_layout}
-            navbarStyle={navbar_style}
-            font={font}
-          >
-            {children}
-            <GlobalSiteLoader />
-            <Toaster />
-          </PreferencesStoreProvider>
-        </TooltipProvider>
+        {children}
+        <DeferredAppChrome />
       </body>
     </html>
   );

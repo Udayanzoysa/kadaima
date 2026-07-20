@@ -21,7 +21,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { APP_CONFIG } from "@/config/app-config";
 import { getClientCookie } from "@/lib/cookie.client";
 import {
-  hasLocaleContent,
+  hasAllLocaleContent,
   localize,
   type BankQuestion,
   type LocalizedText,
@@ -41,12 +41,12 @@ type PaginatedResponse = {
 type Props = {
   /** Already attached question IDs (hidden / disabled in picker). */
   excludeIds: string[];
-  /** Only questions with text in this language can be attached. */
-  language: SupportedLocale;
+  /** Questions must include text in every selected quiz language. */
+  languages: SupportedLocale[];
   onAttach: (questions: BankQuestion[]) => void;
 };
 
-export function AttachFromBankModal({ excludeIds, language, onAttach }: Props) {
+export function AttachFromBankModal({ excludeIds, languages, onAttach }: Props) {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [items, setItems] = useState<BankQuestion[]>([]);
@@ -71,7 +71,7 @@ export function AttachFromBankModal({ excludeIds, language, onAttach }: Props) {
 
       if (Array.isArray(data)) {
         const compatible = data.filter((q) =>
-          hasLocaleContent(q.questionText as LocalizedText, language, 3),
+          hasAllLocaleContent(q.questionText as LocalizedText, languages, 3),
         );
         const start = (pageNum - 1) * PAGE_SIZE;
         const slice = compatible.slice(start, start + PAGE_SIZE);
@@ -81,7 +81,7 @@ export function AttachFromBankModal({ excludeIds, language, onAttach }: Props) {
         setPage(pageNum);
       } else {
         const filtered = (data.items ?? []).filter((q) =>
-          hasLocaleContent(q.questionText as LocalizedText, language, 3),
+          hasAllLocaleContent(q.questionText as LocalizedText, languages, 3),
         );
         setItems(filtered);
         setTotal(filtered.length);
@@ -93,7 +93,7 @@ export function AttachFromBankModal({ excludeIds, language, onAttach }: Props) {
     } finally {
       setLoading(false);
     }
-  }, [language]);
+  }, [languages]);
 
   useEffect(() => {
     if (!open) return;
@@ -140,7 +140,9 @@ export function AttachFromBankModal({ excludeIds, language, onAttach }: Props) {
     setOpen(false);
   };
 
-  const textAt = (q: BankQuestion) => localize(q.questionText as LocalizedText, language);
+  const previewLang = languages[0] ?? "en";
+  const langList = languages.map((l) => l.toUpperCase()).join(" + ");
+  const textAt = (q: BankQuestion) => localize(q.questionText as LocalizedText, previewLang);
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -154,8 +156,8 @@ export function AttachFromBankModal({ excludeIds, language, onAttach }: Props) {
         <DialogHeader className="shrink-0 border-b px-6 py-4">
           <DialogTitle>Attach from question bank</DialogTitle>
           <DialogDescription>
-            Only questions with {language.toUpperCase()} text are shown — this quiz is{" "}
-            {language.toUpperCase()} only.
+            Only questions that include {langList} text are shown — this quiz uses{" "}
+            {langList}.
           </DialogDescription>
         </DialogHeader>
 
@@ -184,7 +186,7 @@ export function AttachFromBankModal({ excludeIds, language, onAttach }: Props) {
             </div>
           ) : items.length === 0 ? (
             <p className="py-10 text-center text-muted-foreground text-sm">
-              No published questions with {language.toUpperCase()} text in the bank.
+              No published questions with {langList} text in the bank.
             </p>
           ) : (
             <ul className="space-y-2">
@@ -212,7 +214,7 @@ export function AttachFromBankModal({ excludeIds, language, onAttach }: Props) {
                             {q.type?.replace("_", " ") ?? "MCQ"}
                           </Badge>
                           <Badge variant="secondary" className="text-[10px] uppercase">
-                            {language}
+                            {langList}
                           </Badge>
                           <span className="text-muted-foreground text-xs">{q.points} pts</span>
                           {attached && (

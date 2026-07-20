@@ -23,7 +23,7 @@ export default function RegisterStudentV1() {
           <Link
             prefetch={false}
             href="/teacher/register"
-            className="font-medium text-[#2b7fff] hover:text-[#1f6ae0]"
+            className="font-medium text-[#1563b8] hover:text-[#114f94]"
           >
             Register as a teacher
           </Link>

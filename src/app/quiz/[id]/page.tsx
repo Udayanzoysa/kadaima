@@ -2,8 +2,11 @@ import { Suspense } from "react";
 
 import type { Metadata } from "next";
 
+import { PublicQuizShell } from "@/app/quiz/_components/public-quiz-shell";
+import { JsonLd } from "@/components/site/json-ld";
+import { PublicContentSkeleton } from "@/components/site/public-content-skeleton";
 import { APP_CONFIG } from "@/config/app-config";
-import { absoluteUrl } from "@/lib/site-url";
+import { buildPageMetadata, jsonLdQuizPage } from "@/lib/page-seo";
 import {
   localize,
   plainTextFromLocalized,
@@ -21,6 +24,7 @@ type PublishedQuizMeta = {
   title?: LocalizedText | string | null;
   description?: LocalizedText | string | null;
   coverImageUrl?: string | null;
+  durationMinutes?: number | null;
 };
 
 async function fetchQuizMeta(id: string): Promise<PublishedQuizMeta | null> {
@@ -46,32 +50,46 @@ export async function generateMetadata({ params }: QuizPageProps): Promise<Metad
   const description =
     metaText(quiz?.description) ||
     `Take the ${title} practice quiz on ${APP_CONFIG.name} — Sri Lanka’s online exam & quiz portal.`;
-  const path = `/quiz/${id}`;
 
-  return {
+  return buildPageMetadata({
     title,
     description,
-    alternates: { canonical: path },
-    openGraph: {
-      title,
-      description,
-      url: absoluteUrl(path),
-      type: "website",
-      ...(quiz?.coverImageUrl ? { images: [{ url: quiz.coverImageUrl }] } : {}),
-    },
-    twitter: {
-      card: quiz?.coverImageUrl ? "summary_large_image" : "summary",
-      title,
-      description,
-      ...(quiz?.coverImageUrl ? { images: [quiz.coverImageUrl] } : {}),
-    },
-  };
+    path: `/quiz/${id}`,
+    image: quiz?.coverImageUrl,
+  });
 }
 
-export default function PublicQuizDetailPage() {
+export default async function PublicQuizDetailPage({ params }: QuizPageProps) {
+  const { id } = await params;
+  const quiz = await fetchQuizMeta(id);
+  const title = metaText(quiz?.title) || "Practice Quiz";
+  const description =
+    metaText(quiz?.description) ||
+    `Take the ${title} practice quiz on ${APP_CONFIG.name}.`;
+
   return (
-    <Suspense fallback={null}>
-      <PublicQuizDetail />
-    </Suspense>
+    <>
+      {quiz ? (
+        <JsonLd
+          data={jsonLdQuizPage({
+            name: title,
+            description,
+            path: `/quiz/${id}`,
+            image: quiz.coverImageUrl,
+            siteName: APP_CONFIG.name,
+            timeRequiredMinutes: quiz.durationMinutes,
+          })}
+        />
+      ) : null}
+      <Suspense
+        fallback={
+          <PublicQuizShell>
+            <PublicContentSkeleton variant="detail" className="flex-1 py-8" />
+          </PublicQuizShell>
+        }
+      >
+        <PublicQuizDetail />
+      </Suspense>
+    </>
   );
 }

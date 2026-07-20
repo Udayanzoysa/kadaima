@@ -1,14 +1,14 @@
 import { Geist, Geist_Mono, Outfit } from "next/font/google";
 
-/** Public LCP-critical fonts only — never import admin/pixel fonts from here. */
+/** Body UI font — swap without competing for LCP preload bandwidth. */
 export const geist = Geist({
   subsets: ["latin"],
   variable: "--font-geist",
   display: "swap",
-  preload: true,
+  preload: false,
 });
 
-/** Public hero / headings — keep preloaded for LCP. */
+/** Public hero / headings — sole preloaded face for LCP. */
 export const outfit = Outfit({
   subsets: ["latin"],
   variable: "--font-outfit",

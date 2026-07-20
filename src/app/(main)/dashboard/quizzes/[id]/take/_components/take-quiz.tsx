@@ -7,7 +7,9 @@ import { useParams, useRouter } from "next/navigation";
 import { AlertTriangle, CheckCircle2, Circle, Clock } from "lucide-react";
 import { toast } from "sonner";
 
+import { LanguageSwitcher } from "@/components/i18n/language-switcher";
 import { QuestionAnswerInput, QuestionPrompt, type AnswerValue } from "@/components/quiz/question-answer";
+import { type Locale } from "@/lib/i18n";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -32,7 +34,8 @@ import { safeJson } from "@/lib/safe-json";
 import { cn } from "@/lib/utils";
 import {
   localize,
-  resolveQuizLanguage,
+  normalizeQuizLanguages,
+  type SupportedLocale,
   type AttemptDetail,
   type QuizAttempt,
 } from "@/types/quiz";
@@ -41,7 +44,7 @@ export function TakeQuiz() {
   const params = useParams<{ id: string }>();
   const quizId = params.id;
   const router = useRouter();
-  const { t, setLocale } = useI18n();
+  const { t, locale, setLocale } = useI18n();
 
   const [attempt, setAttempt] = useState<AttemptDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -232,15 +235,25 @@ export function TakeQuiz() {
     return () => window.removeEventListener("beforeunload", handler);
   }, [attempt]);
 
-  const contentLocale = attempt
-    ? resolveQuizLanguage(attempt.quiz.title, attempt.quiz.language)
+  const quizLanguagesKey = attempt
+    ? normalizeQuizLanguages(attempt.quiz.languages, attempt.quiz.language).join(",")
     : "en";
+  const quizLanguages = quizLanguagesKey.split(",") as SupportedLocale[];
+  const [contentLocale, setContentLocale] = useState<SupportedLocale>("en");
 
-  // Lock UI chrome + content to the quiz's single language.
   useEffect(() => {
     if (!attempt) return;
-    setLocale(resolveQuizLanguage(attempt.quiz.title, attempt.quiz.language));
-  }, [attempt, setLocale]);
+    const preferred = quizLanguages.includes(locale as SupportedLocale)
+      ? (locale as SupportedLocale)
+      : quizLanguages[0];
+    setContentLocale(preferred);
+  }, [attempt?.id, quizLanguagesKey]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleContentLocaleChange = (next: Locale) => {
+    if (!quizLanguages.includes(next)) return;
+    setContentLocale(next);
+    setLocale(next);
+  };
 
   const handleAnswer = (questionId: string, next: AnswerValue) => {
     setAnswers((prev) => ({ ...prev, [questionId]: next }));
@@ -248,6 +261,8 @@ export function TakeQuiz() {
   };
 
   const questions = attempt?.quiz.questions ?? [];
+  const quizSections = attempt?.quiz.sections ?? [];
+  const hasInstructionSections = quizSections.some((s) => (s.questions?.length ?? 0) > 0);
   const answeredCount = useMemo(
     () =>
       questions.filter((q) => {
@@ -302,9 +317,17 @@ export function TakeQuiz() {
             </p>
           </div>
           <div className="flex items-center gap-3">
-            <Badge variant="outline" className="text-xs uppercase">
-              {contentLocale}
-            </Badge>
+            {quizLanguages.length > 1 ? (
+              <LanguageSwitcher
+                value={contentLocale}
+                onChange={handleContentLocaleChange}
+                languages={quizLanguages}
+              />
+            ) : (
+              <Badge variant="outline" className="text-xs uppercase">
+                {contentLocale}
+              </Badge>
+            )}
             <Badge
               variant={isUrgent ? "destructive" : "secondary"}
               className={cn("gap-1.5 font-mono text-sm tabular-nums", isUrgent && "animate-pulse")}
@@ -327,46 +350,84 @@ export function TakeQuiz() {
         </div>
       </div>
 
-      {/* Questions — all rendered on one page as a single exam sheet */}
+      {/* Questions — sectioned when instruction blocks exist */}
       <div className="flex flex-col gap-4">
-        {questions.map((question, index) => {
-          const selected = answers[question.id];
-          const isAnswered =
-            question.type === "MCQ"
-              ? Boolean(selected?.choiceId)
-              : Boolean(selected?.textResponse?.trim());
-          return (
-            <Card key={question.id} className={cn("border-border", isAnswered && "border-primary/40")}>
-              <CardHeader className="pb-3">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex min-w-0 flex-1 items-start gap-2">
-                    <Badge variant="outline" className="mt-0.5 shrink-0">
-                      {t("student.question")} {index + 1}
-                    </Badge>
-                    <div className="min-w-0 flex-1 space-y-1">
-                      <Badge variant="secondary" className="text-[10px] uppercase">
-                        {question.type.replace("_", " ")}
+        {(() => {
+          const renderCard = (question: (typeof questions)[number], index: number) => {
+            const selected = answers[question.id];
+            const isAnswered =
+              question.type === "MCQ"
+                ? Boolean(selected?.choiceId)
+                : Boolean(selected?.textResponse?.trim());
+            return (
+              <Card key={question.id} className={cn("border-border", isAnswered && "border-primary/40")}>
+                <CardHeader className="pb-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex min-w-0 flex-1 items-start gap-2">
+                      <Badge variant="outline" className="mt-0.5 shrink-0">
+                        {t("student.question")} {index + 1}
                       </Badge>
-                      <QuestionPrompt question={question} locale={contentLocale} />
+                      <div className="min-w-0 flex-1 space-y-1">
+                        <Badge variant="secondary" className="text-[10px] uppercase">
+                          {question.type.replace("_", " ")}
+                        </Badge>
+                        <QuestionPrompt question={question} locale={contentLocale} />
+                      </div>
                     </div>
+                    <Badge variant="secondary" className="shrink-0 text-xs">
+                      {question.points} {t("student.points")}
+                    </Badge>
                   </div>
-                  <Badge variant="secondary" className="shrink-0 text-xs">
-                    {question.points} {t("student.points")}
-                  </Badge>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <QuestionAnswerInput
-                  question={question}
-                  locale={contentLocale}
-                  value={selected ?? {}}
-                  onChange={(next) => handleAnswer(question.id, next)}
-                  disabled={submitting}
-                />
-              </CardContent>
-            </Card>
+                </CardHeader>
+                <CardContent>
+                  <QuestionAnswerInput
+                    question={question}
+                    locale={contentLocale}
+                    value={selected ?? {}}
+                    onChange={(next) => handleAnswer(question.id, next)}
+                    disabled={submitting}
+                  />
+                </CardContent>
+              </Card>
+            );
+          };
+
+          if (!hasInstructionSections) {
+            return questions.map((question, index) => renderCard(question, index));
+          }
+
+          const indexById = new Map(questions.map((q, i) => [q.id, i]));
+          const sectionedIds = new Set(
+            quizSections.flatMap((s) => (s.questions ?? []).map((q) => q.id)),
           );
-        })}
+          const ungrouped = questions.filter((q) => !sectionedIds.has(q.id));
+
+          return (
+            <>
+              {ungrouped.map((q) => renderCard(q, indexById.get(q.id) ?? 0))}
+              {quizSections.map((section, sectionIndex) => {
+                const sectionQuestions = section.questions ?? [];
+                if (sectionQuestions.length === 0) return null;
+                return (
+                  <div
+                    key={section.id}
+                    className="space-y-3 rounded-xl border border-primary/20 bg-primary/5 p-3"
+                  >
+                    <div className="rounded-lg border bg-background px-4 py-3">
+                      <p className="text-[11px] font-bold uppercase tracking-wide text-primary">
+                        Section {sectionIndex + 1}
+                      </p>
+                      <p className="mt-1 whitespace-pre-wrap text-sm font-medium leading-relaxed">
+                        {localize(section.instruction, contentLocale)}
+                      </p>
+                    </div>
+                    {sectionQuestions.map((q) => renderCard(q, indexById.get(q.id) ?? 0))}
+                  </div>
+                );
+              })}
+            </>
+          );
+        })()}
       </div>
 
       {/* Answer overview + submit */}

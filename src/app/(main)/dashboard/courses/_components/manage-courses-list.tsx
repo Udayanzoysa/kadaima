@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
+import { DataBackupActions } from "@/components/data-backup-actions";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -256,12 +257,18 @@ export function ManageCoursesList() {
             Create, publish, archive courses and manage modules in English, Sinhala, and Tamil.
           </p>
         </div>
-        <Button asChild>
-          <Link href="/admin/courses/new">
-            <Plus className="size-4" />
-            Add New
-          </Link>
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <DataBackupActions
+            resource="courses"
+            onImported={() => void load(1)}
+          />
+          <Button asChild>
+            <Link href="/admin/courses/new">
+              <Plus className="size-4" />
+              Add New
+            </Link>
+          </Button>
+        </div>
       </div>
 
       {selectedIds.length > 0 && (

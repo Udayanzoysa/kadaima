@@ -1,10 +1,19 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 
 import { GraduationCap, Presentation } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { buildPageMetadata } from "@/lib/page-seo";
 
 import { AuthShell } from "../../_components/auth-shell";
+
+export const metadata: Metadata = buildPageMetadata({
+  title: "Create account",
+  description: "Register as a student or teacher on Kadaima.",
+  path: "/register",
+  noIndex: true,
+});
 
 export default function RegisterHubV1() {
   return (
@@ -21,7 +30,7 @@ export default function RegisterHubV1() {
           className="h-auto justify-start gap-4 p-4 text-left"
         >
           <Link prefetch={false} href="/student/register">
-            <GraduationCap className="size-6 shrink-0 text-[#2b7fff]" />
+            <GraduationCap className="size-6 shrink-0 text-[#1563b8]" />
             <span>
               <span className="block font-medium text-slate-900">I&apos;m a student</span>
               <span className="block text-xs font-normal text-slate-500">
@@ -36,7 +45,7 @@ export default function RegisterHubV1() {
           className="h-auto justify-start gap-4 p-4 text-left"
         >
           <Link prefetch={false} href="/teacher/register">
-            <Presentation className="size-6 shrink-0 text-[#2b7fff]" />
+            <Presentation className="size-6 shrink-0 text-[#1563b8]" />
             <span>
               <span className="block font-medium text-slate-900">I&apos;m a teacher</span>
               <span className="block text-xs font-normal text-slate-500">

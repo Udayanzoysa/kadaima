@@ -5,7 +5,6 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { useParams, useRouter } from "next/navigation";
 
 import {
-  AlertTriangle,
   ArrowLeft,
   ArrowRight,
   CheckCircle2,
@@ -21,7 +20,10 @@ import {
 import { toast } from "sonner";
 
 import { BrandLogo } from "@/components/brand/brand-logo";
+import { LanguageSwitcher } from "@/components/i18n/language-switcher";
 import { QuestionAnswerInput, QuestionPrompt, type AnswerValue } from "@/components/quiz/question-answer";
+import { PublicContentSkeleton } from "@/components/site/public-content-skeleton";
+import { PublicCenteredError } from "@/components/site/public-feedback";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -51,20 +53,26 @@ import {
   saveGuestProgress,
   setPendingSync,
 } from "@/lib/guest-session";
-import { LOCALES } from "@/lib/i18n";
+import { type Locale } from "@/lib/i18n";
+import { PUBLIC_BRAND } from "@/lib/public-brand";
 import { safeJson } from "@/lib/safe-json";
 import { cn } from "@/lib/utils";
-import { type AttemptDetail, localize, resolveQuizLanguage } from "@/types/quiz";
+import {
+  type AttemptDetail,
+  localize,
+  normalizeQuizLanguages,
+  type SupportedLocale,
+} from "@/types/quiz";
 
-const PRIMARY = "#2b7fff";
-const SOFT = "#eef6ff";
-const PAGE_BG = "#f4f7fb";
+const PRIMARY = PUBLIC_BRAND.brand;
+const SOFT = PUBLIC_BRAND.soft;
+const PAGE_BG = PUBLIC_BRAND.pageBg;
 
 export function PublicTakeQuiz() {
   const params = useParams<{ id: string }>();
   const quizId = params.id;
   const router = useRouter();
-  const { t, setLocale } = useI18n();
+  const { t, locale, setLocale } = useI18n();
 
   const [attempt, setAttempt] = useState<AttemptDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -475,6 +483,8 @@ export function PublicTakeQuiz() {
   };
 
   const questions = attempt?.quiz.questions ?? [];
+  const quizSections = attempt?.quiz.sections ?? [];
+  const hasInstructionSections = quizSections.some((s) => (s.questions?.length ?? 0) > 0);
   const answeredCount = useMemo(
     () =>
       questions.filter((q) => {
@@ -513,44 +523,45 @@ export function PublicTakeQuiz() {
     };
   }, []);
 
-  const contentLocale = attempt
-    ? resolveQuizLanguage(attempt.quiz.title, attempt.quiz.language)
+  const quizLanguagesKey = attempt
+    ? normalizeQuizLanguages(attempt.quiz.languages, attempt.quiz.language).join(",")
     : "en";
+  const quizLanguages = quizLanguagesKey.split(",") as SupportedLocale[];
+  const [contentLocale, setContentLocale] = useState<SupportedLocale>("en");
 
+  // Initialize content language from quiz + UI preference (do not overwrite global locale).
   useEffect(() => {
     if (!attempt) return;
-    setLocale(resolveQuizLanguage(attempt.quiz.title, attempt.quiz.language));
-  }, [attempt, setLocale]);
+    const preferred = quizLanguages.includes(locale as SupportedLocale)
+      ? (locale as SupportedLocale)
+      : quizLanguages[0];
+    setContentLocale(preferred);
+  }, [attempt?.id, quizLanguagesKey]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleContentLocaleChange = (next: Locale) => {
+    if (!quizLanguages.includes(next)) return;
+    setContentLocale(next);
+    setLocale(next);
+  };
 
   if (loading) {
     return (
-      <div className="min-h-screen px-4 py-10" style={{ background: PAGE_BG }}>
-        <div className="mx-auto w-full max-w-3xl space-y-4">
-          <div className="h-8 w-48 animate-pulse rounded-md bg-slate-200/80" />
-          <div className="h-4 w-72 max-w-full animate-pulse rounded-md bg-slate-200/70" />
-          <div className="h-48 w-full animate-pulse rounded-2xl bg-slate-200/70" />
-          <div className="flex gap-2">
-            <div className="h-10 w-28 animate-pulse rounded-xl bg-slate-200/80" />
-            <div className="h-10 w-28 animate-pulse rounded-xl bg-slate-200/80" />
-          </div>
-        </div>
+      <div className="min-h-screen" style={{ background: PAGE_BG }}>
+        <PublicContentSkeleton variant="detail" className="py-10" />
       </div>
     );
   }
 
   if (errorMessage || !attempt) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center gap-4 px-4 text-center" style={{ background: PAGE_BG }}>
-        <AlertTriangle className="size-10" style={{ color: PRIMARY }} />
-        <p className="max-w-md text-sm text-slate-700">{errorMessage ?? t("student.unableToLoadQuiz")}</p>
-        <div className="flex gap-2">
-          <Button variant="brandOutline" onClick={() => router.push("/")}>
-            {t("public.backToQuizzes")}
-          </Button>
-          <Button variant="brand" onClick={() => window.location.reload()}>
-            {t("student.tryAgain")}
-          </Button>
-        </div>
+      <div className="flex min-h-screen flex-col" style={{ background: PAGE_BG }}>
+        <PublicCenteredError
+          message={errorMessage ?? t("student.unableToLoadQuiz")}
+          backLabel={t("public.backToQuizzes")}
+          retryLabel={t("student.tryAgain")}
+          onRetry={() => window.location.reload()}
+          className="min-h-screen"
+        />
       </div>
     );
   }
@@ -606,9 +617,9 @@ export function PublicTakeQuiz() {
               "flex items-center justify-center rounded-xl text-sm font-semibold transition",
               opts.size ?? "aspect-square",
               answered || isFocused
-                ? "bg-[#2b7fff] text-white shadow-sm"
+                ? "bg-[#1563b8] text-white shadow-sm"
                 : "bg-[#eef6ff] text-slate-600 hover:bg-[#dcebff]",
-              isFocused && !answered && "ring-2 ring-[#2b7fff]/40 ring-offset-1",
+              isFocused && !answered && "ring-2 ring-[#1563b8]/40 ring-offset-1",
             )}
           >
             {answered && !isFocused ? <CheckCircle2 className="size-4" /> : index + 1}
@@ -646,13 +657,21 @@ export function PublicTakeQuiz() {
                     ? t("student.syncing")
                     : t("student.synced")}
             </span>
-            <span className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-semibold uppercase text-slate-600">
-              {(LOCALES.find((l) => l.code === contentLocale) ?? LOCALES[0]).label}
-            </span>
+            {quizLanguages.length > 1 ? (
+              <LanguageSwitcher
+                value={contentLocale}
+                onChange={handleContentLocaleChange}
+                languages={quizLanguages}
+              />
+            ) : (
+              <span className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-semibold uppercase text-slate-600">
+                {contentLocale}
+              </span>
+            )}
             <span
               className={cn(
                 "inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 font-mono text-sm font-semibold tabular-nums",
-                isUrgent ? "bg-red-100 text-red-700 animate-pulse" : "bg-[#eef6ff] text-[#2b7fff]",
+                isUrgent ? "bg-red-100 text-red-700 animate-pulse" : "bg-[#eef6ff] text-[#1563b8]",
               )}
             >
               <Clock className="size-3.5" />
@@ -686,13 +705,22 @@ export function PublicTakeQuiz() {
                 .replace("{total}", String(questions.length))}
             </p>
           </div>
-          <span className="inline-flex h-8 shrink-0 items-center rounded-full border border-slate-200 bg-slate-50 px-2.5 text-[11px] font-semibold uppercase text-slate-600">
-            {(LOCALES.find((l) => l.code === contentLocale) ?? LOCALES[0]).label}
-          </span>
+          {quizLanguages.length > 1 ? (
+            <LanguageSwitcher
+              value={contentLocale}
+              onChange={handleContentLocaleChange}
+              languages={quizLanguages}
+              showIcon={false}
+            />
+          ) : (
+            <span className="inline-flex h-8 shrink-0 items-center rounded-full border border-slate-200 bg-slate-50 px-2.5 text-[11px] font-semibold uppercase text-slate-600">
+              {contentLocale}
+            </span>
+          )}
           <span
             className={cn(
               "inline-flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1.5 font-mono text-xs font-bold tabular-nums",
-              isUrgent ? "bg-red-100 text-red-700" : "bg-[#eef6ff] text-[#2b7fff]",
+              isUrgent ? "bg-red-100 text-red-700" : "bg-[#eef6ff] text-[#1563b8]",
             )}
           >
             <Clock className="size-3.5" />
@@ -700,7 +728,7 @@ export function PublicTakeQuiz() {
           </span>
         </div>
         <div className="px-3 pb-2">
-          <Progress value={progressPercent} className="h-1.5 [&>div]:bg-[#2b7fff]" />
+          <Progress value={progressPercent} className="h-1.5 [&>div]:bg-[#1563b8]" />
         </div>
         {(!online || violationCount > 0) && (
           <div className="flex flex-wrap items-center gap-1.5 px-3 pb-2">
@@ -748,53 +776,98 @@ export function PublicTakeQuiz() {
                 </p>
               </div>
             </div>
-            <Progress value={progressPercent} className="h-2 [&>div]:bg-[#2b7fff]" />
+            <Progress value={progressPercent} className="h-2 [&>div]:bg-[#1563b8]" />
           </div>
 
-          {questions.map((question, index) => {
-            const selected = answers[question.id];
-            const isAnswered = isQuestionAnswered(question);
-            const isFocused = focusedQuestionId === question.id;
-            return (
-              <section
-                key={question.id}
-                id={`question-${question.id}`}
-                className={cn(
-                  "scroll-mt-24 rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm transition lg:scroll-mt-28",
-                  "border-l-[3px] border-l-[#2b7fff]",
-                  isFocused && "ring-2 ring-[#2b7fff]/25 ring-offset-2",
-                  isAnswered && "bg-[#f7faff]",
-                )}
-              >
-                <div className="mb-3 flex items-start justify-between gap-3">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="rounded-lg bg-[#eef6ff] px-2.5 py-1 text-xs font-bold text-[#2b7fff]">
-                      Q{index + 1}
-                    </span>
-                    <span className="rounded-lg bg-slate-100 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
-                      {question.type.replace("_", " ")}
+          {(() => {
+            const renderQuestionCard = (question: (typeof questions)[number], index: number) => {
+              const selected = answers[question.id];
+              const isAnswered = isQuestionAnswered(question);
+              const isFocused = focusedQuestionId === question.id;
+              return (
+                <section
+                  key={question.id}
+                  id={`question-${question.id}`}
+                  className={cn(
+                    "scroll-mt-24 rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm transition lg:scroll-mt-28",
+                    "border-l-[3px] border-l-[#1563b8]",
+                    isFocused && "ring-2 ring-[#1563b8]/25 ring-offset-2",
+                    isAnswered && "bg-[#f7faff]",
+                  )}
+                >
+                  <div className="mb-3 flex items-start justify-between gap-3">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="rounded-lg bg-[#eef6ff] px-2.5 py-1 text-xs font-bold text-[#1563b8]">
+                        Q{index + 1}
+                      </span>
+                      <span className="rounded-lg bg-slate-100 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                        {question.type.replace("_", " ")}
+                      </span>
+                    </div>
+                    <span className="shrink-0 text-xs font-medium text-slate-500">
+                      {Number(question.points).toFixed(1)} {t("student.pointsFull")}
                     </span>
                   </div>
-                  <span className="shrink-0 text-xs font-medium text-slate-500">
-                    {Number(question.points).toFixed(1)} {t("student.pointsFull")}
-                  </span>
-                </div>
-                <QuestionPrompt
-                  question={question}
-                  locale={contentLocale}
-                  className="mb-4 [&_p]:text-base [&_p]:font-semibold [&_p]:text-slate-900 md:[&_p]:text-lg"
-                />
-                <QuestionAnswerInput
-                  question={question}
-                  locale={contentLocale}
-                  value={selected ?? {}}
-                  onChange={(next) => handleAnswer(question.id, next)}
-                  disabled={submitting}
-                  appearance="exam"
-                />
-              </section>
+                  <QuestionPrompt
+                    question={question}
+                    locale={contentLocale}
+                    className="mb-4 [&_p]:text-base [&_p]:font-semibold [&_p]:text-slate-900 md:[&_p]:text-lg"
+                  />
+                  <QuestionAnswerInput
+                    question={question}
+                    locale={contentLocale}
+                    value={selected ?? {}}
+                    onChange={(next) => handleAnswer(question.id, next)}
+                    disabled={submitting}
+                    appearance="exam"
+                  />
+                </section>
+              );
+            };
+
+            if (!hasInstructionSections) {
+              return questions.map((question, index) => renderQuestionCard(question, index));
+            }
+
+            const indexById = new Map(questions.map((q, i) => [q.id, i]));
+            const sectionedIds = new Set(
+              quizSections.flatMap((s) => (s.questions ?? []).map((q) => q.id)),
             );
-          })}
+            const ungrouped = questions.filter((q) => !sectionedIds.has(q.id));
+
+            return (
+              <>
+                {ungrouped.map((question) =>
+                  renderQuestionCard(question, indexById.get(question.id) ?? 0),
+                )}
+                {quizSections.map((section, sectionIndex) => {
+                  const sectionQuestions = section.questions ?? [];
+                  if (sectionQuestions.length === 0) return null;
+                  const instruction = localize(section.instruction, contentLocale);
+                  return (
+                    <div
+                      key={section.id}
+                      className="space-y-3 rounded-3xl border border-slate-200/90 bg-[#eef6ff]/40 p-3 sm:p-4"
+                    >
+                      <div className="rounded-2xl border border-[#1563b8]/20 bg-white px-4 py-3.5 shadow-sm">
+                        <p className="text-[11px] font-bold uppercase tracking-wide text-[#1563b8]">
+                          Section {sectionIndex + 1}
+                        </p>
+                        <p className="mt-1.5 whitespace-pre-wrap text-sm font-semibold leading-relaxed text-slate-800 md:text-[15px]">
+                          {instruction}
+                        </p>
+                      </div>
+                      <div className="flex flex-col gap-3">
+                        {sectionQuestions.map((question) =>
+                          renderQuestionCard(question, indexById.get(question.id) ?? 0),
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </>
+            );
+          })()}
         </main>
 
         {/* Desktop sidebar */}
@@ -839,7 +912,7 @@ export function PublicTakeQuiz() {
             </div>
 
             <div className="flex shrink-0 gap-3 rounded-2xl border border-[#cfe3f0] bg-[#eef6fb] p-4">
-              <Lightbulb className="mt-0.5 size-5 shrink-0 text-[#2b7fff]" />
+              <Lightbulb className="mt-0.5 size-5 shrink-0 text-[#1563b8]" />
               <p className="text-xs leading-relaxed text-slate-600">
                 <span className="font-bold text-slate-800">{t("student.quickTipTitle")} </span>
                 {t("student.quickTipBody")}
@@ -958,7 +1031,7 @@ export function PublicTakeQuiz() {
                         onClick={() => scrollToQuestion(q.id)}
                         className={cn(
                           "flex size-9 shrink-0 items-center justify-center rounded-xl text-xs font-semibold",
-                          answered ? "bg-[#2b7fff] text-white" : "bg-[#eef6ff] text-slate-600",
+                          answered ? "bg-[#1563b8] text-white" : "bg-[#eef6ff] text-slate-600",
                         )}
                       >
                         {answered ? <CheckCircle2 className="size-3.5" /> : index + 1}

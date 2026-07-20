@@ -1,12 +1,12 @@
-﻿"use client";
+"use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 import { Clock3, PlayCircle } from "lucide-react";
 
+import { PublicEmptyState, PublicErrorBanner } from "@/components/site/public-feedback";
 import { Button } from "@/components/ui/button";
 import { APP_CONFIG } from "@/config/app-config";
 import { useI18n } from "@/hooks/use-i18n";
@@ -70,21 +70,25 @@ export function InProgressList() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    (async () => {
-      try {
-        setItems(await fetchInProgress());
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Could not load in-progress quizzes.");
-      } finally {
-        setLoading(false);
-      }
-    })();
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      setItems(await fetchInProgress());
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not load in-progress quizzes.");
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
 
   return (
     <PublicQuizShell activeNav="in-progress">
-      <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 md:px-6 md:py-8">
+      <main className="mx-auto w-full min-w-0 max-w-6xl flex-1 px-3 py-4 sm:px-4 sm:py-6 md:px-6 md:py-8">
         <div className="mb-6">
           <h1 className="font-[family-name:var(--font-outfit)] text-2xl font-bold text-slate-900 md:text-3xl">
             In Progress
@@ -97,13 +101,15 @@ export function InProgressList() {
         {loading && <QuizListSkeleton />}
 
         {error && (
-          <div className="rounded-2xl border border-red-200 bg-red-50 px-5 py-4 text-sm text-red-700">
-            {error}
-          </div>
+          <PublicErrorBanner message={error} onRetry={() => void load()} />
         )}
 
         {!loading && !error && items.length === 0 && (
-          <EmptyState message="No quizzes in progress right now." cta="Start a quiz" />
+          <PublicEmptyState
+            message="No quizzes in progress right now."
+            ctaLabel="Start a quiz"
+            icon={PlayCircle}
+          />
         )}
 
         {!loading && !error && items.length > 0 ? (
@@ -123,7 +129,7 @@ export function InProgressList() {
                 key={item.id}
                 className="flex flex-col rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
               >
-                <p className="text-[11px] font-semibold uppercase tracking-wider text-[#2b7fff]">
+                <p className="text-[11px] font-semibold uppercase tracking-wider text-[#1563b8]">
                   {localize(item.quiz.course.title, locale)}
                 </p>
                 <h2 className="mt-1.5 font-[family-name:var(--font-outfit)] text-lg font-semibold text-slate-900">
@@ -152,7 +158,7 @@ export function InProgressList() {
                   </div>
                   <div className="h-1.5 overflow-hidden rounded-full bg-slate-100">
                     <div
-                      className="h-full rounded-full bg-[#2b7fff] transition-all"
+                      className="h-full rounded-full bg-[#1563b8] transition-all"
                       style={{ width: `${progress}%` }}
                     />
                   </div>
@@ -163,7 +169,7 @@ export function InProgressList() {
                   className="mt-5 w-full font-bold"
                   onClick={() => router.push(`/quiz/${item.quizId}/take`)}
                 >
-                  Resume →
+                  Resume ?
                 </Button>
               </article>
             );
@@ -172,17 +178,5 @@ export function InProgressList() {
         ) : null}
       </main>
     </PublicQuizShell>
-  );
-}
-
-function EmptyState({ message, cta }: { message: string; cta: string }) {
-  return (
-    <div className="rounded-2xl border border-dashed border-slate-200 bg-white px-6 py-14 text-center">
-      <PlayCircle className="mx-auto size-10 text-slate-300" />
-      <p className="mt-3 text-slate-500">{message}</p>
-      <Button asChild variant="brand" className="mt-4 font-semibold">
-        <Link href="/">{cta}</Link>
-      </Button>
-    </div>
   );
 }

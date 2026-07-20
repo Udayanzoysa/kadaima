@@ -12,7 +12,7 @@ type KadaimaLoaderProps = {
 
 /**
  * Branded Kadaima loading state used across the full site.
- * Theme: brand blue `#2b7fff` on soft `#f4f7fb`.
+ * Theme: brand blue `#1563b8` on soft `#f4f7fb`.
  */
 export function KadaimaLoader({
   variant = "page",
@@ -36,16 +36,16 @@ export function KadaimaLoader({
       <div className="relative flex size-20 items-center justify-center sm:size-24">
         <span
           aria-hidden
-          className="absolute inset-0 rounded-full border-2 border-[#2b7fff]/15"
+          className="absolute inset-0 rounded-full border-2 border-[#1563b8]/15"
         />
         <span
           aria-hidden
-          className="absolute inset-0 animate-spin rounded-full border-2 border-transparent border-t-[#2b7fff] border-r-[#2b7fff]/40"
+          className="absolute inset-0 animate-spin rounded-full border-2 border-transparent border-t-[#1563b8] border-r-[#1563b8]/40"
           style={{ animationDuration: "0.9s" }}
         />
         <span
           aria-hidden
-          className="absolute inset-2 animate-pulse rounded-full bg-[#2b7fff]/8"
+          className="absolute inset-2 animate-pulse rounded-full bg-[#1563b8]/8"
         />
         <BrandLogo variant="mark" className="relative z-10 size-10 sm:size-12" priority />
       </div>
@@ -58,9 +58,9 @@ export function KadaimaLoader({
       </div>
 
       <div className="flex items-center gap-1.5" aria-hidden>
-        <span className="size-1.5 animate-bounce rounded-full bg-[#2b7fff] [animation-delay:-0.3s]" />
-        <span className="size-1.5 animate-bounce rounded-full bg-[#2b7fff] [animation-delay:-0.15s]" />
-        <span className="size-1.5 animate-bounce rounded-full bg-[#2b7fff]" />
+        <span className="size-1.5 animate-bounce rounded-full bg-[#1563b8] [animation-delay:-0.3s]" />
+        <span className="size-1.5 animate-bounce rounded-full bg-[#1563b8] [animation-delay:-0.15s]" />
+        <span className="size-1.5 animate-bounce rounded-full bg-[#1563b8]" />
       </div>
     </div>
   );

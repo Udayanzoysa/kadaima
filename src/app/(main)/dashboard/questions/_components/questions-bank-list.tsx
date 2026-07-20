@@ -10,6 +10,7 @@ import { toast } from "sonner";
 
 import { BulkImportQuestions } from "./bulk-import-questions";
 import { AiImportPdfQuestions } from "./ai-import-pdf-questions";
+import { DataBackupActions } from "@/components/data-backup-actions";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -238,6 +239,10 @@ export function QuestionsBankList() {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <DataBackupActions
+            resource="questions"
+            onImported={() => void load(1)}
+          />
           <AiImportPdfQuestions onImported={() => void load(1)} />
           <BulkImportQuestions onImported={() => void load(1)} />
           <Button asChild>

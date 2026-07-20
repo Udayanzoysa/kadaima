@@ -35,6 +35,21 @@ export function ThemeBootScript() {
     (function () {
       try {
         var root = document.documentElement;
+        var path = location.pathname || "";
+        var isAdminChrome =
+          path.indexOf("/admin") === 0 ||
+          path.indexOf("/teacher") === 0 ||
+          path.indexOf("/dashboard") === 0 ||
+          path.indexOf("/mail") === 0 ||
+          path.indexOf("/chat") === 0;
+
+        // Public marketing pages keep static light defaults from SSR — skip cookie work.
+        if (!isAdminChrome) {
+          root.classList.remove("dark");
+          root.style.colorScheme = "light";
+          return;
+        }
+
         var PERSISTENCE = ${persistence};
         var DEFAULTS = ${defaults};
 

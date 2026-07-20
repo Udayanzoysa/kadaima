@@ -16,7 +16,6 @@ import { PasswordInput } from "@/components/ui/password-input";
 import { Spinner } from "@/components/ui/spinner";
 import { APP_CONFIG } from "@/config/app-config";
 import { setClientCookie } from "@/lib/cookie.client";
-import { hideGlobalLoader, showGlobalLoader } from "@/stores/global-loader-store";
 
 import { authInputClass, authPrimaryButtonClass } from "./auth-shell";
 
@@ -57,7 +56,6 @@ export function AccountRegisterForm({ accountType, onSuccess }: AccountRegisterF
 
   const onSubmit = async (data: z.infer<typeof formSchema>) => {
     setIsSubmitting(true);
-    showGlobalLoader("Creating your account…");
     try {
       const endpoint = isTeacher ? "/auth/register/teacher" : "/auth/register/student";
       const response = await fetch(`${APP_CONFIG.apiUrl}${endpoint}`, {
@@ -94,6 +92,7 @@ export function AccountRegisterForm({ accountType, onSuccess }: AccountRegisterF
         toast.success(isTeacher ? "Teacher account created" : "Student account created", {
           description: "Please log in to continue.",
         });
+        setIsSubmitting(false);
         return;
       }
 
@@ -105,9 +104,7 @@ export function AccountRegisterForm({ accountType, onSuccess }: AccountRegisterF
       toast.error("Registration failed", {
         description: error instanceof Error ? error.message : "Unexpected error",
       });
-    } finally {
       setIsSubmitting(false);
-      hideGlobalLoader();
     }
   };
 

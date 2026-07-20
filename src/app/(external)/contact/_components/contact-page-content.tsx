@@ -18,7 +18,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { I18nProvider } from "@/hooks/use-i18n";
 import { cn } from "@/lib/utils";
 
 const SUBJECTS = [
@@ -53,7 +52,7 @@ const SUPPORT_CARDS = [
 ] as const;
 
 const fieldClass =
-  "h-11 rounded-xl border-slate-200 bg-white shadow-none focus-visible:border-[#2b7fff] focus-visible:ring-[#2b7fff]/20";
+  "h-11 rounded-xl border-slate-200 bg-white shadow-none focus-visible:border-[#1563b8] focus-visible:ring-[#1563b8]/20";
 
 export function ContactPageContent() {
   const [fullName, setFullName] = useState("");
@@ -81,8 +80,7 @@ export function ContactPageContent() {
   };
 
   return (
-    <I18nProvider>
-      <PublicQuizShell>
+    <PublicQuizShell>
         <div className="relative flex-1 overflow-hidden">
           <div
             aria-hidden
@@ -168,7 +166,7 @@ export function ContactPageContent() {
                       value={message}
                       onChange={(e) => setMessage(e.target.value)}
                       placeholder="How can we help you today?"
-                      className="min-h-28 w-full flex-1 rounded-xl border-slate-200 bg-white shadow-none focus-visible:border-[#2b7fff] focus-visible:ring-[#2b7fff]/20"
+                      className="min-h-28 w-full flex-1 rounded-xl border-slate-200 bg-white shadow-none focus-visible:border-[#1563b8] focus-visible:ring-[#1563b8]/20"
                     />
                   </div>
 
@@ -193,7 +191,7 @@ export function ContactPageContent() {
                       className="flex flex-1 items-center rounded-2xl border border-[#d7e8ff] bg-[#eef6ff] p-5"
                     >
                       <div className="flex items-start gap-3.5">
-                        <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-white text-[#2b7fff] shadow-sm">
+                        <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-white text-[#1563b8] shadow-sm">
                           <Icon className="size-5" strokeWidth={1.75} />
                         </div>
                         <div className="min-w-0 space-y-1">
@@ -201,7 +199,7 @@ export function ContactPageContent() {
                           <p className="text-sm text-slate-500">{card.description}</p>
                           <a
                             href={`mailto:${card.email}`}
-                            className="inline-block text-sm font-medium text-[#2b7fff] hover:underline"
+                            className="inline-block text-sm font-medium text-[#1563b8] hover:underline"
                           >
                             {card.email}
                           </a>
@@ -215,7 +213,6 @@ export function ContactPageContent() {
             </div>
           </div>
         </div>
-      </PublicQuizShell>
-    </I18nProvider>
+    </PublicQuizShell>
   );
 }

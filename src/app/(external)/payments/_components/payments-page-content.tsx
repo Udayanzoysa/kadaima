@@ -15,11 +15,12 @@ import {
 } from "lucide-react";
 
 import { PublicQuizShell } from "@/app/quiz/_components/public-quiz-shell";
+import { PublicContentSkeleton } from "@/components/site/public-content-skeleton";
+import { PublicEmptyState } from "@/components/site/public-feedback";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { PublicContentSkeleton } from "@/components/site/public-content-skeleton";
 import { APP_CONFIG } from "@/config/app-config";
-import { I18nProvider, useI18n } from "@/hooks/use-i18n";
+import { useI18n } from "@/hooks/use-i18n";
 import { deleteClientCookie, getClientCookie } from "@/lib/cookie.client";
 import { formatCurrency } from "@/lib/utils";
 import { localize, type LocalizedText, type SupportedLocale } from "@/types/quiz";
@@ -114,7 +115,7 @@ function PaymentsPageInner() {
     <PublicQuizShell>
       <main className="mx-auto w-full max-w-3xl flex-1 px-4 py-6 md:px-6 md:py-8">
         <div className="mb-6 flex items-center gap-3">
-          <div className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-[#eef6ff] text-[#2b7fff]">
+          <div className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-[#eef6ff] text-[#1563b8]">
             <Wallet className="size-5" />
           </div>
           <div>
@@ -146,12 +147,12 @@ function PaymentsPageInner() {
           {data.lastPayment ? (
             <PaymentCard row={data.lastPayment} locale={locale} money={money} highlight />
           ) : (
-            <div className="rounded-2xl border border-dashed border-slate-200 bg-white px-6 py-10 text-center">
-              <p className="text-sm text-slate-500">{t("public.paymentsPage.noPayments")}</p>
-              <Button asChild variant="brand" className="mt-4 font-semibold">
-                <Link href="/">{t("public.paymentsPage.browseQuizzes")}</Link>
-              </Button>
-            </div>
+            <PublicEmptyState
+              className="py-10"
+              message={t("public.paymentsPage.noPayments")}
+              ctaLabel={t("public.paymentsPage.browseQuizzes")}
+              icon={Wallet}
+            />
           )}
         </section>
 
@@ -187,11 +188,11 @@ function PaymentCard({
   return (
     <article
       className={`flex items-start gap-3 rounded-2xl border bg-white p-4 shadow-sm sm:items-center sm:justify-between ${
-        highlight ? "border-[#2b7fff]/30" : "border-slate-200"
+        highlight ? "border-[#1563b8]/30" : "border-slate-200"
       }`}
     >
       <div className="flex items-start gap-3 sm:items-center">
-        <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-[#eef6ff] text-[#2b7fff]">
+        <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-[#eef6ff] text-[#1563b8]">
           <Icon className="size-4.5" />
         </div>
         <div>
@@ -213,9 +214,5 @@ function PaymentCard({
 }
 
 export function PaymentsPageContent() {
-  return (
-    <I18nProvider>
-      <PaymentsPageInner />
-    </I18nProvider>
-  );
+  return <PaymentsPageInner />;
 }

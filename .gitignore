@@ -34,6 +34,7 @@ yarn-error.log*
 
 # vercel
 .vercel
+read.md
 
 # whatsapp-web.js local session cache (created by whatsapp-bot.js)
 .wwebjs_auth/

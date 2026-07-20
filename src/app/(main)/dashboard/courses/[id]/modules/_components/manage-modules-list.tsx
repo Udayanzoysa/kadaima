@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
+import { DataBackupActions } from "@/components/data-backup-actions";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -287,12 +288,19 @@ export function ManageModulesList({ courseId }: ManageModulesListProps) {
             </p>
           </div>
         </div>
-        <Button asChild>
-          <Link href={`/admin/courses/${courseId}/modules/new`}>
-            <Plus className="size-4" />
-            Add New
-          </Link>
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <DataBackupActions
+            resource="modules"
+            apiPath={`courses/${courseId}/modules`}
+            onImported={() => void load(1)}
+          />
+          <Button asChild>
+            <Link href={`/admin/courses/${courseId}/modules/new`}>
+              <Plus className="size-4" />
+              Add New
+            </Link>
+          </Button>
+        </div>
       </div>
 
       {selectedIds.length > 0 && (

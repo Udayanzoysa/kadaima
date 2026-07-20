@@ -1,31 +1,53 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import dynamic from "next/dynamic";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 
-import { Play } from "lucide-react";
+import {
+  ArrowRight,
+  BookOpen,
+  ChevronDown,
+  FilterX,
+  Globe,
+  GraduationCap,
+  Play,
+  School,
+  Star,
+  type LucideIcon,
+} from "lucide-react";
 
 import { PublicQuizCard } from "@/components/quiz/public-quiz-card";
+import { PublicCatalogSearch } from "@/components/site/public-catalog-search";
+import { PublicEmptyState, PublicErrorBanner } from "@/components/site/public-feedback";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { APP_CONFIG } from "@/config/app-config";
 import { useI18n } from "@/hooks/use-i18n";
 import { getClientCookie } from "@/lib/cookie.client";
 import { ensureGuestSessionId, getOrCreateGuestLead } from "@/lib/guest-session";
+import { PUBLIC_HERO_GLOW_CLASS, PUBLIC_HERO_GRADIENT_CLASS } from "@/lib/public-brand";
+import {
+  categoryRankFromKind,
+  courseKindFromTitle,
+  courseSectionSubtitleKey,
+  plainFromHtml,
+  shortCourseLabel,
+  type CourseKind,
+} from "@/lib/public-catalog";
+import type { CatalogQuiz } from "@/lib/public-quizzes";
 import { cn } from "@/lib/utils";
-import { localize, type LocalizedText } from "@/types/quiz";
+import { mediaUrl, type LocalizedText, localize } from "@/types/quiz";
 
 import { PublicQuizShell } from "./public-quiz-shell";
 import type { UnlockQuizTarget } from "./quiz-unlock-modal";
 
-const QuizUnlockModal = dynamic(
-  () => import("./quiz-unlock-modal").then((m) => m.QuizUnlockModal),
-  { ssr: false },
-);
+const QuizUnlockModal = dynamic(() => import("./quiz-unlock-modal").then((m) => m.QuizUnlockModal), {
+  ssr: false,
+});
 
-/** Quiet placeholders — avoid a second branded logo under an already-visible shell. */
 function QuizCatalogSkeleton({ label }: { label: string }) {
   return (
     <div
@@ -33,53 +55,23 @@ function QuizCatalogSkeleton({ label }: { label: string }) {
       aria-live="polite"
       aria-busy="true"
       aria-label={label}
-      className="mt-8 md:mt-10"
+      className="mt-4 grid gap-4 md:grid-cols-[220px_minmax(0,1fr)] lg:grid-cols-[250px_minmax(0,1fr)]"
     >
-      <div className="flex gap-2 overflow-hidden py-2 md:flex-wrap">
-        {Array.from({ length: 5 }).map((_, i) => (
-          <Skeleton key={i} className="h-9 w-24 shrink-0 rounded-xl bg-slate-200/80" />
-        ))}
+      <div className="space-y-2">
+        <Skeleton className="h-10 w-full rounded-xl bg-slate-200/80" />
+        <Skeleton className="h-40 w-full rounded-2xl bg-slate-200/70" />
       </div>
-      <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {Array.from({ length: 6 }).map((_, i) => (
-          <div
-            key={i}
-            className="rounded-2xl border border-slate-200 bg-white p-3.5 shadow-sm sm:p-4"
-          >
-            <div className="flex gap-3.5 sm:gap-4">
-              <Skeleton className="size-12 shrink-0 rounded-xl bg-slate-200/80" />
-              <div className="min-w-0 flex-1 space-y-2">
-                <Skeleton className="h-4 w-3/4 bg-slate-200/80" />
-                <Skeleton className="h-3 w-full bg-slate-200/70" />
-                <Skeleton className="h-3 w-2/3 bg-slate-200/70" />
-                <div className="flex gap-3 pt-1">
-                  <Skeleton className="h-3 w-16 bg-slate-200/70" />
-                  <Skeleton className="h-3 w-20 bg-slate-200/70" />
-                </div>
-              </div>
-            </div>
-            <Skeleton className="mt-3 h-9 w-full rounded-xl bg-slate-200/80" />
-          </div>
-        ))}
+      <div className="space-y-3">
+        <Skeleton className="h-7 w-56 max-w-full bg-slate-200/80" />
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Skeleton key={i} className="h-28 w-full rounded-2xl bg-slate-200/70" />
+          ))}
+        </div>
       </div>
       <span className="sr-only">{label}</span>
     </div>
   );
-}
-
-interface CatalogQuiz {
-  id: string;
-  title: LocalizedText;
-  description: LocalizedText | null;
-  coverImageUrl?: string | null;
-  durationMinutes: number;
-  passingScorePercentage: number;
-  requiresUnlock?: boolean;
-  priceLkr?: number | null;
-  unlocked?: boolean;
-  course: { id: string; title: LocalizedText | string };
-  module?: { id: string; title: LocalizedText | string } | null;
-  _count: { questions: number; attempts?: number };
 }
 
 interface InProgressSummary {
@@ -92,14 +84,10 @@ type CourseGroup = {
   courseId: string;
   courseTitle: string;
   shortLabel: string;
+  kind: CourseKind;
   modules: { id: string; title: string }[];
   items: CatalogQuiz[];
 };
-
-function plainFromHtml(html: string | null | undefined) {
-  if (!html) return "";
-  return html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
-}
 
 function courseLabel(course: CatalogQuiz["course"], locale: string) {
   return localize(course.title as LocalizedText, locale as "en" | "si" | "ta");
@@ -110,60 +98,48 @@ function moduleLabel(mod: CatalogQuiz["module"], locale: string) {
   return localize(mod.title as LocalizedText, locale as "en" | "si" | "ta");
 }
 
-/** Compact labels for the category nav (prefer English title for matching). */
-function shortCourseLabel(course: CatalogQuiz["course"], locale: string): string {
-  const fullTitle = courseLabel(course, locale);
-  const enTitle =
-    typeof course.title === "object" && course.title && "en" in course.title
-      ? String((course.title as LocalizedText).en ?? "")
-      : fullTitle;
-  const t = `${enTitle} ${fullTitle}`.toLowerCase();
-  if (t.includes("scholarship") || t.includes("ශිෂ්‍යත්ව") || t.includes("புலமை")) {
-    return locale === "si" ? "ශිෂ්‍යත්ව" : locale === "ta" ? "புலமைப்பரிசில்" : "Scholarship";
-  }
-  if (t.includes("ordinary") || t.includes("(o/l)") || t.includes("o/l") || t.includes("සාමාන්‍ය") || t.includes("சாதாரண")) {
-    return "O/L";
-  }
-  if (t.includes("advanced") || t.includes("(a/l)") || t.includes("a/l") || t.includes("උසස්") || t.includes("உயர்")) {
-    return "A/L";
-  }
-  if (t.includes("cambridge") || t.includes("edexcel") || t.includes("international") || t.includes("ජාත්‍යන්තර") || t.includes("சர்வதேச")) {
-    return locale === "si" ? "ජාත්‍යන්තර" : locale === "ta" ? "சர்வதேச" : "International";
-  }
-  return fullTitle.length > 22 ? `${fullTitle.slice(0, 20)}…` : fullTitle;
+function courseKind(course: CatalogQuiz["course"]): CourseKind {
+  return courseKindFromTitle(course.title);
 }
 
-/** Fixed display order: Scholarship, O/L, A/L, International, then anything else. */
+function courseSectionSubtitle(kind: CourseKind, t: (key: string) => string): string {
+  return t(courseSectionSubtitleKey(kind));
+}
+
 function categoryRank(course: CatalogQuiz["course"]): number {
-  const enTitle =
-    typeof course.title === "object" && course.title && "en" in course.title
-      ? String((course.title as LocalizedText).en ?? "")
-      : String(course.title ?? "");
-  const t = enTitle.toLowerCase();
-  if (t.includes("scholarship")) return 0;
-  if (t.includes("ordinary") || t.includes("(o/l)") || /\bo\/l\b/.test(t)) return 1;
-  if (t.includes("advanced") || t.includes("(a/l)") || /\ba\/l\b/.test(t)) return 2;
-  if (t.includes("cambridge") || t.includes("edexcel") || t.includes("international")) return 3;
-  return 4;
+  return categoryRankFromKind(courseKind(course));
+}
+
+function courseIcon(kind: CourseKind): LucideIcon {
+  if (kind === "scholarship") return Star;
+  if (kind === "ol") return School;
+  if (kind === "al") return GraduationCap;
+  if (kind === "driving") return Globe;
+  return BookOpen;
 }
 
 export function PublicQuizCatalog({
-  /** When true, only render the quiz list (hero/shell provided by the parent page). */
   embed = false,
+  initialQuizzes,
 }: {
   embed?: boolean;
+  initialQuizzes?: CatalogQuiz[];
 } = {}) {
   const router = useRouter();
   const { locale, t } = useI18n();
-  const [quizzes, setQuizzes] = useState<CatalogQuiz[]>([]);
-  const [loading, setLoading] = useState(true);
+  const hasInitial = Array.isArray(initialQuizzes);
+  const [quizzes, setQuizzes] = useState<CatalogQuiz[]>(initialQuizzes ?? []);
+  const [loading, setLoading] = useState(!hasInitial);
   const [error, setError] = useState<string | null>(null);
   const [inProgressByQuiz, setInProgressByQuiz] = useState<Record<string, InProgressSummary>>({});
   const [unlockTarget, setUnlockTarget] = useState<UnlockQuizTarget | null>(null);
   const [activeCourseId, setActiveCourseId] = useState<string | null>(null);
   const [activeModuleId, setActiveModuleId] = useState<string | "all">("all");
+  /** When true (search hit), main area shows only the selected course section. */
+  const [focusSingleCourse, setFocusSingleCourse] = useState(false);
+  const [expandedCourseIds, setExpandedCourseIds] = useState<Set<string>>(new Set());
 
-  const reloadQuizzes = async () => {
+  const reloadQuizzes = useCallback(async () => {
     const guestSessionId = ensureGuestSessionId();
     let userId = "";
     const token = getClientCookie("session_token");
@@ -181,66 +157,100 @@ export function PublicQuizCatalog({
     );
     if (!res.ok) throw new Error("Could not load quizzes.");
     setQuizzes(await res.json());
-  };
+  }, []);
 
   useEffect(() => {
-    (async () => {
+    let cancelled = false;
+    let idleId: number | undefined;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+
+    const loadProgress = async () => {
+      const token = getClientCookie("session_token");
+      if (token) {
+        const progressRes = await fetch(`${APP_CONFIG.apiUrl}/quizzes/me/in-progress`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (progressRes.ok) {
+          const list = (await progressRes.json()) as Array<{
+            quizId: string;
+            answeredCount: number;
+            totalQuestions: number;
+          }>;
+          const map: Record<string, InProgressSummary> = {};
+          for (const item of list) {
+            map[item.quizId] = {
+              quizId: item.quizId,
+              answeredCount: item.answeredCount,
+              totalQuestions: item.totalQuestions,
+            };
+          }
+          if (!cancelled) setInProgressByQuiz(map);
+          return;
+        }
+      }
+
+      const lead = getOrCreateGuestLead();
+      if (lead) {
+        const progressRes = await fetch(
+          `${APP_CONFIG.apiUrl}/public/quizzes/in-progress?guestSessionId=${encodeURIComponent(lead.guestSessionId)}`,
+        );
+        if (progressRes.ok) {
+          const list = (await progressRes.json()) as Array<{
+            quizId: string;
+            answeredCount: number;
+            totalQuestions: number;
+          }>;
+          const map: Record<string, InProgressSummary> = {};
+          for (const item of list) {
+            map[item.quizId] = {
+              quizId: item.quizId,
+              answeredCount: item.answeredCount,
+              totalQuestions: item.totalQuestions,
+            };
+          }
+          if (!cancelled) setInProgressByQuiz(map);
+        }
+      }
+    };
+
+    const refreshPersonalized = async () => {
       try {
         await reloadQuizzes();
-
-        const token = getClientCookie("session_token");
-        if (token) {
-          const progressRes = await fetch(`${APP_CONFIG.apiUrl}/quizzes/me/in-progress`, {
-            headers: { Authorization: `Bearer ${token}` },
-          });
-          if (progressRes.ok) {
-            const list = (await progressRes.json()) as Array<{
-              quizId: string;
-              answeredCount: number;
-              totalQuestions: number;
-            }>;
-            const map: Record<string, InProgressSummary> = {};
-            for (const item of list) {
-              map[item.quizId] = {
-                quizId: item.quizId,
-                answeredCount: item.answeredCount,
-                totalQuestions: item.totalQuestions,
-              };
-            }
-            setInProgressByQuiz(map);
-            return;
-          }
-        }
-
-        const lead = getOrCreateGuestLead();
-        if (lead) {
-          const progressRes = await fetch(
-            `${APP_CONFIG.apiUrl}/public/quizzes/in-progress?guestSessionId=${encodeURIComponent(lead.guestSessionId)}`,
-          );
-          if (progressRes.ok) {
-            const list = (await progressRes.json()) as Array<{
-              quizId: string;
-              answeredCount: number;
-              totalQuestions: number;
-            }>;
-            const map: Record<string, InProgressSummary> = {};
-            for (const item of list) {
-              map[item.quizId] = {
-                quizId: item.quizId,
-                answeredCount: item.answeredCount,
-                totalQuestions: item.totalQuestions,
-              };
-            }
-            setInProgressByQuiz(map);
-          }
-        }
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Could not load quizzes.");
-      } finally {
-        setLoading(false);
+        if (!cancelled) await loadProgress();
+      } catch {
+        /* keep SSR catalog */
       }
-    })();
-  }, []);
+    };
+
+    if (hasInitial) {
+      if (typeof window !== "undefined" && "requestIdleCallback" in window) {
+        idleId = window.requestIdleCallback(() => void refreshPersonalized(), { timeout: 2500 });
+      } else {
+        timer = setTimeout(() => void refreshPersonalized(), 400);
+      }
+    } else {
+      void (async () => {
+        try {
+          await reloadQuizzes();
+          if (!cancelled) await loadProgress();
+        } catch (err) {
+          if (!cancelled) {
+            setError(err instanceof Error ? err.message : "Could not load quizzes.");
+          }
+        } finally {
+          if (!cancelled) setLoading(false);
+        }
+      })();
+    }
+
+    return () => {
+      cancelled = true;
+      if (idleId !== undefined && "cancelIdleCallback" in window) {
+        window.cancelIdleCallback(idleId);
+      }
+      if (timer !== undefined) clearTimeout(timer);
+    };
+  }, [hasInitial, reloadQuizzes]);
 
   const byCourse = useMemo((): CourseGroup[] => {
     const map = new Map<string, CourseGroup & { rank: number }>();
@@ -251,7 +261,8 @@ export function PublicQuizCatalog({
         group = {
           courseId: quiz.course.id,
           courseTitle: title,
-          shortLabel: shortCourseLabel(quiz.course, locale),
+          shortLabel: shortCourseLabel(quiz.course.title, locale),
+          kind: courseKind(quiz.course),
           modules: [],
           items: [],
           rank: categoryRank(quiz.course),
@@ -269,36 +280,22 @@ export function PublicQuizCatalog({
     return Array.from(map.values()).sort((a, b) => a.rank - b.rank);
   }, [quizzes, locale]);
 
-  // Keep selection in sync when quizzes load / locale changes.
   useEffect(() => {
     if (byCourse.length === 0) {
       setActiveCourseId(null);
       return;
     }
     if (!activeCourseId || !byCourse.some((c) => c.courseId === activeCourseId)) {
-      setActiveCourseId(byCourse[0].courseId);
+      const first = byCourse[0].courseId;
+      setActiveCourseId(first);
       setActiveModuleId("all");
+      setExpandedCourseIds(new Set([first]));
     }
   }, [byCourse, activeCourseId]);
 
-  const activeCourse = useMemo(
-    () => byCourse.find((c) => c.courseId === activeCourseId) ?? null,
-    [byCourse, activeCourseId],
-  );
+  const firstInProgressId = useMemo(() => Object.keys(inProgressByQuiz)[0] ?? null, [inProgressByQuiz]);
 
-  const filteredQuizzes = useMemo(() => {
-    if (!activeCourse) return [];
-    if (activeModuleId === "all") return activeCourse.items;
-    return activeCourse.items.filter((q) => q.module?.id === activeModuleId);
-  }, [activeCourse, activeModuleId]);
-
-  const firstInProgressId = useMemo(
-    () => Object.keys(inProgressByQuiz)[0] ?? null,
-    [inProgressByQuiz],
-  );
-
-  const needsUnlock = (quiz: CatalogQuiz) =>
-    Boolean(quiz.requiresUnlock) && quiz.unlocked !== true;
+  const needsUnlock = (quiz: CatalogQuiz) => Boolean(quiz.requiresUnlock) && quiz.unlocked !== true;
 
   const startHref = (quiz: CatalogQuiz) =>
     inProgressByQuiz[quiz.id] ? `/quiz/${quiz.id}/take` : `/quiz/${quiz.id}`;
@@ -323,10 +320,226 @@ export function PublicQuizCatalog({
     document.getElementById("quizzes-by-course")?.scrollIntoView({ behavior: "smooth" });
   };
 
-  const selectCourse = (courseId: string) => {
+  const selectCourse = (
+    courseId: string,
+    moduleId: string | "all" = "all",
+    opts?: { focusOnly?: boolean; scroll?: boolean },
+  ) => {
     setActiveCourseId(courseId);
-    setActiveModuleId("all");
+    setActiveModuleId(moduleId);
+    setExpandedCourseIds((prev) => new Set(prev).add(courseId));
+    setFocusSingleCourse(Boolean(opts?.focusOnly));
+    if (opts?.scroll !== false) {
+      window.requestAnimationFrame(() => {
+        document.getElementById(`course-section-${courseId}`)?.scrollIntoView({
+          behavior: "smooth",
+          block: "start",
+        });
+      });
+    }
   };
+
+  const clearFilters = () => {
+    setActiveModuleId("all");
+    setFocusSingleCourse(false);
+    if (byCourse[0]) {
+      setActiveCourseId(byCourse[0].courseId);
+      setExpandedCourseIds(new Set([byCourse[0].courseId]));
+    }
+  };
+
+  const toggleExpanded = (courseId: string) => {
+    setExpandedCourseIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(courseId)) next.delete(courseId);
+      else next.add(courseId);
+      return next;
+    });
+  };
+
+  const visibleCourses = useMemo(() => {
+    if (focusSingleCourse && activeCourseId) {
+      return byCourse.filter((c) => c.courseId === activeCourseId);
+    }
+    return byCourse;
+  }, [byCourse, focusSingleCourse, activeCourseId]);
+
+  const sidebar = (
+    <aside className="w-full shrink-0 space-y-3 md:sticky md:top-20 md:w-[220px] md:self-start lg:w-[250px]">
+      <PublicCatalogSearch
+        onSelect={(entry) => {
+          selectCourse(
+            entry.courseId,
+            entry.type === "module" && entry.moduleId ? entry.moduleId : "all",
+            { focusOnly: true },
+          );
+        }}
+      />
+
+      <nav
+        aria-label={t("public.categoryNav")}
+        className="rounded-2xl border border-slate-200/80 bg-white p-2 shadow-sm"
+      >
+        <h3 className="mb-1.5 px-2 pt-1 text-[10px] font-semibold tracking-[0.08em] text-slate-400 uppercase">
+          {t("public.categories")}
+        </h3>
+        <div className="space-y-0.5">
+          {byCourse.map((group) => {
+            const selected = group.courseId === activeCourseId;
+            const expanded = expandedCourseIds.has(group.courseId);
+            const Icon = courseIcon(group.kind);
+            return (
+              <div key={group.courseId}>
+                <div className="flex items-stretch gap-0.5">
+                  <button
+                    type="button"
+                    onClick={() => selectCourse(group.courseId, "all", { focusOnly: false })}
+                    className={cn(
+                      "flex min-w-0 flex-1 items-center justify-between rounded-xl px-2.5 py-2 text-[13px] transition",
+                      selected
+                        ? "bg-[#eef6ff] font-semibold text-[#1563b8]"
+                        : "font-medium text-slate-700 hover:bg-slate-50",
+                    )}
+                  >
+                    <span className="flex min-w-0 items-center gap-2">
+                      <Icon
+                        className="size-4 shrink-0"
+                        strokeWidth={1.75}
+                        fill={selected && group.kind === "scholarship" ? "currentColor" : "none"}
+                      />
+                      <span className="truncate">{group.shortLabel}</span>
+                    </span>
+                    <span
+                      className={cn(
+                        "rounded-md px-1.5 py-0.5 text-[10px] font-bold",
+                        selected
+                          ? "bg-[#1563b8]/15 text-[#1563b8]"
+                          : "bg-slate-100 text-slate-500",
+                      )}
+                    >
+                      {group.items.length}
+                    </span>
+                  </button>
+                  {group.modules.length > 0 ? (
+                    <button
+                      type="button"
+                      aria-label={t("public.moduleNav")}
+                      onClick={() => toggleExpanded(group.courseId)}
+                      className="rounded-lg px-1.5 text-slate-400 transition hover:bg-slate-50 hover:text-[#1563b8]"
+                    >
+                      <ChevronDown
+                        className={cn("size-3.5 transition-transform", expanded && "rotate-180")}
+                      />
+                    </button>
+                  ) : null}
+                </div>
+                {expanded && group.modules.length > 0 ? (
+                  <div className="ml-2 space-y-0.5 border-l border-slate-100 py-0.5 pl-3">
+                    {group.modules.map((mod) => {
+                      const modSelected = selected && activeModuleId === mod.id;
+                      return (
+                        <button
+                          key={mod.id}
+                          type="button"
+                          onClick={() =>
+                            selectCourse(group.courseId, mod.id, { focusOnly: false })
+                          }
+                          className={cn(
+                            "block w-full rounded-lg px-2 py-1.5 text-left text-xs transition",
+                            modSelected
+                              ? "font-semibold text-[#1563b8]"
+                              : "text-slate-500 hover:text-[#1563b8]",
+                          )}
+                        >
+                          {mod.title}
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : null}
+              </div>
+            );
+          })}
+        </div>
+
+        <button
+          type="button"
+          onClick={clearFilters}
+          className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-xl bg-[#eef6ff] px-3 py-2 text-xs font-semibold text-[#1563b8] transition hover:bg-[#dcebff]"
+        >
+          <FilterX className="size-3.5" />
+          {t("public.clearFilters")}
+        </button>
+      </nav>
+    </aside>
+  );
+
+  const mainPanel = (
+    <div className="min-w-0 flex-1 space-y-6">
+      {visibleCourses.map((group) => {
+        const quizzesForSection =
+          group.courseId === activeCourseId && activeModuleId !== "all"
+            ? group.items.filter((q) => q.module?.id === activeModuleId)
+            : group.items;
+
+        return (
+          <section
+            key={group.courseId}
+            id={`course-section-${group.courseId}`}
+            className="scroll-mt-20 space-y-3"
+          >
+            <div className="flex items-center justify-between gap-3 border-b border-slate-200/70 pb-2">
+              <div className="min-w-0">
+                <h2 className="font-[family-name:var(--font-outfit)] text-lg font-bold tracking-tight text-[#123a6b] md:text-xl">
+                  {group.courseTitle}
+                </h2>
+                <p className="mt-0.5 text-xs text-slate-500 sm:text-[13px]">
+                  {courseSectionSubtitle(group.kind, t)}
+                </p>
+              </div>
+              <Link
+                href={`/quiz/course/${group.courseId}`}
+                className="inline-flex shrink-0 items-center gap-1 rounded-lg px-2 py-1 text-xs font-semibold text-[#1563b8] transition hover:bg-[#eef6ff] sm:text-sm"
+              >
+                {t("public.seeAll")}
+                <ArrowRight className="size-3.5" />
+              </Link>
+            </div>
+
+            {quizzesForSection.length === 0 ? (
+              <PublicEmptyState
+                className="py-8"
+                message={t("public.noQuizzesInModule")}
+                icon={Play}
+              />
+            ) : (
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                {quizzesForSection.map((quiz) => {
+                  const desc =
+                    plainFromHtml(localize(quiz.description, locale as "en" | "si" | "ta")) ||
+                    moduleLabel(quiz.module, locale) ||
+                    t("public.cardFallbackDesc");
+                  return (
+                    <PublicQuizCard
+                      key={quiz.id}
+                      title={localize(quiz.title, locale as "en" | "si" | "ta")}
+                      description={desc}
+                      durationMinutes={quiz.durationMinutes}
+                      questionCount={quiz._count.questions}
+                      viewCount={quiz._count.attempts ?? 0}
+                      coverImageUrl={mediaUrl(quiz.coverImageUrl, APP_CONFIG.apiUrl)}
+                      locked={needsUnlock(quiz)}
+                      onPrimary={() => handlePrimary(quiz)}
+                    />
+                  );
+                })}
+              </div>
+            )}
+          </section>
+        );
+      })}
+    </div>
+  );
 
   const list = (
     <>
@@ -334,142 +547,43 @@ export function PublicQuizCatalog({
         {loading && <QuizCatalogSkeleton label={t("public.loadingQuizzes")} />}
 
         {error && (
-          <div className="mt-8 rounded-2xl border border-red-200 bg-red-50 px-5 py-4 text-sm text-red-700">
-            {error}
-          </div>
+          <PublicErrorBanner
+            className="mt-4"
+            message={error}
+            onRetry={() => void reloadQuizzes()}
+            retryLabel={t("student.tryAgain")}
+          />
         )}
 
         {!loading && !error && quizzes.length === 0 && (
-          <div className="mt-8 rounded-2xl border border-dashed border-slate-200 bg-white px-6 py-16 text-center text-slate-500">
-            {t("public.noQuizzesYet")}
+          <PublicEmptyState className="mt-4" message={t("public.noQuizzesYet")} icon={Play} />
+        )}
+
+        {!loading && !error && byCourse.length > 0 ? (
+          <div className="mt-4 flex flex-col gap-4 md:mt-5 md:flex-row md:gap-5">
+            {sidebar}
+            {mainPanel}
           </div>
-        )}
-
-        {!loading && !error && byCourse.length > 0 && (
-          <section className="mt-8 md:mt-10">
-            {/* Category nav */}
-            <nav
-              aria-label={t("public.categoryNav")}
-              className="sticky top-14 z-20 -mx-4 border-b border-slate-200/80 bg-[#f4f7fb]/95 px-4 backdrop-blur-md md:top-16 md:-mx-0 md:rounded-2xl md:border md:bg-white/90 md:px-2 md:py-2 md:shadow-sm"
-            >
-              <div className="flex gap-1 overflow-x-auto py-2 [scrollbar-width:none] md:flex-wrap md:overflow-visible md:py-0 [&::-webkit-scrollbar]:hidden">
-                {byCourse.map((group) => {
-                  const selected = group.courseId === activeCourseId;
-                  return (
-                    <button
-                      key={group.courseId}
-                      type="button"
-                      onClick={() => selectCourse(group.courseId)}
-                      className={cn(
-                        "shrink-0 rounded-xl px-3.5 py-2 text-sm font-semibold transition",
-                        selected
-                          ? "bg-[#1563b8] text-white shadow-sm"
-                          : "text-slate-600 hover:bg-slate-100 hover:text-slate-900",
-                      )}
-                    >
-                      {group.shortLabel}
-                    </button>
-                  );
-                })}
-              </div>
-            </nav>
-
-            {activeCourse ? (
-              <div className="mt-6">
-                <div className="mb-4">
-                  <h2 className="font-[family-name:var(--font-outfit)] text-2xl font-bold tracking-tight text-slate-900 md:text-[1.75rem]">
-                    {activeCourse.courseTitle}
-                  </h2>
-                  <p className="mt-1.5 text-sm text-slate-600 md:text-[15px]">
-                    {t("public.categorySubtitle")}
-                  </p>
-                </div>
-
-                {/* Module sub-nav */}
-                <nav
-                  aria-label={t("public.moduleNav")}
-                  className="mb-5 flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-                >
-                  <button
-                    type="button"
-                    onClick={() => setActiveModuleId("all")}
-                    className={cn(
-                      "shrink-0 rounded-full border px-3.5 py-1.5 text-xs font-semibold transition sm:text-[13px]",
-                      activeModuleId === "all"
-                        ? "border-[#1563b8] bg-[#1563b8]/10 text-[#1563b8]"
-                        : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:text-slate-900",
-                    )}
-                  >
-                    {t("public.allModules")}
-                  </button>
-                  {activeCourse.modules.map((mod) => {
-                    const selected = activeModuleId === mod.id;
-                    return (
-                      <button
-                        key={mod.id}
-                        type="button"
-                        onClick={() => setActiveModuleId(mod.id)}
-                        className={cn(
-                          "shrink-0 rounded-full border px-3.5 py-1.5 text-xs font-semibold transition sm:text-[13px]",
-                          selected
-                            ? "border-[#1563b8] bg-[#1563b8]/10 text-[#1563b8]"
-                            : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:text-slate-900",
-                        )}
-                      >
-                        {mod.title}
-                      </button>
-                    );
-                  })}
-                </nav>
-
-                {filteredQuizzes.length === 0 ? (
-                  <div className="rounded-2xl border border-dashed border-slate-200 bg-white px-6 py-12 text-center text-sm text-slate-500">
-                    {t("public.noQuizzesInModule")}
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                    {filteredQuizzes.map((quiz, i) => {
-                      const desc =
-                        plainFromHtml(localize(quiz.description, locale as "en" | "si" | "ta")) ||
-                        moduleLabel(quiz.module, locale) ||
-                        t("public.cardFallbackDesc");
-                      return (
-                        <PublicQuizCard
-                          key={quiz.id}
-                          title={localize(quiz.title, locale as "en" | "si" | "ta")}
-                          description={desc}
-                          durationMinutes={quiz.durationMinutes}
-                          questionCount={quiz._count.questions}
-                          iconIndex={i}
-                          isNew={i === 0}
-                          locked={needsUnlock(quiz)}
-                          onPrimary={() => handlePrimary(quiz)}
-                        />
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            ) : null}
-          </section>
-        )}
+        ) : null}
       </div>
 
-      <QuizUnlockModal
-        open={Boolean(unlockTarget)}
-        onOpenChange={(open) => {
-          if (!open) setUnlockTarget(null);
-        }}
-        quiz={unlockTarget}
-        onUnlocked={async (quizId) => {
-          try {
-            await reloadQuizzes();
-          } catch {
-            /* ignore */
-          }
-          router.push(`/quiz/${quizId}`);
-        }}
-      />
+      {unlockTarget ? (
+        <QuizUnlockModal
+          open
+          onOpenChange={(open) => {
+            if (!open) setUnlockTarget(null);
+          }}
+          quiz={unlockTarget}
+          onUnlocked={async (quizId) => {
+            try {
+              await reloadQuizzes();
+            } catch {
+              /* ignore */
+            }
+            router.push(`/quiz/${quizId}`);
+          }}
+        />
+      ) : null}
     </>
   );
 
@@ -477,16 +591,18 @@ export function PublicQuizCatalog({
 
   return (
     <PublicQuizShell activeNav="quiz">
-      <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 md:px-6 md:py-8">
-        <section className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-[#0b2a4a] via-[#1a4a7a] to-[#3b9eff] p-6 text-white shadow-[0_20px_50px_-24px_rgba(11,42,74,0.55)] md:p-10 lg:p-12">
+      <main className="mx-auto w-full min-w-0 max-w-6xl flex-1 px-3 py-4 sm:px-4 sm:py-6 md:px-6 md:py-8">
+        <section
+          className={cn(
+            "relative overflow-hidden rounded-3xl p-6 text-white md:p-10 lg:p-12",
+            PUBLIC_HERO_GRADIENT_CLASS,
+          )}
+        >
           <div
             aria-hidden
             className="pointer-events-none absolute -right-10 -top-10 size-56 rounded-full bg-white/10 blur-2xl md:size-80"
           />
-          <div
-            aria-hidden
-            className="pointer-events-none absolute bottom-0 right-0 hidden h-full w-1/2 bg-[radial-gradient(ellipse_at_80%_50%,_rgba(255,255,255,0.16),_transparent_55%)] md:block"
-          />
+          <div aria-hidden className={PUBLIC_HERO_GLOW_CLASS} />
 
           <div className="relative max-w-2xl">
             <span className="inline-flex rounded-full bg-white/15 px-3 py-1 text-[11px] font-semibold tracking-wide text-white ring-1 ring-white/25">
@@ -499,16 +615,9 @@ export function PublicQuizCatalog({
               {t("public.hero.description")}
             </p>
             <div className="mt-7 flex flex-wrap gap-3">
-              <Button
-                variant="brand"
-                size="lg"
-                className="px-6 font-semibold"
-                onClick={handleResume}
-              >
+              <Button variant="brand" size="lg" className="px-6 font-semibold" onClick={handleResume}>
                 <Play className="size-4 fill-current" />
-                {firstInProgressId
-                  ? t("public.hero.resumeLastQuiz")
-                  : t("public.hero.browseQuizzes")}
+                {firstInProgressId ? t("public.hero.resumeLastQuiz") : t("public.hero.browseQuizzes")}
               </Button>
               <Button
                 size="lg"

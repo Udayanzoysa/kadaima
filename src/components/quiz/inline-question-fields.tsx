@@ -1,6 +1,9 @@
 "use client";
 
+import { useState } from "react";
+
 import { ImagePlus, Plus, Trash2 } from "lucide-react";
+import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -15,6 +18,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { APP_CONFIG } from "@/config/app-config";
+import { getClientCookie } from "@/lib/cookie.client";
 import {
   QUESTION_TYPE_META,
   emptyLocalizedText,
@@ -32,7 +36,12 @@ function newId() {
 }
 
 export function createEmptyChoice(): AnswerChoiceForm {
-  return { id: newId(), choiceText: emptyLocalizedText(), isCorrect: false };
+  return {
+    id: newId(),
+    choiceText: emptyLocalizedText(),
+    imageUrl: null,
+    isCorrect: false,
+  };
 }
 
 export function createEmptyQuestion(sortOrder: number): QuestionForm {
@@ -77,18 +86,24 @@ export function buildQuestionConfig(q: QuestionForm): QuestionConfig {
 
 export function validateInlineQuestion(
   q: QuestionForm,
-  language: SupportedLocale = "en",
+  languages: SupportedLocale | SupportedLocale[] = "en",
 ): string | null {
-  const prompt = q.questionText[language]?.trim() ?? "";
-  if (prompt.length < 3) {
-    return `Question text is required in the quiz language (${language.toUpperCase()}).`;
+  const langs = Array.isArray(languages) ? languages : [languages];
+  for (const language of langs) {
+    const prompt = q.questionText[language]?.trim() ?? "";
+    if (prompt.length < 3) {
+      return `Question text is required in ${language.toUpperCase()}.`;
+    }
   }
   if (q.type === "MCQ") {
     if (q.choices.length < 2) return "At least two choices are required.";
     if (!q.choices.some((c) => c.isCorrect)) return "Mark one correct answer.";
     for (const c of q.choices) {
-      if (!(c.choiceText[language]?.trim())) {
-        return `Each choice needs text in the quiz language (${language.toUpperCase()}).`;
+      if (c.imageUrl) continue;
+      for (const language of langs) {
+        if (!(c.choiceText[language]?.trim())) {
+          return `Each choice needs text in ${language.toUpperCase()} or an image.`;
+        }
       }
     }
   }
@@ -97,8 +112,11 @@ export function validateInlineQuestion(
       return "Add at least two sequencing items (in the correct order).";
     }
     for (const c of q.choices) {
-      if (!(c.choiceText[language]?.trim())) {
-        return `Each sequencing item needs text in the quiz language (${language.toUpperCase()}).`;
+      if (c.imageUrl) continue;
+      for (const language of langs) {
+        if (!(c.choiceText[language]?.trim())) {
+          return `Each sequencing item needs text in ${language.toUpperCase()} or an image.`;
+        }
       }
     }
   }
@@ -115,16 +133,18 @@ export function validateInlineQuestion(
 export function toBankQuestionPayload(
   q: QuestionForm,
   status: "Draft" | "Published" | "Archived",
-  language: SupportedLocale = "en",
+  languages: SupportedLocale | SupportedLocale[] = "en",
 ) {
+  const langs = Array.isArray(languages) ? languages : [languages];
+  const set = new Set(langs);
   const needsChoices = q.type === "MCQ" || q.type === "SEQUENCE";
-  const mono = (text: typeof q.questionText) => ({
-    en: language === "en" ? text.en : "",
-    si: language === "si" ? text.si : "",
-    ta: language === "ta" ? text.ta : "",
+  const scoped = (text: typeof q.questionText) => ({
+    en: set.has("en") ? text.en : "",
+    si: set.has("si") ? text.si : "",
+    ta: set.has("ta") ? text.ta : "",
   });
   return {
-    questionText: mono(q.questionText),
+    questionText: scoped(q.questionText),
     points: q.points,
     status,
     type: q.type,
@@ -132,7 +152,8 @@ export function toBankQuestionPayload(
     config: buildQuestionConfig(q),
     choices: needsChoices
       ? q.choices.map((c) => ({
-          choiceText: mono(c.choiceText),
+          choiceText: scoped(c.choiceText),
+          imageUrl: c.imageUrl ?? null,
           isCorrect: q.type === "MCQ" ? c.isCorrect : false,
         }))
       : [],
@@ -154,9 +175,39 @@ export function InlineQuestionFields({
   onChange,
   onUploadImage,
 }: Props) {
+  const [uploadingChoiceId, setUploadingChoiceId] = useState<string | null>(null);
   const type = question.type;
   const contentFormat = question.config?.contentFormat === "html" ? "html" : "plain";
   const previewImg = mediaUrl(question.imageUrl, APP_CONFIG.apiUrl);
+
+  const uploadChoiceImage = async (choiceId: string, file: File) => {
+    const token = getClientCookie("session_token");
+    if (!token) return;
+    setUploadingChoiceId(choiceId);
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      const res = await fetch(`${APP_CONFIG.apiUrl}/questions/upload-image`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: form,
+      });
+      if (!res.ok) throw new Error("Upload failed");
+      const data = (await res.json()) as { url?: string };
+      if (!data.url) throw new Error("No image URL returned");
+      onChange({
+        ...question,
+        choices: question.choices.map((c) =>
+          c.id === choiceId ? { ...c, imageUrl: data.url! } : c,
+        ),
+      });
+      toast.success("Choice image uploaded");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Upload failed");
+    } finally {
+      setUploadingChoiceId(null);
+    }
+  };
   const acceptedAnswersText = (question.config?.acceptedAnswers ?? []).join("\n");
 
   const patch = (partial: Partial<QuestionForm>) => onChange({ ...question, ...partial });
@@ -392,8 +443,11 @@ export function InlineQuestionFields({
               ? "Items in the correct order (students will reorder them)"
               : "Answer choices"}
           </span>
-          {question.choices.map((choice) => (
-            <div key={choice.id} className="flex items-center gap-2">
+          {question.choices.map((choice) => {
+            const choiceImg = mediaUrl(choice.imageUrl, APP_CONFIG.apiUrl);
+            return (
+            <div key={choice.id} className="space-y-2 rounded-lg border p-3">
+              <div className="flex items-center gap-2">
               {type === "MCQ" && (
                 <Checkbox
                   checked={choice.isCorrect}
@@ -422,11 +476,27 @@ export function InlineQuestionFields({
                     ),
                   })
                 }
-                placeholder={type === "SEQUENCE" ? "Sequence item" : "Answer option"}
+                placeholder={
+                  type === "SEQUENCE"
+                    ? "Label (optional if image)"
+                    : "Choice text (optional if image)"
+                }
               />
-              {type === "MCQ" && (
-                <span className="text-muted-foreground text-xs">Correct</span>
-              )}
+              <label className="inline-flex cursor-pointer items-center gap-1 rounded-md border px-2 py-1.5 text-xs hover:bg-muted/40">
+                <ImagePlus className="size-3.5" />
+                {uploadingChoiceId === choice.id ? "…" : "Image"}
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  disabled={uploadingChoiceId === choice.id}
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) void uploadChoiceImage(choice.id, file);
+                    e.target.value = "";
+                  }}
+                />
+              </label>
               {question.choices.length > 2 && (
                 <Button
                   type="button"
@@ -441,8 +511,34 @@ export function InlineQuestionFields({
                   <Trash2 className="size-4" />
                 </Button>
               )}
+              </div>
+              {choiceImg && (
+                <div className="flex items-start gap-2 pl-7">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={choiceImg}
+                    alt="Choice"
+                    className="max-h-28 rounded-md border object-contain"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() =>
+                      patch({
+                        choices: question.choices.map((c) =>
+                          c.id === choice.id ? { ...c, imageUrl: null } : c,
+                        ),
+                      })
+                    }
+                  >
+                    Remove image
+                  </Button>
+                </div>
+              )}
             </div>
-          ))}
+            );
+          })}
           <Button
             type="button"
             variant="outline"

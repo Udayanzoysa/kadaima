@@ -216,7 +216,7 @@ export function ForgotPasswordForm() {
 
       <p className="text-center text-xs text-slate-500">
         Already have a code?{" "}
-        <Link prefetch={false} href="/reset-password" className="font-medium text-[#2b7fff] hover:text-[#1f6ae0]">
+        <Link prefetch={false} href="/reset-password" className="font-medium text-[#1563b8] hover:text-[#114f94]">
           Enter reset code
         </Link>
       </p>

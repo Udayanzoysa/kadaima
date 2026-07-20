@@ -27,11 +27,46 @@ export function hasLocaleContent(
   return plainTextFromLocalized(text[language]).length >= minLen;
 }
 
+export function hasAllLocaleContent(
+  text: LocalizedText | null | undefined,
+  languages: SupportedLocale[],
+  minLen = 1,
+): boolean {
+  if (!languages.length) return false;
+  return languages.every((lang) => hasLocaleContent(text, lang, minLen));
+}
+
+export function filledLocales(
+  text: LocalizedText | null | undefined,
+  minLen = 1,
+): SupportedLocale[] {
+  return (["en", "si", "ta"] as const).filter((lang) =>
+    hasLocaleContent(text, lang, minLen),
+  );
+}
+
+export function normalizeQuizLanguages(
+  languages?: Array<SupportedLocale | string> | null,
+  fallback?: SupportedLocale | string | null,
+): SupportedLocale[] {
+  const raw: Array<SupportedLocale | string> =
+    languages && languages.length > 0
+      ? languages
+      : fallback
+        ? [fallback]
+        : ["en"];
+  const order: SupportedLocale[] = ["en", "si", "ta"];
+  return order.filter((l) => raw.includes(l));
+}
+
 /** Prefer API `language`; otherwise infer from which title locale is filled. */
 export function resolveQuizLanguage(
   title: LocalizedText | null | undefined,
   language?: SupportedLocale | string | null,
+  languages?: Array<SupportedLocale | string> | null,
 ): SupportedLocale {
+  const langs = normalizeQuizLanguages(languages, language);
+  if (langs.length) return langs[0];
   if (language === "en" || language === "si" || language === "ta") return language;
   if (hasLocaleContent(title, "en")) return "en";
   if (hasLocaleContent(title, "si")) return "si";
@@ -39,9 +74,23 @@ export function resolveQuizLanguage(
   return "en";
 }
 
+/** Keep only selected language slots filled. */
+export function multiLocalizedText(
+  text: LocalizedText,
+  languages: SupportedLocale[],
+): LocalizedText {
+  const set = new Set(languages);
+  return {
+    en: set.has("en") ? text.en : "",
+    si: set.has("si") ? text.si : "",
+    ta: set.has("ta") ? text.ta : "",
+  };
+}
+
 export interface AnswerChoiceForm {
   id: string;
   choiceText: LocalizedText;
+  imageUrl?: string | null;
   isCorrect: boolean;
 }
 
@@ -57,7 +106,12 @@ export interface QuestionForm {
 }
 
 export interface QuizFormState {
-  /** Single content language for the whole quiz. */
+  /**
+   * Languages this quiz uses. Title/description/questions must include each.
+   * `language` mirrors the first entry (primary / take default).
+   */
+  languages: SupportedLocale[];
+  /** Primary language (first of `languages`) — editing tab default. */
   language: SupportedLocale;
   title: LocalizedText;
   description: LocalizedText;
@@ -71,12 +125,19 @@ export interface QuizFormState {
   shuffleQuestions: boolean;
   requiresUnlock: boolean;
   priceLkr: number | null;
+  /** Hierarchical instruction blocks (preferred). */
+  sections: QuizSectionForm[];
+  /**
+   * @deprecated Prefer `sections`. Kept for transitional callers;
+   * builder maps these into sections on load/save.
+   */
   questions: QuestionForm[];
-  /** Existing bank question IDs attached (edit / attach flow). */
+  /** @deprecated Prefer `sections[].attached`. */
   attachedQuestionIds: string[];
 }
 
 export const initialQuizFormState = (): QuizFormState => ({
+  languages: ["en"],
   language: "en",
   title: emptyLocalizedText(),
   description: emptyLocalizedText(),
@@ -90,6 +151,7 @@ export const initialQuizFormState = (): QuizFormState => ({
   shuffleQuestions: false,
   requiresUnlock: false,
   priceLkr: null,
+  sections: [],
   questions: [],
   attachedQuestionIds: [],
 });
@@ -124,6 +186,7 @@ export type AttemptStatus = "In_Progress" | "Submitted" | "Timed_Out";
 export interface QuizSummary {
   id: string;
   language?: SupportedLocale;
+  languages?: SupportedLocale[];
   title: LocalizedText;
   description: LocalizedText | null;
   coverImageUrl?: string | null;
@@ -197,6 +260,7 @@ export interface BankQuestion {
   choices: Array<{
     id: string;
     choiceText: LocalizedText;
+    imageUrl?: string | null;
     isCorrect: boolean;
   }>;
   createdBy?: { id: string; email: string; name: string | null } | null;
@@ -206,9 +270,29 @@ export interface BankQuestion {
   }>;
 }
 
+/** Instruction block in the quiz builder — owns nested bank + inline questions. */
+export interface QuizSectionForm {
+  id: string;
+  instruction: LocalizedText;
+  /** Existing bank questions linked to this section. */
+  attached: BankQuestion[];
+  /** New inline questions created when the quiz is saved. */
+  questions: QuestionForm[];
+}
+
+export function createEmptySection(index = 0): QuizSectionForm {
+  return {
+    id: `section-${Date.now()}-${index}-${Math.random().toString(36).slice(2, 7)}`,
+    instruction: emptyLocalizedText(),
+    attached: [],
+    questions: [],
+  };
+}
+
 export interface AttemptChoice {
   id: string;
   choiceText: LocalizedText;
+  imageUrl?: string | null;
   isCorrect?: boolean;
 }
 
@@ -218,9 +302,18 @@ export interface AttemptQuestion {
   type: QuestionType;
   points: number;
   sortOrder: number;
+  sectionId?: string | null;
   imageUrl?: string | null;
   config?: QuestionConfig | null;
   choices: AttemptChoice[];
+}
+
+/** Instruction / passage block returned with quiz detail & attempts. */
+export interface AttemptQuizSection {
+  id: string;
+  instruction: LocalizedText;
+  sortOrder: number;
+  questions: AttemptQuestion[];
 }
 
 export interface AttemptResponse {
@@ -257,12 +350,15 @@ export interface AttemptDetail extends QuizAttempt {
   quiz: {
     id: string;
     language?: SupportedLocale;
+    languages?: SupportedLocale[];
     title: LocalizedText;
     description: LocalizedText | null;
     durationMinutes: number;
     passingScorePercentage: number;
     course: Course;
     questions: AttemptQuestion[];
+    /** Present when the quiz was built with instruction blocks. */
+    sections?: AttemptQuizSection[];
   };
 }
 

@@ -5,6 +5,7 @@ import { absoluteUrl } from "@/lib/site-url";
 
 type PublishedQuizRow = {
   id: string;
+  course?: { id?: string | null } | null;
   createdBy?: {
     teacherProfile?: { slug?: string | null } | null;
   } | null;
@@ -16,6 +17,7 @@ const STATIC_PATHS: Array<{
   priority: number;
 }> = [
   { path: "/", changeFrequency: "daily", priority: 1 },
+  { path: "/quiz", changeFrequency: "daily", priority: 0.9 },
   { path: "/about", changeFrequency: "monthly", priority: 0.7 },
   { path: "/contact", changeFrequency: "monthly", priority: 0.7 },
   { path: "/terms", changeFrequency: "yearly", priority: 0.3 },
@@ -55,6 +57,19 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 0.8,
     }));
 
+  const courseIds = new Set<string>();
+  for (const q of quizzes) {
+    const courseId = q.course?.id?.trim();
+    if (courseId) courseIds.add(courseId);
+  }
+
+  const courseEntries: MetadataRoute.Sitemap = [...courseIds].map((courseId) => ({
+    url: absoluteUrl(`/quiz/course/${courseId}`),
+    lastModified: now,
+    changeFrequency: "daily" as const,
+    priority: 0.85,
+  }));
+
   const teacherSlugs = new Set<string>();
   for (const q of quizzes) {
     const slug = q.createdBy?.teacherProfile?.slug?.trim().toLowerCase();
@@ -68,5 +83,5 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: 0.7,
   }));
 
-  return [...staticEntries, ...quizEntries, ...teacherEntries];
+  return [...staticEntries, ...courseEntries, ...quizEntries, ...teacherEntries];
 }

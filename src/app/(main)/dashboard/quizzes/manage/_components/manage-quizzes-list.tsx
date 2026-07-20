@@ -8,6 +8,7 @@ import { useRouter } from "next/navigation";
 import { Archive, ChevronLeft, ChevronRight, Pencil, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
+import { DataBackupActions } from "@/components/data-backup-actions";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -239,12 +240,15 @@ export function ManageQuizzesList() {
             Create, publish, archive, and attach bank questions to quizzes.
           </p>
         </div>
-        <Button asChild>
-          <Link href="/admin/quizzes/new">
-            <Plus className="size-4" />
-            Add New
-          </Link>
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <DataBackupActions resource="quizzes" onImported={() => void load(1)} />
+          <Button asChild>
+            <Link href="/admin/quizzes/new">
+              <Plus className="size-4" />
+              Add New
+            </Link>
+          </Button>
+        </div>
       </div>
 
       {selectedIds.length > 0 && (

@@ -19,8 +19,10 @@ import {
 } from "lucide-react";
 
 import { BrandLogo } from "@/components/brand/brand-logo";
+import { LanguageSwitcher } from "@/components/i18n/language-switcher";
 import { PublicQuizCard } from "@/components/quiz/public-quiz-card";
 import { PublicContentSkeleton } from "@/components/site/public-content-skeleton";
+import { PublicCenteredError } from "@/components/site/public-feedback";
 import { SimpleIcon } from "@/components/simple-icon";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -38,8 +40,8 @@ import { cn } from "@/lib/utils";
 import { localize, mediaUrl, type LocalizedText } from "@/types/quiz";
 import { siWhatsapp } from "simple-icons";
 
-const NAVY = "#005a7d";
-const BLUE = "#1e88e5";
+const NAVY = "#0b2a4a";
+const BLUE = "#1563b8";
 const PAGE_SIZE = 6;
 
 const SECTION_IDS = ["hero", "classes", "quizzes", "about", "contact"] as const;
@@ -508,7 +510,7 @@ function ContactSection({
 
 export function TeacherLandingPage({ slug }: { slug: string }) {
   const router = useRouter();
-  const { locale, t } = useI18n();
+  const { locale, setLocale, t } = useI18n();
   const [profile, setProfile] = useState<TeacherProfile | null>(null);
   const [quizzes, setQuizzes] = useState<TeacherPageQuiz[]>([]);
   const [loading, setLoading] = useState(true);
@@ -607,7 +609,14 @@ export function TeacherLandingPage({ slug }: { slug: string }) {
 
   if (loading) {
     return (
-      <div className="min-h-dvh bg-[#eef3f7]">
+      <div className="min-h-dvh bg-[#f4f7fb]">
+        <header className="border-b border-slate-200/80 bg-white">
+          <div className="mx-auto flex h-14 w-full max-w-6xl items-center px-4 md:px-6">
+            <Link href="/" className="flex shrink-0 items-center">
+              <BrandLogo className="h-8 w-auto" priority />
+            </Link>
+          </div>
+        </header>
         <PublicContentSkeleton className="py-16" />
       </div>
     );
@@ -615,14 +624,19 @@ export function TeacherLandingPage({ slug }: { slug: string }) {
 
   if (error || !profile) {
     return (
-      <div className="flex min-h-dvh flex-col items-center justify-center gap-4 bg-[#eef3f7] px-6 text-center">
-        <h1 className="font-semibold text-2xl text-slate-900">Page not available</h1>
-        <p className="max-w-md text-sm text-slate-500">
-          {error || "This teacher page is not published yet."}
-        </p>
-        <Button asChild variant="brand">
-          <Link href="/">Back to Kadaima</Link>
-        </Button>
+      <div className="min-h-dvh bg-[#f4f7fb]">
+        <header className="border-b border-slate-200/80 bg-white">
+          <div className="mx-auto flex h-14 w-full max-w-6xl items-center px-4 md:px-6">
+            <Link href="/" className="flex shrink-0 items-center">
+              <BrandLogo className="h-8 w-auto" priority />
+            </Link>
+          </div>
+        </header>
+        <PublicCenteredError
+          message={error || "This teacher page is not published yet."}
+          backLabel="Back to Kadaima"
+          className="min-h-[60vh]"
+        />
       </div>
     );
   }
@@ -741,7 +755,7 @@ export function TeacherLandingPage({ slug }: { slug: string }) {
             onError={() => setBannerFailed(true)}
           />
         ) : (
-          <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-[#0a4a66] to-[#1e88e5]">
+          <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-[#0b2a4a] to-[#3b9eff]">
             <span className="font-semibold text-6xl tracking-tight text-white/25 sm:text-7xl md:text-8xl">
               {initialLetter(activeBanner?.title || profile.displayName || profile.title || "K")}
             </span>
@@ -923,7 +937,7 @@ export function TeacherLandingPage({ slug }: { slug: string }) {
   });
 
   return (
-    <div className="flex min-h-dvh flex-col bg-[#eef3f7] font-sans text-slate-900 antialiased">
+    <div className="flex min-h-dvh flex-col bg-[#f4f7fb] font-sans text-slate-900 antialiased">
       <header className="sticky top-0 z-30 shadow-md" style={{ background: NAVY }}>
         <div className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-2 px-3 sm:gap-3 sm:px-4 md:h-16 md:gap-4 md:px-6">
           <p className="min-w-0 flex-1 truncate font-semibold text-sm tracking-tight text-white sm:text-base md:max-w-[220px] md:flex-none md:text-lg lg:max-w-xs">
@@ -950,13 +964,16 @@ export function TeacherLandingPage({ slug }: { slug: string }) {
             })}
           </nav>
 
-          <Link
-            href="/"
-            className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-white/70 px-2.5 py-1.5 text-sm font-medium tracking-tight text-white transition hover:bg-white/10 sm:px-3"
-          >
-            <Home className="size-3.5" />
-            <span className="hidden sm:inline">Home</span>
-          </Link>
+          <div className="flex shrink-0 items-center gap-2">
+            <LanguageSwitcher value={locale} onChange={setLocale} />
+            <Link
+              href="/"
+              className="inline-flex items-center gap-1.5 rounded-md border border-white/70 px-2.5 py-1.5 text-sm font-medium tracking-tight text-white transition hover:bg-white/10 sm:px-3"
+            >
+              <Home className="size-3.5" />
+              <span className="hidden sm:inline">Home</span>
+            </Link>
+          </div>
         </div>
       </header>
 

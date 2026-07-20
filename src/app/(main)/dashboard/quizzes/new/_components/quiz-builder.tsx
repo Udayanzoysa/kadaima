@@ -4,12 +4,10 @@ import { useCallback, useEffect, useState } from "react";
 
 import { useRouter } from "next/navigation";
 
-import { Plus, Trash2, ImagePlus } from "lucide-react";
+import { Trash2, ImagePlus } from "lucide-react";
 import { toast } from "sonner";
 
 import {
-  createEmptyQuestion,
-  InlineQuestionFields,
   toBankQuestionPayload,
   validateInlineQuestion,
 } from "@/components/quiz/inline-question-fields";
@@ -31,19 +29,22 @@ import {
   type Course,
   type CourseModule,
   type LocalizedText,
-  type QuestionForm,
   type QuizFormState,
+  type QuizSectionForm,
   type SupportedLocale,
+  createEmptySection,
   emptyLocalizedText,
+  hasAllLocaleContent,
   hasLocaleContent,
   initialQuizFormState,
   localize,
   mediaUrl,
-  monoLocalizedText,
+  multiLocalizedText,
+  normalizeQuizLanguages,
   resolveQuizLanguage,
 } from "@/types/quiz";
 
-import { AttachFromBankModal } from "./attach-from-bank-modal";
+import { QuizSectionsPanel } from "./quiz-sections-panel";
 
 function plainTextFromHtml(html: string) {
   return html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
@@ -83,7 +84,6 @@ export function QuizBuilder({ quizId }: QuizBuilderProps) {
   const [courses, setCourses] = useState<Course[]>([]);
   const [modules, setModules] = useState<CourseModule[]>([]);
   const [loadingModules, setLoadingModules] = useState(false);
-  const [attached, setAttached] = useState<BankQuestion[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [uploadingCover, setUploadingCover] = useState(false);
   const [uploadingQuestionId, setUploadingQuestionId] = useState<string | null>(null);
@@ -152,8 +152,57 @@ export function QuizBuilder({ quizId }: QuizBuilderProps) {
       .then(async (res) => {
         if (!res.ok) throw new Error("Failed to load quiz");
         const data = await res.json();
-        const language = resolveQuizLanguage(data.title, data.language);
+        const languages = normalizeQuizLanguages(data.languages, data.language);
+        const language = resolveQuizLanguage(data.title, data.language, data.languages);
+        const toBank = (q: BankQuestion & { sortOrder?: number }): BankQuestion => ({
+          id: q.id,
+          questionText: q.questionText,
+          type: q.type,
+          points: q.points,
+          status: q.status ?? "Published",
+          imageUrl: q.imageUrl,
+          config: q.config,
+          choices: q.choices,
+        });
+
+        const apiSections = Array.isArray(data.sections) ? data.sections : [];
+        let sections: QuizSectionForm[];
+        if (apiSections.length > 0) {
+          sections = apiSections.map(
+            (
+              s: {
+                id: string;
+                instruction?: LocalizedText;
+                questions?: Array<BankQuestion & { sortOrder?: number }>;
+              },
+              index: number,
+            ) => ({
+              id: s.id || createEmptySection(index).id,
+              instruction: s.instruction ?? emptyLocalizedText(),
+              attached: (s.questions ?? []).map(toBank),
+              questions: [],
+            }),
+          );
+        } else {
+          const flat = (data.questions ?? []) as Array<BankQuestion & { sortOrder?: number }>;
+          sections =
+            flat.length > 0
+              ? [
+                  {
+                    ...createEmptySection(0),
+                    instruction: {
+                      ...emptyLocalizedText(),
+                      [language]: "Questions",
+                    },
+                    attached: flat.map(toBank),
+                    questions: [],
+                  },
+                ]
+              : [];
+        }
+
         setQuizDetails({
+          languages,
           language,
           title: data.title,
           description: data.description ?? emptyLocalizedText(),
@@ -167,19 +216,10 @@ export function QuizBuilder({ quizId }: QuizBuilderProps) {
           shuffleQuestions: Boolean(data.shuffleQuestions),
           requiresUnlock: Boolean(data.requiresUnlock),
           priceLkr: data.priceLkr != null ? Number(data.priceLkr) : null,
+          sections,
           questions: [],
-          attachedQuestionIds: (data.questions ?? []).map((q: { id: string }) => q.id),
+          attachedQuestionIds: sections.flatMap((s) => s.attached.map((q) => q.id)),
         });
-        setAttached(
-          (data.questions ?? []).map((q: BankQuestion & { sortOrder?: number }) => ({
-            id: q.id,
-            questionText: q.questionText,
-            type: q.type,
-            points: q.points,
-            status: q.status ?? "Published",
-            choices: q.choices,
-          })),
-        );
       })
       .catch((err) => toast.error(err instanceof Error ? err.message : "Load failed"))
       .finally(() => setLoadingQuiz(false));
@@ -188,42 +228,62 @@ export function QuizBuilder({ quizId }: QuizBuilderProps) {
   const handleTextChange = (field: "title" | "description", val: string) => {
     setQuizDetails((prev) => ({
       ...prev,
-      [field]: monoLocalizedText(val, prev.language),
+      [field]: { ...prev[field], [prev.language]: val },
     }));
   };
 
-  const handleLanguageChange = (language: SupportedLocale) => {
-    if (language === quizDetails.language) return;
+  /** Toggle a quiz content language on/off (multi-select). */
+  const handleLanguageToggle = (lang: SupportedLocale) => {
     setQuizDetails((prev) => {
-      const title = localize(prev.title, prev.language);
-      const description = localize(prev.description, prev.language);
-      return {
-        ...prev,
-        language,
-        title: monoLocalizedText(title, language),
-        description: monoLocalizedText(description, language),
-        questions: prev.questions.map((q) => ({
-          ...q,
-          questionText: monoLocalizedText(localize(q.questionText, prev.language), language),
-          choices: q.choices.map((c) => ({
-            ...c,
-            choiceText: monoLocalizedText(localize(c.choiceText, prev.language), language),
+      const has = prev.languages.includes(lang);
+      if (has && prev.languages.length === 1) {
+        toast.error("Select at least one quiz language.");
+        return prev;
+      }
+
+      const languages = has
+        ? prev.languages.filter((l) => l !== lang)
+        : normalizeQuizLanguages([...prev.languages, lang]);
+      const language = languages.includes(prev.language) ? prev.language : languages[0];
+
+      let removedBank = 0;
+      const sections = prev.sections.map((section) => {
+        const keptAttached = section.attached.filter((q) =>
+          hasAllLocaleContent(q.questionText as LocalizedText, languages, 3),
+        );
+        removedBank += section.attached.length - keptAttached.length;
+        return {
+          ...section,
+          instruction: multiLocalizedText(section.instruction, languages),
+          attached: keptAttached,
+          questions: section.questions.map((q) => ({
+            ...q,
+            questionText: multiLocalizedText(q.questionText, languages),
+            choices: q.choices.map((c) => ({
+              ...c,
+              choiceText: multiLocalizedText(c.choiceText, languages),
+            })),
           })),
-        })),
-      };
-    });
-    // Drop bank questions that have no text in the new language.
-    setAttached((prev) => {
-      const kept = prev.filter((q) =>
-        hasLocaleContent(q.questionText as LocalizedText, language, 3),
-      );
-      const removed = prev.length - kept.length;
-      if (removed > 0) {
+        };
+      });
+
+      if (removedBank > 0) {
+        const list = languages.map((l) => l.toUpperCase()).join(" + ");
         toast.message(
-          `Removed ${removed} bank question${removed === 1 ? "" : "s"} without ${language.toUpperCase()} text.`,
+          `Removed ${removedBank} bank question${removedBank === 1 ? "" : "s"} missing ${list} text.`,
         );
       }
-      return kept;
+
+      return {
+        ...prev,
+        languages,
+        language,
+        title: multiLocalizedText(prev.title, languages),
+        description: multiLocalizedText(prev.description, languages),
+        sections,
+        questions: [],
+        attachedQuestionIds: sections.flatMap((s) => s.attached.map((q) => q.id)),
+      };
     });
   };
 
@@ -293,30 +353,11 @@ export function QuizBuilder({ quizId }: QuizBuilderProps) {
 
   const coverPreview = mediaUrl(quizDetails.coverImageUrl, APP_CONFIG.apiUrl);
 
-  const addQuestion = () => {
-    setQuizDetails((prev) => ({
-      ...prev,
-      questions: [...prev.questions, createEmptyQuestion(prev.questions.length)],
-    }));
-  };
-
-  const removeQuestion = (questionId: string) => {
-    setQuizDetails((prev) => ({
-      ...prev,
-      questions: prev.questions
-        .filter((q) => q.id !== questionId)
-        .map((q, i) => ({ ...q, sortOrder: i })),
-    }));
-  };
-
-  const updateInlineQuestion = (questionId: string, next: QuestionForm) => {
-    setQuizDetails((prev) => ({
-      ...prev,
-      questions: prev.questions.map((q) => (q.id === questionId ? next : q)),
-    }));
-  };
-
-  const handleQuestionImageUpload = async (questionId: string, file: File) => {
+  const handleQuestionImageUpload = async (
+    _sectionId: string,
+    questionId: string,
+    file: File,
+  ) => {
     const token = getClientCookie("session_token");
     if (!token) return;
     setUploadingQuestionId(questionId);
@@ -334,9 +375,12 @@ export function QuizBuilder({ quizId }: QuizBuilderProps) {
       if (!data.url) throw new Error("No image URL returned");
       setQuizDetails((prev) => ({
         ...prev,
-        questions: prev.questions.map((q) =>
-          q.id === questionId ? { ...q, imageUrl: data.url! } : q,
-        ),
+        sections: prev.sections.map((section) => ({
+          ...section,
+          questions: section.questions.map((q) =>
+            q.id === questionId ? { ...q, imageUrl: data.url! } : q,
+          ),
+        })),
       }));
       toast.success("Question image uploaded");
     } catch (err) {
@@ -347,39 +391,17 @@ export function QuizBuilder({ quizId }: QuizBuilderProps) {
     }
   };
 
-  const attachFromBank = (questions: BankQuestion[]) => {
-    const lang = quizDetails.language;
-    const compatible = questions.filter((q) =>
-      hasLocaleContent(q.questionText as LocalizedText, lang, 3),
-    );
-    const skipped = questions.length - compatible.length;
-    if (skipped > 0) {
-      toast.error(
-        `${skipped} question${skipped === 1 ? "" : "s"} skipped — missing ${lang.toUpperCase()} text.`,
-      );
-    }
-    if (compatible.length === 0) return;
-    setAttached((prev) => {
-      const existing = new Set(prev.map((q) => q.id));
-      const next = [...prev];
-      for (const q of compatible) {
-        if (!existing.has(q.id)) next.push(q);
-      }
-      return next;
-    });
-  };
-
-  const detachQuestion = (questionId: string) => {
-    setAttached((prev) => prev.filter((q) => q.id !== questionId));
-  };
-
   const validate = useCallback((): string | null => {
-    const lang = quizDetails.language;
-    if (!hasLocaleContent(quizDetails.title, lang, 3)) {
-      return t("quiz.validation.titleRequired");
-    }
-    if (plainTextFromHtml(quizDetails.description[lang] ?? "").length < 10) {
-      return t("quiz.validation.descriptionRequired");
+    const langs = quizDetails.languages;
+    if (!langs.length) return "Select at least one quiz language.";
+
+    for (const lang of langs) {
+      if (!hasLocaleContent(quizDetails.title, lang, 3)) {
+        return `Quiz title is required in ${lang.toUpperCase()}.`;
+      }
+      if (plainTextFromHtml(quizDetails.description[lang] ?? "").length < 10) {
+        return `Quiz description is required in ${lang.toUpperCase()} (min 10 characters).`;
+      }
     }
     if (!quizDetails.courseId) return t("quiz.validation.courseRequired");
     if (quizDetails.durationMinutes < 5) return t("quiz.validation.durationMin");
@@ -403,43 +425,75 @@ export function QuizBuilder({ quizId }: QuizBuilderProps) {
     ) {
       return "Price must be greater than 0, or leave it empty for monthly subscription unlock.";
     }
-    const totalQuestions = quizDetails.questions.length + attached.length;
+
+    if (quizDetails.sections.length === 0) {
+      return "Add at least one instruction block with questions.";
+    }
+
+    let totalQuestions = 0;
+    for (let i = 0; i < quizDetails.sections.length; i += 1) {
+      const section = quizDetails.sections[i];
+      for (const lang of langs) {
+        if (!hasLocaleContent(section.instruction, lang, 1)) {
+          return `Section ${i + 1}: add an instruction in ${lang.toUpperCase()}.`;
+        }
+      }
+      const count = section.attached.length + section.questions.length;
+      if (count === 0) {
+        return `Section ${i + 1}: add at least one question.`;
+      }
+      totalQuestions += count;
+
+      for (const q of section.attached) {
+        if (!hasAllLocaleContent(q.questionText as LocalizedText, langs, 3)) {
+          return `Section ${i + 1}: attached questions must include ${langs.map((l) => l.toUpperCase()).join(" + ")} text.`;
+        }
+      }
+      for (const q of section.questions) {
+        const qErr = validateInlineQuestion(q, langs);
+        if (qErr) return `Section ${i + 1}: ${qErr}`;
+      }
+    }
+
     if (totalQuestions === 0) return t("quiz.validation.questionRequired");
-
-    for (const q of attached) {
-      if (!hasLocaleContent(q.questionText as LocalizedText, lang, 3)) {
-        return t("quiz.validation.bankLanguageMismatch");
-      }
-    }
-
-    for (const q of quizDetails.questions) {
-      const qErr = validateInlineQuestion(q, lang);
-      if (qErr) return qErr;
-    }
     return null;
-  }, [quizDetails, attached, t, paymentMode]);
+  }, [quizDetails, t, paymentMode]);
 
-  const createBankQuestions = async (
+  const buildSectionsPayload = async (
     headers: Record<string, string>,
-  ): Promise<string[]> => {
+  ): Promise<Array<{ instruction: LocalizedText; questionIds: string[] }>> => {
     const status = quizDetails.status === "Published" ? "Published" : "Draft";
-    const createdIds: string[] = [];
-    for (const q of quizDetails.questions) {
-      const res = await fetch(`${APP_CONFIG.apiUrl}/questions`, {
-        method: "POST",
-        headers,
-        body: JSON.stringify(toBankQuestionPayload(q, status, quizDetails.language)),
-      });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(
-          Array.isArray(err.message) ? err.message.join(", ") : err.message || "Failed to create question",
-        );
+    const payload: Array<{ instruction: LocalizedText; questionIds: string[] }> = [];
+
+    for (const section of quizDetails.sections) {
+      const createdIds: string[] = [];
+      for (const q of section.questions) {
+        const res = await fetch(`${APP_CONFIG.apiUrl}/questions`, {
+          method: "POST",
+          headers,
+          body: JSON.stringify(
+            toBankQuestionPayload(q, status, quizDetails.languages),
+          ),
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(
+            Array.isArray(err.message)
+              ? err.message.join(", ")
+              : err.message || "Failed to create question",
+          );
+        }
+        const created = await res.json();
+        createdIds.push(created.id);
       }
-      const created = await res.json();
-      createdIds.push(created.id);
+
+      payload.push({
+        instruction: multiLocalizedText(section.instruction, quizDetails.languages),
+        questionIds: [...section.attached.map((q) => q.id), ...createdIds],
+      });
     }
-    return createdIds;
+
+    return payload;
   };
 
   const handleSubmit = async () => {
@@ -458,46 +512,46 @@ export function QuizBuilder({ quizId }: QuizBuilderProps) {
 
     setIsSubmitting(true);
     try {
-      const createdIds = await createBankQuestions(headers);
-      const questionIds = [...attached.map((q) => q.id), ...createdIds];
-
-      if (questionIds.length === 0) {
+      const sections = await buildSectionsPayload(headers);
+      if (sections.length === 0 || sections.every((s) => s.questionIds.length === 0)) {
         throw new Error(t("quiz.validation.questionRequired"));
       }
+
+      const quizBody = {
+        courseId: quizDetails.courseId,
+        moduleId: quizDetails.moduleId || null,
+        language: quizDetails.languages[0],
+        languages: quizDetails.languages,
+        title: multiLocalizedText(quizDetails.title, quizDetails.languages),
+        description: multiLocalizedText(
+          quizDetails.description,
+          quizDetails.languages,
+        ),
+        coverImageUrl: quizDetails.coverImageUrl,
+        durationMinutes: quizDetails.durationMinutes,
+        passingScorePercentage: quizDetails.passingScorePercentage,
+        maxAttempts: quizDetails.maxAttempts,
+        status: quizDetails.status,
+        shuffleQuestions: quizDetails.shuffleQuestions,
+        requiresUnlock: quizDetails.requiresUnlock,
+        priceLkr:
+          quizDetails.requiresUnlock && paymentMode !== "MONTHLY_ONLY"
+            ? quizDetails.priceLkr
+            : null,
+        sections,
+      };
 
       if (isEdit && quizId) {
         const res = await fetch(`${APP_CONFIG.apiUrl}/quizzes/${quizId}`, {
           method: "PUT",
           headers,
-          body: JSON.stringify({
-            courseId: quizDetails.courseId,
-            moduleId: quizDetails.moduleId || null,
-            language: quizDetails.language,
-            title: monoLocalizedText(
-              localize(quizDetails.title, quizDetails.language),
-              quizDetails.language,
-            ),
-            description: monoLocalizedText(
-              localize(quizDetails.description, quizDetails.language),
-              quizDetails.language,
-            ),
-            coverImageUrl: quizDetails.coverImageUrl,
-            durationMinutes: quizDetails.durationMinutes,
-            passingScorePercentage: quizDetails.passingScorePercentage,
-            maxAttempts: quizDetails.maxAttempts,
-            status: quizDetails.status,
-            shuffleQuestions: quizDetails.shuffleQuestions,
-            requiresUnlock: quizDetails.requiresUnlock,
-            priceLkr:
-              quizDetails.requiresUnlock && paymentMode !== "MONTHLY_ONLY"
-                ? quizDetails.priceLkr
-                : null,
-            questionIds,
-          }),
+          body: JSON.stringify(quizBody),
         });
         if (!res.ok) {
           const err = await res.json().catch(() => ({}));
-          throw new Error(err.message || "Update failed");
+          throw new Error(
+            Array.isArray(err.message) ? err.message.join(", ") : err.message || "Update failed",
+          );
         }
         toast.success("Quiz updated");
         router.push("/admin/quizzes/manage");
@@ -507,31 +561,7 @@ export function QuizBuilder({ quizId }: QuizBuilderProps) {
       const res = await fetch(`${APP_CONFIG.apiUrl}/quizzes`, {
         method: "POST",
         headers,
-        body: JSON.stringify({
-          courseId: quizDetails.courseId,
-          moduleId: quizDetails.moduleId || null,
-          language: quizDetails.language,
-          title: monoLocalizedText(
-            localize(quizDetails.title, quizDetails.language),
-            quizDetails.language,
-          ),
-          description: monoLocalizedText(
-            localize(quizDetails.description, quizDetails.language),
-            quizDetails.language,
-          ),
-          coverImageUrl: quizDetails.coverImageUrl,
-          durationMinutes: quizDetails.durationMinutes,
-          passingScorePercentage: quizDetails.passingScorePercentage,
-          maxAttempts: quizDetails.maxAttempts,
-          status: quizDetails.status,
-          shuffleQuestions: quizDetails.shuffleQuestions,
-          requiresUnlock: quizDetails.requiresUnlock,
-          priceLkr:
-            quizDetails.requiresUnlock && paymentMode !== "MONTHLY_ONLY"
-              ? quizDetails.priceLkr
-              : null,
-          questionIds,
-        }),
+        body: JSON.stringify(quizBody),
       });
 
       if (!res.ok) {
@@ -605,19 +635,49 @@ export function QuizBuilder({ quizId }: QuizBuilderProps) {
           <Field>
             <FieldLabel>{t("quiz.contentLanguage")}</FieldLabel>
             <div className="flex flex-wrap gap-2">
-              {(["en", "si", "ta"] as const).map((lang) => (
+              {(["en", "si", "ta"] as const).map((lang) => {
+                const selected = quizDetails.languages.includes(lang);
+                return (
+                  <Button
+                    key={lang}
+                    type="button"
+                    size="sm"
+                    variant={selected ? "default" : "outline"}
+                    onClick={() => handleLanguageToggle(lang)}
+                  >
+                    {langLabel(lang)}
+                    {selected ? " ✓" : ""}
+                  </Button>
+                );
+              })}
+            </div>
+            <FieldDescription>
+              Select every language this quiz uses. Questions attached to it must
+              include text in each selected language.
+            </FieldDescription>
+          </Field>
+
+          <Field>
+            <FieldLabel>Editing language</FieldLabel>
+            <div className="flex flex-wrap gap-2">
+              {quizDetails.languages.map((lang) => (
                 <Button
                   key={lang}
                   type="button"
                   size="sm"
                   variant={contentLang === lang ? "default" : "outline"}
-                  onClick={() => handleLanguageChange(lang)}
+                  onClick={() =>
+                    setQuizDetails((prev) => ({ ...prev, language: lang }))
+                  }
                 >
                   {langLabel(lang)}
                 </Button>
               ))}
             </div>
-            <FieldDescription>{t("quiz.contentLanguageHint")}</FieldDescription>
+            <FieldDescription>
+              Switch tabs to fill title, description, and instructions for each
+              selected language.
+            </FieldDescription>
           </Field>
 
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -886,99 +946,17 @@ export function QuizBuilder({ quizId }: QuizBuilderProps) {
         </CardContent>
       </Card>
 
-      <Card className="border-border">
-        <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-3">
-          <div>
-            <CardTitle>Attached bank questions</CardTitle>
-            <CardDescription>
-              Reuse questions from the bank. One question can belong to many quizzes.
-            </CardDescription>
-          </div>
-          <AttachFromBankModal
-            excludeIds={attached.map((q) => q.id)}
-            language={contentLang}
-            onAttach={attachFromBank}
-          />
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {attached.length === 0 ? (
-            <p className="text-muted-foreground text-sm">
-              No bank questions attached yet. Use <strong>Attach from bank</strong> to pick
-              published questions in {langLabel(contentLang)}.
-            </p>
-          ) : (
-            <ul className="space-y-2">
-              {attached.map((q, index) => (
-                <li
-                  key={q.id}
-                  className="flex items-start justify-between gap-3 rounded-md border border-border px-3 py-2"
-                >
-                  <div className="min-w-0 space-y-0.5 text-sm">
-                    <div>
-                      <span className="text-muted-foreground">#{index + 1}</span>{" "}
-                      <span className="font-medium">
-                        {localize(q.questionText as LocalizedText, contentLang)}
-                      </span>
-                    </div>
-                  </div>
-                  <Button type="button" size="sm" variant="ghost" onClick={() => detachQuestion(q.id)}>
-                    <Trash2 className="size-4" />
-                  </Button>
-                </li>
-              ))}
-            </ul>
-          )}
-        </CardContent>
-      </Card>
-
-      <Card className="border-border">
-        <CardHeader className="flex flex-row items-center justify-between">
-          <div>
-            <CardTitle>{isEdit ? "New questions to add" : t("quiz.questions")}</CardTitle>
-            <CardDescription>
-              {isEdit
-                ? "These are created in the bank and attached when you save."
-                : "Inline questions are saved to the bank and linked to this quiz."}
-            </CardDescription>
-          </div>
-          <Button type="button" variant="outline" size="sm" onClick={addQuestion}>
-            <Plus className="size-4" />
-            {t("quiz.addQuestion")}
-          </Button>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          {quizDetails.questions.length === 0 && attached.length === 0 && (
-            <p className="text-muted-foreground text-sm">{t("quiz.validation.questionRequired")}</p>
-          )}
-
-          {quizDetails.questions.map((question, qIndex) => (
-            <div key={question.id} className="space-y-4 rounded-lg border border-border p-4">
-              <div className="flex items-center justify-between">
-                <span className="font-medium text-sm">
-                  {t("quiz.questionText")} #{qIndex + 1}
-                </span>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => removeQuestion(question.id)}
-                >
-                  <Trash2 className="size-4" />
-                  {t("quiz.removeQuestion")}
-                </Button>
-              </div>
-
-              <InlineQuestionFields
-                question={question}
-                activeLang={contentLang}
-                uploading={uploadingQuestionId === question.id}
-                onChange={(next) => updateInlineQuestion(question.id, next)}
-                onUploadImage={(file) => void handleQuestionImageUpload(question.id, file)}
-              />
-            </div>
-          ))}
-        </CardContent>
-      </Card>
+      <QuizSectionsPanel
+        sections={quizDetails.sections}
+        contentLang={contentLang}
+        languages={quizDetails.languages}
+        langLabel={langLabel(contentLang)}
+        uploadingQuestionId={uploadingQuestionId}
+        onChange={(sections) => setQuizDetails((prev) => ({ ...prev, sections }))}
+        onUploadImage={(sectionId, questionId, file) =>
+          void handleQuestionImageUpload(sectionId, questionId, file)
+        }
+      />
 
       <div className="flex justify-end gap-3">
         <Button

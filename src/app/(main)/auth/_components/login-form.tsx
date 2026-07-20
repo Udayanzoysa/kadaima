@@ -21,7 +21,6 @@ import { APP_CONFIG } from "@/config/app-config";
 import { notifyAuthChanged, postLoginPath } from "@/lib/auth-redirect";
 import { setClientCookie } from "@/lib/cookie.client";
 import { cn } from "@/lib/utils";
-import { hideGlobalLoader, showGlobalLoader } from "@/stores/global-loader-store";
 
 import {
   authInputClass,
@@ -64,6 +63,7 @@ export function LoginForm({ redirectTo, onSuccess }: LoginFormProps) {
     toast.success("Logged in successfully!");
     if (onSuccess) {
       onSuccess();
+      setIsSubmitting(false);
       return;
     }
     const dest = redirectTo ?? postLoginPath(accessToken, "/admin/default");
@@ -72,7 +72,6 @@ export function LoginForm({ redirectTo, onSuccess }: LoginFormProps) {
 
   const onSubmit = async (data: z.infer<typeof formSchema>) => {
     setIsSubmitting(true);
-    showGlobalLoader("Signing you in…");
     try {
       const response = await fetch(`${APP_CONFIG.apiUrl}/auth/login`, {
         method: "POST",
@@ -80,7 +79,7 @@ export function LoginForm({ redirectTo, onSuccess }: LoginFormProps) {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          email: data.email,
+          email: data.email.trim().toLowerCase(),
           password: data.password,
         }),
       });
@@ -100,7 +99,9 @@ export function LoginForm({ redirectTo, onSuccess }: LoginFormProps) {
         toast.info("Two-Factor Authentication required", {
           description: "Please enter the TOTP code from your authenticator app.",
         });
+        setIsSubmitting(false);
       } else if (result.accessToken) {
+        // Keep button spinner until hard navigation completes.
         finishLogin(result.accessToken, data.remember);
       } else {
         throw new Error("Invalid response schema from the authentication server.");
@@ -111,16 +112,13 @@ export function LoginForm({ redirectTo, onSuccess }: LoginFormProps) {
       toast.error("Login failed", {
         description: errMsg,
       });
-    } finally {
       setIsSubmitting(false);
-      hideGlobalLoader();
     }
   };
 
   const handle2FAVerify = async () => {
     if (otpValue.length < 6) return;
     setIsSubmitting(true);
-    showGlobalLoader("Verifying…");
     try {
       const response = await fetch(`${APP_CONFIG.apiUrl}/auth/2fa/verify`, {
         method: "POST",
@@ -146,9 +144,7 @@ export function LoginForm({ redirectTo, onSuccess }: LoginFormProps) {
       toast.error("Verification failed", {
         description: errMsg,
       });
-    } finally {
       setIsSubmitting(false);
-      hideGlobalLoader();
     }
   };
 
@@ -251,7 +247,7 @@ export function LoginForm({ redirectTo, onSuccess }: LoginFormProps) {
                 <Link
                   prefetch={false}
                   href="/forgot-password"
-                  className="text-xs font-medium text-[#2b7fff] hover:text-[#1f6ae0] hover:underline"
+                  className="text-xs font-medium text-[#1563b8] hover:text-[#114f94] hover:underline"
                 >
                   Forgot password?
                 </Link>

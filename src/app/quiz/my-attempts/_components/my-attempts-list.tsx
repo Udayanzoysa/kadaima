@@ -1,12 +1,12 @@
-﻿"use client";
+"use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 import { Award, CheckCircle2, ClipboardList, XCircle } from "lucide-react";
 
+import { PublicEmptyState, PublicErrorBanner } from "@/components/site/public-feedback";
 import { Button } from "@/components/ui/button";
 import { APP_CONFIG } from "@/config/app-config";
 import { useI18n } from "@/hooks/use-i18n";
@@ -65,21 +65,25 @@ export function MyAttemptsList() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    (async () => {
-      try {
-        setItems(await fetchCompletedAttempts());
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Could not load your attempts.");
-      } finally {
-        setLoading(false);
-      }
-    })();
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      setItems(await fetchCompletedAttempts());
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not load your attempts.");
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
 
   return (
     <PublicQuizShell activeNav="my-attempts">
-      <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 md:px-6 md:py-8">
+      <main className="mx-auto w-full min-w-0 max-w-6xl flex-1 px-3 py-4 sm:px-4 sm:py-6 md:px-6 md:py-8">
         <div className="mb-6">
           <h1 className="font-[family-name:var(--font-outfit)] text-2xl font-bold text-slate-900 md:text-3xl">
             My Attempts
@@ -91,14 +95,14 @@ export function MyAttemptsList() {
 
         {loading && <QuizListSkeleton />}
 
-        {error && (
-          <div className="rounded-2xl border border-red-200 bg-red-50 px-5 py-4 text-sm text-red-700">
-            {error}
-          </div>
-        )}
+        {error && <PublicErrorBanner message={error} onRetry={() => void load()} />}
 
         {!loading && !error && items.length === 0 && (
-          <EmptyState message="No completed attempts yet." cta="Take a quiz" />
+          <PublicEmptyState
+            message="No completed attempts yet."
+            ctaLabel="Take a quiz"
+            icon={ClipboardList}
+          />
         )}
 
         {!loading && !error && items.length > 0 ? (
@@ -113,7 +117,7 @@ export function MyAttemptsList() {
                 className="flex flex-col rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
               >
                 <div className="flex items-start justify-between gap-3">
-                  <p className="text-[11px] font-semibold uppercase tracking-wider text-[#2b7fff]">
+                  <p className="text-[11px] font-semibold uppercase tracking-wider text-[#1563b8]">
                     {localize(item.quiz.course.title, locale)}
                   </p>
                   <span
@@ -145,7 +149,7 @@ export function MyAttemptsList() {
                     <p className="text-xs text-slate-400">Score</p>
                     <p
                       className={`font-[family-name:var(--font-outfit)] text-3xl font-bold ${
-                        item.isPassed ? "text-emerald-600" : "text-[#2b7fff]"
+                        item.isPassed ? "text-emerald-600" : "text-[#1563b8]"
                       }`}
                     >
                       {item.finalScore}%
@@ -170,7 +174,7 @@ export function MyAttemptsList() {
                     if (item.resultToken) router.push(`/results/${item.resultToken}`);
                   }}
                 >
-                  Review result →
+                  Review result ?
                 </Button>
               </article>
             );
@@ -179,17 +183,5 @@ export function MyAttemptsList() {
         ) : null}
       </main>
     </PublicQuizShell>
-  );
-}
-
-function EmptyState({ message, cta }: { message: string; cta: string }) {
-  return (
-    <div className="rounded-2xl border border-dashed border-slate-200 bg-white px-6 py-14 text-center">
-      <ClipboardList className="mx-auto size-10 text-slate-300" />
-      <p className="mt-3 text-slate-500">{message}</p>
-      <Button asChild variant="brand" className="mt-4 font-semibold">
-        <Link href="/">{cta}</Link>
-      </Button>
-    </div>
   );
 }

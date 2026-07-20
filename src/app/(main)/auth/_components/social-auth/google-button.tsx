@@ -10,7 +10,6 @@ import { APP_CONFIG } from "@/config/app-config";
 import { notifyAuthChanged, postLoginPath } from "@/lib/auth-redirect";
 import { setClientCookie } from "@/lib/cookie.client";
 import { cn } from "@/lib/utils";
-import { hideGlobalLoader, showGlobalLoader } from "@/stores/global-loader-store";
 
 type AccountType = "student" | "teacher";
 
@@ -67,6 +66,7 @@ function GoogleSignInControl({
     toast.success("Signed in with Google");
     if (onSuccess) {
       onSuccess();
+      setBusy(false);
       return;
     }
     const dest =
@@ -84,7 +84,6 @@ function GoogleSignInControl({
       return;
     }
     setBusy(true);
-    showGlobalLoader("Signing in with Google…");
     try {
       const response = await fetch(`${APP_CONFIG.apiUrl}/auth/google`, {
         method: "POST",
@@ -111,14 +110,13 @@ function GoogleSignInControl({
       if (!result.accessToken) {
         throw new Error("Invalid response from the authentication server.");
       }
+      // Keep inline spinner until hard navigation completes.
       finishWithToken(result.accessToken);
     } catch (error) {
       toast.error("Google sign-in failed", {
         description: error instanceof Error ? error.message : "Please try again.",
       });
-    } finally {
       setBusy(false);
-      hideGlobalLoader();
     }
   };
 

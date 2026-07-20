@@ -41,19 +41,17 @@ function randomId() {
  * deep link so visitors can continue on their phone with the linked bot number.
  */
 const FAB_SIZE = "h-14 w-14 min-h-14 min-w-14 md:h-16 md:w-16 md:min-h-16 md:min-w-16";
-/** Cache-bust + skip optimizer so the transparent circular badge always loads. */
-const BOT_ICON_SRC = "/brand/kadaima-expert-bot.png?v=4";
+/** Skip optimizer so the transparent circular badge renders correctly. */
+const BOT_ICON_SRC = "/brand/kadaima-expert-bot.png";
 
 function ChatBotAvatar({
   className,
   size,
   alt = "",
-  priority = false,
 }: {
   className?: string;
   size: number;
   alt?: string;
-  priority?: boolean;
 }) {
   return (
     <Image
@@ -61,8 +59,9 @@ function ChatBotAvatar({
       alt={alt}
       width={size}
       height={size}
+      sizes={`${size}px`}
       unoptimized
-      priority={priority}
+      loading="lazy"
       draggable={false}
       className={cn(
         "pointer-events-none h-full w-full select-none object-contain",
@@ -314,12 +313,11 @@ export function SupportChatWidget() {
                 className="kadaima-chat-wave kadaima-chat-wave-delay pointer-events-none absolute -inset-1 rounded-full border-2 border-[#1563b8]/70"
               />
               <span className="relative z-[1] block size-full overflow-visible">
-                <ChatBotAvatar alt={t("public.chat.bubbleLabel")} size={64} priority />
+                <ChatBotAvatar alt={t("public.chat.bubbleLabel")} size={64} />
               </span>
               {hasUnread ? (
                 <span className="absolute -top-0.5 -right-0.5 z-10 flex size-5 items-center justify-center rounded-full bg-red-500 font-bold text-[11px] text-white shadow-md ring-2 ring-white">
                   1
-                  <span className="absolute inset-0 animate-ping rounded-full bg-red-400 opacity-60" aria-hidden />
                 </span>
               ) : null}
             </button>
@@ -355,7 +353,7 @@ export function SupportChatWidget() {
                   className="relative box-border size-12 shrink-0 overflow-visible rounded-full bg-[#eef6ff] transition active:scale-95"
                 >
                   <span className="absolute inset-0.5">
-                    <ChatBotAvatar alt={t("public.chat.bubbleLabel")} size={48} priority />
+                    <ChatBotAvatar alt={t("public.chat.bubbleLabel")} size={48} />
                   </span>
                   {hasUnread ? (
                     <span className="absolute -top-0.5 -right-0.5 z-10 flex size-4 items-center justify-center rounded-full bg-red-500 font-bold text-[9px] text-white shadow-md ring-2 ring-white">

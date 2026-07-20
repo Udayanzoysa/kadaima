@@ -1,8 +1,18 @@
+import type { Metadata } from "next";
 import Link from "next/link";
+
+import { buildPageMetadata } from "@/lib/page-seo";
 
 import { AuthShell } from "../../_components/auth-shell";
 import { LoginForm } from "../../_components/login-form";
 import { GoogleButton } from "../../_components/social-auth/google-button";
+
+export const metadata: Metadata = buildPageMetadata({
+  title: "Log in",
+  description: "Sign in to your Kadaima account to continue practice quizzes and track progress.",
+  path: "/login",
+  noIndex: true,
+});
 
 export default function LoginV1() {
   return (
@@ -20,11 +30,11 @@ export default function LoginV1() {
         <GoogleButton accountType="student" />
         <p className="text-center text-xs text-slate-500">
           New here?{" "}
-          <Link prefetch={false} href="/student/register" className="font-medium text-[#2b7fff] hover:text-[#1f6ae0]">
+          <Link prefetch={false} href="/student/register" className="font-medium text-[#1563b8] hover:text-[#114f94]">
             Student
           </Link>
           {" · "}
-          <Link prefetch={false} href="/teacher/register" className="font-medium text-[#2b7fff] hover:text-[#1f6ae0]">
+          <Link prefetch={false} href="/teacher/register" className="font-medium text-[#1563b8] hover:text-[#114f94]">
             Teacher
           </Link>
         </p>

@@ -3,12 +3,13 @@ import Link from "next/link";
 
 import { SiteStaticPage } from "@/components/site/site-static-page";
 import { APP_CONFIG } from "@/config/app-config";
+import { buildPageMetadata } from "@/lib/page-seo";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = buildPageMetadata({
   title: "Terms & Conditions",
   description: `Terms and conditions for using ${APP_CONFIG.name}.`,
-  alternates: { canonical: "/terms" },
-};
+  path: "/terms",
+});
 
 export default function TermsPage() {
   return (
@@ -79,12 +80,12 @@ export default function TermsPage() {
         Questions about these terms? Email{" "}
         <a
           href="mailto:support@kadaima.com"
-          className="font-medium text-[#2b7fff] hover:underline"
+          className="font-medium text-[#1563b8] hover:underline"
         >
           support@kadaima.com
         </a>{" "}
         or see{" "}
-        <Link href="/contact" className="font-medium text-[#2b7fff] hover:underline">
+        <Link href="/contact" className="font-medium text-[#1563b8] hover:underline">
           Contact us
         </Link>
         .

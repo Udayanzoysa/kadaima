@@ -10,7 +10,7 @@ type GlobalLoaderState = {
   reset: () => void;
 };
 
-const DEFAULT_LABEL = "Kadaima is loading…";
+const DEFAULT_LABEL = "Loading…";
 
 export const useGlobalLoaderStore = create<GlobalLoaderState>((set) => ({
   count: 0,
@@ -40,7 +40,7 @@ export function resetGlobalLoader() {
   useGlobalLoaderStore.getState().reset();
 }
 
-/** Run an async task under the full-site Kadaima loader. */
+/** Run an async task under the admin shadcn overlay loader. */
 export async function withGlobalLoader<T>(
   task: () => Promise<T>,
   label?: string,

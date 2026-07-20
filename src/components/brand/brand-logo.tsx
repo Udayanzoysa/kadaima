@@ -1,5 +1,3 @@
-"use client";
-
 import Image from "next/image";
 
 import { cn } from "@/lib/utils";
@@ -10,6 +8,7 @@ type BrandLogoProps = {
   priority?: boolean;
 };
 
+/** Server-safe brand mark — no client JS required. */
 export function BrandLogo({ variant = "full", className, priority }: BrandLogoProps) {
   if (variant === "mark") {
     return (

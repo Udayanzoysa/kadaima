@@ -3,12 +3,13 @@ import Link from "next/link";
 
 import { SiteStaticPage } from "@/components/site/site-static-page";
 import { APP_CONFIG } from "@/config/app-config";
+import { buildPageMetadata } from "@/lib/page-seo";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = buildPageMetadata({
   title: "Privacy Policy",
   description: `How ${APP_CONFIG.name} collects, uses, and protects your personal information.`,
-  alternates: { canonical: "/privacy-policy" },
-};
+  path: "/privacy-policy",
+});
 
 export default function PrivacyPolicyPage() {
   return (
@@ -68,12 +69,12 @@ export default function PrivacyPolicyPage() {
         For privacy questions, email{" "}
         <a
           href="mailto:support@kadaima.com"
-          className="font-medium text-[#2b7fff] hover:underline"
+          className="font-medium text-[#1563b8] hover:underline"
         >
           support@kadaima.com
         </a>{" "}
         or visit our{" "}
-        <Link href="/contact" className="font-medium text-[#2b7fff] hover:underline">
+        <Link href="/contact" className="font-medium text-[#1563b8] hover:underline">
           Contact us
         </Link>{" "}
         page.

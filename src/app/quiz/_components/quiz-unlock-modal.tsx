@@ -17,6 +17,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { APP_CONFIG } from "@/config/app-config";
 import { getClientCookie } from "@/lib/cookie.client";
@@ -62,7 +63,7 @@ function loadPayHereScript(): Promise<void> {
 }
 
 const fieldClass =
-  "h-10 w-full rounded-xl border border-slate-300 bg-white px-3.5 text-sm text-slate-800 outline-none placeholder:text-slate-400 focus:border-[#2b7fff] focus:ring-2 focus:ring-[#2b7fff]/25";
+  "h-10 w-full rounded-xl border border-slate-300 bg-white px-3.5 text-sm text-slate-800 outline-none placeholder:text-slate-400 focus:border-[#1563b8] focus:ring-2 focus:ring-[#1563b8]/25";
 
 export interface UnlockQuizTarget {
   id: string;
@@ -568,10 +569,10 @@ export function QuizUnlockModal({
 
         {step === "pay" && authBusy && (
           <div className="space-y-3 px-6 py-10" aria-busy="true" aria-label="Checking unlock status">
-            <div className="h-5 w-40 animate-pulse rounded-md bg-slate-200/80" />
-            <div className="h-4 w-full animate-pulse rounded-md bg-slate-200/70" />
-            <div className="h-24 w-full animate-pulse rounded-xl bg-slate-200/70" />
-            <div className="h-11 w-full animate-pulse rounded-xl bg-slate-200/80" />
+            <Skeleton className="h-5 w-40 bg-slate-200/80" />
+            <Skeleton className="h-4 w-full bg-slate-200/70" />
+            <Skeleton className="h-24 w-full rounded-xl bg-slate-200/70" />
+            <Skeleton className="h-11 w-full rounded-xl bg-slate-200/80" />
           </div>
         )}
 
@@ -613,7 +614,7 @@ export function QuizUnlockModal({
                   <p className="text-[10px] font-semibold tracking-wider text-slate-400 uppercase">
                     {useQuizPay ? "Quiz price" : "Monthly fee"}
                   </p>
-                  <p className="text-xl font-bold text-[#2b7fff]">{priceLabel}</p>
+                  <p className="text-xl font-bold text-[#1563b8]">{priceLabel}</p>
                 </div>
                 {!useQuizPay ? (
                   <p className="flex items-center gap-1 text-[11px] text-slate-500">
@@ -655,7 +656,7 @@ export function QuizUnlockModal({
 
               <div className="space-y-1">
                 <p className="flex items-center gap-1.5 text-xs font-medium text-slate-600">
-                  <Gift className="size-3.5 text-[#2b7fff]" />
+                  <Gift className="size-3.5 text-[#1563b8]" />
                   Have a promo code?
                 </p>
                 <div className="flex gap-2">
@@ -679,7 +680,7 @@ export function QuizUnlockModal({
 
               <div className="space-y-1">
                 <p className="flex items-center gap-1.5 text-xs font-medium text-slate-600">
-                  <Camera className="size-3.5 text-[#2b7fff]" />
+                  <Camera className="size-3.5 text-[#1563b8]" />
                   Upload bank slip
                 </p>
                 <input
@@ -698,9 +699,9 @@ export function QuizUnlockModal({
                     }
                     slipInputRef.current?.click();
                   }}
-                  className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-slate-300 bg-[#f7f9fc] px-3 py-2.5 text-center transition hover:border-[#2b7fff]/50 hover:bg-[#eef6ff]"
+                  className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-slate-300 bg-[#f7f9fc] px-3 py-2.5 text-center transition hover:border-[#1563b8]/50 hover:bg-[#eef6ff]"
                 >
-                  <Camera className="size-4 text-[#2b7fff]" />
+                  <Camera className="size-4 text-[#1563b8]" />
                   <span className="truncate text-xs text-slate-500">
                     {paying ? "Uploading…" : slipFile ? slipFile.name : "Click to upload image"}
                   </span>

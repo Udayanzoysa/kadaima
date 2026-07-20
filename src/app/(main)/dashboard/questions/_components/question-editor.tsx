@@ -29,6 +29,8 @@ import { hideGlobalLoader, showGlobalLoader } from "@/stores/global-loader-store
 import {
   QUESTION_TYPE_META,
   emptyLocalizedText,
+  filledLocales,
+  hasLocaleContent,
   mediaUrl,
   type AnswerChoiceForm,
   type BankQuestion,
@@ -46,7 +48,12 @@ function newId() {
 }
 
 function createChoice(): AnswerChoiceForm {
-  return { id: newId(), choiceText: emptyLocalizedText(), isCorrect: false };
+  return {
+    id: newId(),
+    choiceText: emptyLocalizedText(),
+    imageUrl: null,
+    isCorrect: false,
+  };
 }
 
 interface QuestionEditorProps {
@@ -75,6 +82,7 @@ export function QuestionEditor({ questionId }: QuestionEditorProps) {
   const [loading, setLoading] = useState(isEdit);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [uploadingChoiceId, setUploadingChoiceId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!questionId) return;
@@ -110,6 +118,7 @@ export function QuestionEditor({ questionId }: QuestionEditorProps) {
             ? data.choices.map((c) => ({
                 id: c.id,
                 choiceText: c.choiceText,
+                imageUrl: c.imageUrl ?? null,
                 isCorrect: c.isCorrect,
               }))
             : [createChoice(), createChoice()],
@@ -157,13 +166,34 @@ export function QuestionEditor({ questionId }: QuestionEditorProps) {
   ]);
 
   const validate = useCallback((): string | null => {
-    if (questionText.en.trim().length < 3) return "English question text is required.";
+    const langs = filledLocales(questionText, 3);
+    if (!langs.length) {
+      return "Enter question text in at least one language (English, Sinhala, or Tamil).";
+    }
     if (type === "MCQ") {
       if (choices.length < 2) return "At least two choices are required.";
       if (!choices.some((c) => c.isCorrect)) return "Mark one correct answer.";
+      for (const c of choices) {
+        if (c.imageUrl) continue;
+        for (const lang of langs) {
+          if (!hasLocaleContent(c.choiceText, lang, 1)) {
+            return `Each choice needs text in ${lang.toUpperCase()} or an image.`;
+          }
+        }
+      }
     }
-    if (type === "SEQUENCE" && choices.length < 2) {
-      return "Add at least two sequencing items (in the correct order).";
+    if (type === "SEQUENCE") {
+      if (choices.length < 2) {
+        return "Add at least two sequencing items (in the correct order).";
+      }
+      for (const c of choices) {
+        if (c.imageUrl) continue;
+        for (const lang of langs) {
+          if (!hasLocaleContent(c.choiceText, lang, 1)) {
+            return `Each sequencing item needs text in ${lang.toUpperCase()} or an image.`;
+          }
+        }
+      }
     }
     if (type === "SHORT_TEXT") {
       const answers = acceptedAnswers.split("\n").map((s) => s.trim()).filter(Boolean);
@@ -175,28 +205,49 @@ export function QuestionEditor({ questionId }: QuestionEditorProps) {
     return null;
   }, [questionText, type, choices, acceptedAnswers, correctNumber]);
 
-  const handleUpload = async (file: File) => {
+  const uploadImageFile = async (file: File): Promise<string> => {
     const token = getClientCookie("session_token");
-    if (!token) return;
+    if (!token) throw new Error("Not signed in");
+    const form = new FormData();
+    form.append("file", file);
+    const res = await fetch(`${APP_CONFIG.apiUrl}/questions/upload-image`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+      body: form,
+    });
+    if (!res.ok) throw new Error("Upload failed");
+    const data = (await res.json()) as { url?: string };
+    if (!data.url) throw new Error("No image URL returned");
+    return data.url;
+  };
+
+  const handleUpload = async (file: File) => {
     setUploading(true);
     showGlobalLoader(`Uploading “${file.name}”… don’t close this page`);
     try {
-      const form = new FormData();
-      form.append("file", file);
-      const res = await fetch(`${APP_CONFIG.apiUrl}/questions/upload-image`, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
-        body: form,
-      });
-      if (!res.ok) throw new Error("Upload failed");
-      const data = (await res.json()) as { url?: string };
-      if (!data.url) throw new Error("No image URL returned");
-      setImageUrl(data.url);
+      setImageUrl(await uploadImageFile(file));
       toast.success("Image uploaded");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Upload failed");
     } finally {
       setUploading(false);
+      hideGlobalLoader();
+    }
+  };
+
+  const handleChoiceUpload = async (choiceId: string, file: File) => {
+    setUploadingChoiceId(choiceId);
+    showGlobalLoader(`Uploading choice image…`);
+    try {
+      const url = await uploadImageFile(file);
+      setChoices((prev) =>
+        prev.map((c) => (c.id === choiceId ? { ...c, imageUrl: url } : c)),
+      );
+      toast.success("Choice image uploaded");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Upload failed");
+    } finally {
+      setUploadingChoiceId(null);
       hideGlobalLoader();
     }
   };
@@ -223,6 +274,7 @@ export function QuestionEditor({ questionId }: QuestionEditorProps) {
         choices: needsChoices
           ? choices.map((c) => ({
               choiceText: c.choiceText,
+              imageUrl: c.imageUrl ?? null,
               isCorrect: type === "MCQ" ? c.isCorrect : false,
             }))
           : [],
@@ -320,18 +372,24 @@ export function QuestionEditor({ questionId }: QuestionEditorProps) {
             <p className="text-muted-foreground text-xs">{QUESTION_TYPE_META[type].description}</p>
           </Field>
 
-          <div className="flex flex-wrap gap-2">
-            {(["en", "si", "ta"] as const).map((lang) => (
-              <Button
-                key={lang}
-                type="button"
-                size="sm"
-                variant={activeLang === lang ? "default" : "outline"}
-                onClick={() => setActiveLang(lang)}
-              >
-                {lang.toUpperCase()}
-              </Button>
-            ))}
+          <div className="space-y-1">
+            <div className="flex flex-wrap gap-2">
+              {(["en", "si", "ta"] as const).map((lang) => (
+                <Button
+                  key={lang}
+                  type="button"
+                  size="sm"
+                  variant={activeLang === lang ? "default" : "outline"}
+                  onClick={() => setActiveLang(lang)}
+                >
+                  {lang.toUpperCase()}
+                  {hasLocaleContent(questionText, lang, 3) ? " ·" : ""}
+                </Button>
+              ))}
+            </div>
+            <p className="text-muted-foreground text-xs">
+              Fill at least one language. For multilingual quizzes, add every language the quiz uses.
+            </p>
           </div>
 
           <Field>
@@ -523,47 +581,100 @@ export function QuestionEditor({ questionId }: QuestionEditorProps) {
                   ? "Items in the correct order (students will reorder them)"
                   : "Answer choices"}
               </span>
-              {choices.map((choice) => (
-                <div key={choice.id} className="flex items-center gap-2">
-                  {type === "MCQ" && (
-                    <Checkbox
-                      checked={choice.isCorrect}
-                      onCheckedChange={() =>
-                        setChoices((prev) =>
-                          prev.map((c) => ({ ...c, isCorrect: c.id === choice.id })),
-                        )
-                      }
-                    />
-                  )}
-                  <Input
-                    className="flex-1"
-                    value={choice.choiceText[activeLang]}
-                    onChange={(e) =>
-                      setChoices((prev) =>
-                        prev.map((c) =>
-                          c.id === choice.id
-                            ? {
-                                ...c,
-                                choiceText: { ...c.choiceText, [activeLang]: e.target.value },
-                              }
-                            : c,
-                        ),
-                      )
-                    }
-                    placeholder={type === "SEQUENCE" ? "Sequence item" : "Choice text"}
-                  />
-                  {choices.length > 2 && (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => setChoices((prev) => prev.filter((c) => c.id !== choice.id))}
-                    >
-                      <Trash2 className="size-4" />
-                    </Button>
-                  )}
-                </div>
-              ))}
+              {choices.map((choice) => {
+                const choiceImg = mediaUrl(choice.imageUrl, APP_CONFIG.apiUrl);
+                return (
+                  <div key={choice.id} className="space-y-2 rounded-lg border p-3">
+                    <div className="flex items-center gap-2">
+                      {type === "MCQ" && (
+                        <Checkbox
+                          checked={choice.isCorrect}
+                          onCheckedChange={() =>
+                            setChoices((prev) =>
+                              prev.map((c) => ({ ...c, isCorrect: c.id === choice.id })),
+                            )
+                          }
+                        />
+                      )}
+                      <Input
+                        className="flex-1"
+                        value={choice.choiceText[activeLang]}
+                        onChange={(e) =>
+                          setChoices((prev) =>
+                            prev.map((c) =>
+                              c.id === choice.id
+                                ? {
+                                    ...c,
+                                    choiceText: {
+                                      ...c.choiceText,
+                                      [activeLang]: e.target.value,
+                                    },
+                                  }
+                                : c,
+                            ),
+                          )
+                        }
+                        placeholder={
+                          type === "SEQUENCE"
+                            ? "Label (optional if image)"
+                            : "Choice text (optional if image)"
+                        }
+                      />
+                      <label className="inline-flex cursor-pointer items-center gap-1 rounded-md border px-2 py-1.5 text-xs hover:bg-muted/40">
+                        <ImagePlus className="size-3.5" />
+                        {uploadingChoiceId === choice.id ? "…" : "Image"}
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          disabled={uploadingChoiceId === choice.id}
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) void handleChoiceUpload(choice.id, file);
+                            e.target.value = "";
+                          }}
+                        />
+                      </label>
+                      {choices.length > 2 && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          onClick={() =>
+                            setChoices((prev) => prev.filter((c) => c.id !== choice.id))
+                          }
+                        >
+                          <Trash2 className="size-4" />
+                        </Button>
+                      )}
+                    </div>
+                    {choiceImg && (
+                      <div className="flex items-start gap-2 pl-7">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={choiceImg}
+                          alt="Choice"
+                          className="max-h-28 rounded-md border object-contain"
+                        />
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() =>
+                            setChoices((prev) =>
+                              prev.map((c) =>
+                                c.id === choice.id ? { ...c, imageUrl: null } : c,
+                              ),
+                            )
+                          }
+                        >
+                          Remove image
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
               <Button
                 type="button"
                 variant="outline"

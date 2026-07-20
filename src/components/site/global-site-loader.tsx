@@ -4,8 +4,9 @@ import { Spinner } from "@/components/ui/spinner";
 import { useGlobalLoaderStore } from "@/stores/global-loader-store";
 
 /**
- * Imperative tasks only (login, uploads). No navigation blur overlay —
- * pages use skeletons / admin uses its own regular loader.
+ * Admin / imperative overlay only (uploads, long dashboard tasks).
+ * Uses shadcn Spinner — not the branded logo loader.
+ * Auth uses button Spinners; public routes use skeletons.
  */
 export function GlobalSiteLoader() {
   const count = useGlobalLoaderStore((s) => s.count);

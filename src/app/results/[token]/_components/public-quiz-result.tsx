@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 
-import { Award, CheckCircle2, Globe, XCircle } from "lucide-react";
+import { Award, CheckCircle2, XCircle } from "lucide-react";
 
 import { BrandLogo } from "@/components/brand/brand-logo";
 import { ProfileMenu, type SiteAuthUser } from "@/components/site/profile-menu";
@@ -13,11 +13,12 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { PublicContentSkeleton } from "@/components/site/public-content-skeleton";
+import { PublicCenteredError } from "@/components/site/public-feedback";
 import { APP_CONFIG } from "@/config/app-config";
 import { useI18n } from "@/hooks/use-i18n";
 import { deleteClientCookie, getClientCookie } from "@/lib/cookie.client";
 import { getGuestQuizCount } from "@/lib/guest-session";
-import { LOCALES } from "@/lib/i18n";
+import { LanguageSwitcher } from "@/components/i18n/language-switcher";
 import { safeJson } from "@/lib/safe-json";
 import { cn } from "@/lib/utils";
 import { localize, type AttemptDetail } from "@/types/quiz";
@@ -26,7 +27,6 @@ export function PublicQuizResult() {
   const params = useParams<{ token: string }>();
   const token = params.token;
   const { locale, setLocale, t } = useI18n();
-  const localeMeta = LOCALES.find((l) => l.code === locale) ?? LOCALES[0];
 
   const [attempt, setAttempt] = useState<AttemptDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -84,17 +84,7 @@ export function PublicQuizResult() {
           <BrandLogo className="h-8 w-auto md:h-9" priority />
         </Link>
         <div className="flex items-center gap-2">
-          <button
-            type="button"
-            className="inline-flex h-9 items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 text-xs font-medium text-slate-600 shadow-sm transition hover:border-[#2b7fff]/40 hover:text-[#2b7fff]"
-            onClick={() => {
-              const idx = LOCALES.findIndex((l) => l.code === locale);
-              setLocale(LOCALES[(idx + 1) % LOCALES.length].code);
-            }}
-          >
-            <Globe className="size-3.5" />
-            <span className="max-w-[4.5rem] truncate">{localeMeta.label}</span>
-          </button>
+          <LanguageSwitcher value={locale} onChange={setLocale} />
 
           {authUser === undefined ? (
             <div className="flex items-center gap-1.5" aria-busy="true" aria-label="Loading account">
@@ -107,13 +97,13 @@ export function PublicQuizResult() {
             <div className="flex items-center gap-1.5">
               <Link
                 href="/login"
-                className="inline-flex h-9 items-center rounded-full border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-600 shadow-sm transition hover:border-[#2b7fff]/40 hover:text-[#2b7fff] sm:px-3.5"
+                className="inline-flex h-9 items-center rounded-full border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-600 shadow-sm transition hover:border-[#1563b8]/40 hover:text-[#1563b8] sm:px-3.5"
               >
                 {t("public.nav.login")}
               </Link>
               <Link
                 href="/student/register"
-                className="inline-flex h-9 items-center rounded-full bg-[#2b7fff] px-3 text-xs font-semibold text-white shadow-sm transition hover:bg-[#1f6fe6] sm:px-3.5"
+                className="inline-flex h-9 items-center rounded-full bg-[#1563b8] px-3 text-xs font-semibold text-white shadow-sm transition hover:bg-[#114f94] sm:px-3.5"
               >
                 {t("public.nav.register")}
               </Link>
@@ -127,7 +117,8 @@ export function PublicQuizResult() {
   if (loading) {
     return (
       <div className="min-h-screen bg-[#f4f7fb]">
-        <PublicContentSkeleton variant="detail" className="py-16" />
+        {header}
+        <PublicContentSkeleton variant="detail" className="py-10" />
       </div>
     );
   }
@@ -136,12 +127,7 @@ export function PublicQuizResult() {
     return (
       <div className="min-h-screen bg-[#f4f7fb] text-slate-900">
         {header}
-        <div className="flex flex-col items-center justify-center gap-4 px-4 py-24 text-center">
-          <p className="text-slate-600">{error ?? "Result not found."}</p>
-          <Button asChild variant="brand" className="font-semibold">
-            <Link href="/">Back to quizzes</Link>
-          </Button>
-        </div>
+        <PublicCenteredError message={error ?? "Result not found."} />
       </div>
     );
   }

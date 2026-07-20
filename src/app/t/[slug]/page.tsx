@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 
+import { JsonLd } from "@/components/site/json-ld";
 import { APP_CONFIG } from "@/config/app-config";
 import { I18nProvider } from "@/hooks/use-i18n";
-import { absoluteUrl } from "@/lib/site-url";
+import { buildPageMetadata, jsonLdTeacherPage } from "@/lib/page-seo";
 
 import { TeacherLandingPage } from "./_components/teacher-landing-page";
 
@@ -42,33 +43,41 @@ export async function generateMetadata({ params }: TeacherPageProps): Promise<Me
     teacher?.title?.trim() ||
     teacher?.aboutText?.trim() ||
     `Practice quizzes and resources from ${name} on ${APP_CONFIG.name}.`;
-  const path = `/t/${slug}`;
   const image = teacher?.banners?.[0]?.imageUrl || teacher?.sideBannerUrl || undefined;
 
-  return {
+  return buildPageMetadata({
     title,
     description,
-    alternates: { canonical: path },
-    openGraph: {
-      title,
-      description,
-      url: absoluteUrl(path),
-      type: "profile",
-      ...(image ? { images: [{ url: image }] } : {}),
-    },
-    twitter: {
-      card: image ? "summary_large_image" : "summary",
-      title,
-      description,
-      ...(image ? { images: [image] } : {}),
-    },
-  };
+    path: `/t/${slug}`,
+    image,
+    ogType: "profile",
+  });
 }
 
 export default async function TeacherPublicPage({ params }: TeacherPageProps) {
   const { slug } = await params;
+  const teacher = await fetchTeacherMeta(slug);
+  const name = teacher?.displayName?.trim() || slug;
+  const description =
+    teacher?.description?.trim() ||
+    teacher?.title?.trim() ||
+    teacher?.aboutText?.trim() ||
+    `Practice quizzes and resources from ${name} on ${APP_CONFIG.name}.`;
+  const image = teacher?.banners?.[0]?.imageUrl || teacher?.sideBannerUrl || undefined;
+
   return (
     <I18nProvider>
+      {teacher ? (
+        <JsonLd
+          data={jsonLdTeacherPage({
+            name,
+            description,
+            path: `/t/${slug}`,
+            image,
+            jobTitle: teacher.title,
+          })}
+        />
+      ) : null}
       <TeacherLandingPage slug={slug} />
     </I18nProvider>
   );

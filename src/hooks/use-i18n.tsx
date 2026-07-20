@@ -1,16 +1,8 @@
 "use client";
 
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useState,
-  type ReactNode,
-} from "react";
+import { createContext, type ReactNode, useCallback, useContext, useEffect, useMemo, useState } from "react";
 
-import { getTranslation, type Locale } from "@/lib/i18n";
+import { getTranslation, type Locale, loadLocaleDictionary } from "@/lib/i18n";
 
 const LOCALE_STORAGE_KEY = "kadaima_locale";
 
@@ -38,8 +30,10 @@ export function I18nProvider({ children }: { children: ReactNode }) {
     try {
       const stored = window.localStorage.getItem(LOCALE_STORAGE_KEY);
       if (isLocale(stored)) {
-        setLocaleState(stored);
-        applyDocumentLang(stored);
+        void loadLocaleDictionary(stored).then(() => {
+          setLocaleState(stored);
+          applyDocumentLang(stored);
+        });
       }
     } catch {
       /* ignore */
@@ -47,13 +41,15 @@ export function I18nProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const setLocale = useCallback((next: Locale) => {
-    setLocaleState(next);
-    try {
-      window.localStorage.setItem(LOCALE_STORAGE_KEY, next);
-    } catch {
-      /* ignore */
-    }
-    applyDocumentLang(next);
+    void loadLocaleDictionary(next).then(() => {
+      setLocaleState(next);
+      try {
+        window.localStorage.setItem(LOCALE_STORAGE_KEY, next);
+      } catch {
+        /* ignore */
+      }
+      applyDocumentLang(next);
+    });
   }, []);
 
   const t = useCallback((key: string) => getTranslation(locale, key), [locale]);
