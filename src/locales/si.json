@@ -124,7 +124,16 @@
     "leftCount": "{count} ඉතිරියි",
     "tryAgain": "නැවත උත්සාහ කරන්න",
     "unableToLoadQuiz": "මෙම විභාගය පූරණය කළ නොහැක.",
-    "quizSubmitted": "විභාගය යොමු කරන ලදී!"
+    "quizSubmitted": "විභාගය යොමු කරන ලදී!",
+    "aiReviewTitle": "Kadaima අතථ්‍ය ගුරුවරයා",
+    "aiReviewSubtitle": "ඔබේ වැරදි පිළිතුරු පිළිබඳ පුද්ගලික සමාලෝචනය — ඊළඟ වතාවේ නිවැරදිව ලබා ගැනීමට උපදෙස්.",
+    "aiReviewLoading": "ඔබේ වැරදි පිළිතුරු විශ්ලේෂණය කරමින්…",
+    "aiReviewError": "AI සමාලෝචනය පූරණය කළ නොහැක. නැවත උත්සාහ කරන්න.",
+    "aiReviewRefresh": "නැවත පූරණය",
+    "aiReviewRefreshed": "AI සමාලෝචනය යාවත්කාලීන විය",
+    "aiReviewTipLabel": "මතක තබා ගන්න",
+    "aiReviewAllCorrect": "ඉතා හොඳයි! සියලු ප්‍රශ්නවලට නිවැරදිව පිළිතුරු දී ඇත. වැරදි සමාලෝචනයක් අවශ්‍ය නොවේ.",
+    "aiReviewInLanguage": "{lang} භාෂාවෙන්"
   },
   "public": {
     "nav": {

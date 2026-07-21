@@ -3,6 +3,8 @@ import type { LocalizedText } from "@/types/quiz";
 
 export interface CatalogQuiz {
   id: string;
+  language?: "en" | "si" | "ta";
+  languages?: Array<"en" | "si" | "ta">;
   title: LocalizedText;
   description: LocalizedText | null;
   coverImageUrl?: string | null;

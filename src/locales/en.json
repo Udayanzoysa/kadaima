@@ -124,7 +124,16 @@
     "leftCount": "{count} left",
     "tryAgain": "Try again",
     "unableToLoadQuiz": "Unable to load this quiz.",
-    "quizSubmitted": "Quiz submitted!"
+    "quizSubmitted": "Quiz submitted!",
+    "aiReviewTitle": "Kadaima Virtual Teacher",
+    "aiReviewSubtitle": "Personalized review of your mistakes — tips to get them right next time.",
+    "aiReviewLoading": "Analyzing your incorrect answers…",
+    "aiReviewError": "Could not load AI review. Please try again.",
+    "aiReviewRefresh": "Refresh",
+    "aiReviewRefreshed": "AI review updated",
+    "aiReviewTipLabel": "Remember",
+    "aiReviewAllCorrect": "Great job! You answered every question correctly. No mistake review is needed.",
+    "aiReviewInLanguage": "in {lang}"
   },
   "public": {
     "nav": {

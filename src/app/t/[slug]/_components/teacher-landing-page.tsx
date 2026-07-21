@@ -176,6 +176,8 @@ function PosterStrip({
 
 interface TeacherPageQuiz {
   id: string;
+  language?: "en" | "si" | "ta";
+  languages?: Array<"en" | "si" | "ta">;
   title: LocalizedText;
   description: LocalizedText | null;
   coverImageUrl?: string | null;
@@ -860,6 +862,8 @@ export function TeacherLandingPage({ slug }: { slug: string }) {
                 iconIndex={i}
                 isNew={i === 0}
                 locked={locked}
+                languages={quiz.languages}
+                language={quiz.language}
                 onPrimary={() => router.push(`/quiz/${quiz.id}`)}
               />
             );

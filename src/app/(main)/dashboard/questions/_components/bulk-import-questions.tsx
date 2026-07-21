@@ -206,7 +206,7 @@ export function BulkImportQuestions({ onImported, variant = "outline" }: Props) 
                 Short answers: <code className="rounded bg-muted px-1">accepted_answers</code> plus optional{" "}
                 <code className="rounded bg-muted px-1">accepted_answers_si</code> /{" "}
                 <code className="rounded bg-muted px-1">accepted_answers_ta</code> (| between answers).
-                English question text is required; SI/TA can be left blank.
+                English question text is optional — SI-only or TA-only papers are allowed.
               </p>
               <p>Open the .csv in Excel (UTF-8), fill rows, Save As CSV, then upload.</p>
             </div>
@@ -242,13 +242,17 @@ export function BulkImportQuestions({ onImported, variant = "outline" }: Props) 
                   <code className="rounded bg-muted px-1">EN:</code>{" "}
                   <code className="rounded bg-muted px-1">SI:</code>{" "}
                   <code className="rounded bg-muted px-1">TA:</code> for the question. Options:{" "}
-                  <code className="rounded bg-muted px-1">A. English</code> then{" "}
+                  <code className="rounded bg-muted px-1">A. English</code> or{" "}
                   <code className="rounded bg-muted px-1">A-SI:</code> /{" "}
                   <code className="rounded bg-muted px-1">A-TA:</code>. End with{" "}
                   <code className="rounded bg-muted px-1">ANSWER: A</code>.
                 </span>
                 <span className="block">
-                  Plain Moodle Aiken (English only) still works. Separate questions with a blank line.
+                  Sinhala-only papers are fine — use only{" "}
+                  <code className="rounded bg-muted px-1">SI:</code> and{" "}
+                  <code className="rounded bg-muted px-1">A-SI:</code> (same for Tamil with{" "}
+                  <code className="rounded bg-muted px-1">TA:</code>). Plain Moodle Aiken
+                  (English only) still works. Separate questions with a blank line.
                 </span>
               </FieldDescription>
             </Field>

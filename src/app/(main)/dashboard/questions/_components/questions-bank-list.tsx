@@ -5,9 +5,10 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
-import { Archive, ChevronLeft, ChevronRight, Pencil, Plus, Trash2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Pencil, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
+import { usePermissions } from "@/app/(main)/dashboard/_components/sidebar/permission-guard";
 import { BulkImportQuestions } from "./bulk-import-questions";
 import { AiImportPdfQuestions } from "./ai-import-pdf-questions";
 import { DataBackupActions } from "@/components/data-backup-actions";
@@ -43,6 +44,11 @@ type PaginatedResponse = {
 
 export function QuestionsBankList() {
   const router = useRouter();
+  const { hasPermission } = usePermissions();
+  const canDelete =
+    hasPermission("MANAGE", "all") ||
+    hasPermission("DELETE", "QUIZZES") ||
+    hasPermission("MANAGE", "QUIZZES");
   const [questions, setQuestions] = useState<BankQuestion[]>([]);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -136,11 +142,8 @@ export function QuestionsBankList() {
   };
 
   const removeQuestion = async (q: BankQuestion) => {
-    const inUse = (q._count?.quizLinks ?? 0) > 0 || (q._count?.responses ?? 0) > 0;
     const confirmed = window.confirm(
-      inUse
-        ? `"${localize(q.questionText, "en")}" is in use and will be archived. Continue?`
-        : `Delete this question permanently?`,
+      `Permanently delete this question?\n\nIt will be removed from quizzes and related responses. This cannot be undone.`,
     );
     if (!confirmed) return;
 
@@ -151,8 +154,7 @@ export function QuestionsBankList() {
         headers: authHeaders(),
       });
       if (!res.ok) throw new Error("Could not delete question");
-      const body = await res.json();
-      toast.success(body.archived ? "Question archived" : "Question deleted");
+      toast.success("Question deleted");
       await load(page);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Could not delete question");
@@ -189,7 +191,7 @@ export function QuestionsBankList() {
   const bulkDelete = async () => {
     if (selectedIds.length === 0) return;
     const confirmed = window.confirm(
-      `Delete ${selectedIds.length} selected question(s)? Items in use will be archived instead.`,
+      `Permanently delete ${selectedIds.length} selected question(s)?\n\nThis cannot be undone.`,
     );
     if (!confirmed) return;
 
@@ -202,9 +204,7 @@ export function QuestionsBankList() {
       });
       if (!res.ok) throw new Error("Bulk delete failed");
       const body = await res.json();
-      toast.success(
-        `Deleted ${body.deleted ?? 0}, archived ${body.archived ?? 0}`,
-      );
+      toast.success(`Deleted ${body.deleted ?? selectedIds.length} question(s)`);
       // If current page becomes empty after delete, go back a page
       const remainingOnPage = questions.length - selectedIds.filter((id) =>
         questions.some((q) => q.id === id),
@@ -280,16 +280,18 @@ export function QuestionsBankList() {
             {bulkBusy ? <Spinner className="size-4" /> : null}
             Apply status
           </Button>
-          <Button
-            type="button"
-            size="sm"
-            variant="destructive"
-            disabled={bulkBusy}
-            onClick={() => void bulkDelete()}
-          >
-            <Trash2 className="size-3.5" />
-            Delete selected
-          </Button>
+          {canDelete ? (
+            <Button
+              type="button"
+              size="sm"
+              variant="destructive"
+              disabled={bulkBusy}
+              onClick={() => void bulkDelete()}
+            >
+              <Trash2 className="size-3.5" />
+              Delete selected
+            </Button>
+          ) : null}
           <Button
             type="button"
             size="sm"
@@ -386,20 +388,18 @@ export function QuestionsBankList() {
                           <Pencil className="size-3.5" />
                           Edit
                         </Button>
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="outline"
-                          disabled={busyId === q.id}
-                          onClick={() => void removeQuestion(q)}
-                        >
-                          {(q._count?.quizLinks ?? 0) > 0 || (q._count?.responses ?? 0) > 0 ? (
-                            <Archive className="size-3.5" />
-                          ) : (
+                        {canDelete ? (
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="destructive"
+                            disabled={busyId === q.id}
+                            onClick={() => void removeQuestion(q)}
+                          >
                             <Trash2 className="size-3.5" />
-                          )}
-                          Delete
-                        </Button>
+                            Delete
+                          </Button>
+                        ) : null}
                       </div>
                     </td>
                   </tr>

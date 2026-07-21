@@ -6,7 +6,6 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 import {
-  Archive,
   BookOpen,
   ChevronLeft,
   ChevronRight,
@@ -16,6 +15,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
+import { usePermissions } from "@/app/(main)/dashboard/_components/sidebar/permission-guard";
 import { DataBackupActions } from "@/components/data-backup-actions";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -59,6 +59,11 @@ function courseTitle(course: Course) {
 
 export function ManageCoursesList() {
   const router = useRouter();
+  const { hasPermission } = usePermissions();
+  const canDelete =
+    hasPermission("MANAGE", "all") ||
+    hasPermission("DELETE", "QUIZZES") ||
+    hasPermission("MANAGE", "QUIZZES");
   const [courses, setCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -154,11 +159,8 @@ export function ManageCoursesList() {
   };
 
   const removeCourse = async (course: Course) => {
-    const quizCount = course._count?.quizzes ?? 0;
     const confirmed = window.confirm(
-      quizCount > 0
-        ? `"${courseTitle(course)}" has quizzes and will be archived. Continue?`
-        : `Delete "${courseTitle(course)}" permanently?`,
+      `Permanently delete "${courseTitle(course)}"?\n\nThis also removes its modules and quizzes. This cannot be undone.`,
     );
     if (!confirmed) return;
 
@@ -172,8 +174,7 @@ export function ManageCoursesList() {
         const err = await res.json().catch(() => ({}));
         throw new Error(err.message || "Could not delete course");
       }
-      const body = await res.json().catch(() => ({}));
-      toast.success(body.deleted ? "Course deleted" : "Course archived");
+      toast.success("Course deleted");
       await load(page);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Could not delete course");
@@ -210,7 +211,7 @@ export function ManageCoursesList() {
   const bulkDelete = async () => {
     if (selectedIds.length === 0) return;
     const confirmed = window.confirm(
-      `Delete ${selectedIds.length} selected course(s)? Courses with quizzes will be archived instead.`,
+      `Permanently delete ${selectedIds.length} selected course(s)?\n\nModules and quizzes under them will also be removed. This cannot be undone.`,
     );
     if (!confirmed) return;
 
@@ -223,9 +224,7 @@ export function ManageCoursesList() {
       });
       if (!res.ok) throw new Error("Bulk delete failed");
       const body = await res.json();
-      toast.success(
-        `Deleted ${body.deleted ?? 0}, archived ${body.archived ?? 0}`,
-      );
+      toast.success(`Deleted ${body.deleted ?? selectedIds.length} course(s)`);
       const remainingOnPage =
         courses.length -
         selectedIds.filter((id) => courses.some((c) => c.id === id)).length;
@@ -297,16 +296,18 @@ export function ManageCoursesList() {
             {bulkBusy ? <Spinner className="size-4" /> : null}
             Apply status
           </Button>
-          <Button
-            type="button"
-            size="sm"
-            variant="destructive"
-            disabled={bulkBusy}
-            onClick={() => void bulkDelete()}
-          >
-            <Trash2 className="size-3.5" />
-            Delete selected
-          </Button>
+          {canDelete ? (
+            <Button
+              type="button"
+              size="sm"
+              variant="destructive"
+              disabled={bulkBusy}
+              onClick={() => void bulkDelete()}
+            >
+              <Trash2 className="size-3.5" />
+              Delete selected
+            </Button>
+          ) : null}
           <Button
             type="button"
             size="sm"
@@ -426,16 +427,13 @@ export function ManageCoursesList() {
                           <Button
                             type="button"
                             size="sm"
-                            variant="outline"
+                            variant="destructive"
                             disabled={busyId === course.id}
                             onClick={() => void removeCourse(course)}
+                            className={canDelete ? undefined : "hidden"}
                           >
-                            {(course._count?.quizzes ?? 0) > 0 ? (
-                              <Archive className="size-3.5" />
-                            ) : (
-                              <Trash2 className="size-3.5" />
-                            )}
-                            {(course._count?.quizzes ?? 0) > 0 ? "Archive" : "Delete"}
+                            <Trash2 className="size-3.5" />
+                            Delete
                           </Button>
                         </div>
                       </td>

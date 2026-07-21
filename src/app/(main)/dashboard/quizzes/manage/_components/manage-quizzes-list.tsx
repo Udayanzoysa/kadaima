@@ -5,7 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
-import { Archive, ChevronLeft, ChevronRight, Pencil, Plus, Trash2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Pencil, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { DataBackupActions } from "@/components/data-backup-actions";
@@ -22,6 +22,8 @@ import { Spinner } from "@/components/ui/spinner";
 import { APP_CONFIG } from "@/config/app-config";
 import { getClientCookie } from "@/lib/cookie.client";
 import { localize, type QuizSummary } from "@/types/quiz";
+
+import { usePermissions } from "@/app/(main)/dashboard/_components/sidebar/permission-guard";
 
 const PAGE_SIZE = 10;
 
@@ -42,6 +44,11 @@ function statusLabel(status: QuizStatus) {
 
 export function ManageQuizzesList() {
   const router = useRouter();
+  const { hasPermission } = usePermissions();
+  const canDelete =
+    hasPermission("MANAGE", "all") ||
+    hasPermission("DELETE", "QUIZZES") ||
+    hasPermission("MANAGE", "QUIZZES");
   const [quizzes, setQuizzes] = useState<QuizSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -137,11 +144,8 @@ export function ManageQuizzesList() {
   };
 
   const removeQuiz = async (quiz: QuizSummary) => {
-    const hasAttempts = quiz._count.attempts > 0;
     const confirmed = window.confirm(
-      hasAttempts
-        ? `"${localize(quiz.title, "en")}" has attempts and will be archived. Continue?`
-        : `Delete "${localize(quiz.title, "en")}" permanently?`,
+      `Permanently delete "${localize(quiz.title, "en")}"?\n\nThis removes the quiz and related attempts/unlocks. This cannot be undone.`,
     );
     if (!confirmed) return;
 
@@ -155,8 +159,7 @@ export function ManageQuizzesList() {
         const err = await res.json().catch(() => ({}));
         throw new Error(err.message || "Could not delete quiz");
       }
-      const body = await res.json();
-      toast.success(body.archived ? "Quiz archived" : "Quiz deleted");
+      toast.success("Quiz deleted");
       await load(page);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Could not delete quiz");
@@ -193,7 +196,7 @@ export function ManageQuizzesList() {
   const bulkDelete = async () => {
     if (selectedIds.length === 0) return;
     const confirmed = window.confirm(
-      `Delete ${selectedIds.length} selected quiz(zes)? Items with attempts will be archived instead.`,
+      `Permanently delete ${selectedIds.length} selected quiz(zes)?\n\nRelated attempts and unlocks will be removed. This cannot be undone.`,
     );
     if (!confirmed) return;
 
@@ -206,9 +209,7 @@ export function ManageQuizzesList() {
       });
       if (!res.ok) throw new Error("Bulk delete failed");
       const body = await res.json();
-      toast.success(
-        `Deleted ${body.deleted ?? 0}, archived ${body.archived ?? 0}`,
-      );
+      toast.success(`Deleted ${body.deleted ?? selectedIds.length} quiz(zes)`);
       const remainingOnPage =
         quizzes.length -
         selectedIds.filter((id) => quizzes.some((q) => q.id === id)).length;
@@ -283,6 +284,7 @@ export function ManageQuizzesList() {
             variant="destructive"
             disabled={bulkBusy}
             onClick={() => void bulkDelete()}
+            className={canDelete ? undefined : "hidden"}
           >
             <Trash2 className="size-3.5" />
             Delete selected
@@ -390,20 +392,18 @@ export function ManageQuizzesList() {
                           <Pencil className="size-3.5" />
                           Edit
                         </Button>
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="outline"
-                          disabled={busyId === quiz.id}
-                          onClick={() => void removeQuiz(quiz)}
-                        >
-                          {quiz._count.attempts > 0 ? (
-                            <Archive className="size-3.5" />
-                          ) : (
+                        {canDelete ? (
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="destructive"
+                            disabled={busyId === quiz.id}
+                            onClick={() => void removeQuiz(quiz)}
+                          >
                             <Trash2 className="size-3.5" />
-                          )}
-                          {quiz._count.attempts > 0 ? "Archive" : "Delete"}
-                        </Button>
+                            Delete
+                          </Button>
+                        ) : null}
                       </div>
                     </td>
                   </tr>

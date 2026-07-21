@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Spinner } from "@/components/ui/spinner";
+import { AiQuizReviewPanel } from "@/components/quiz/ai-quiz-review";
 import { APP_CONFIG } from "@/config/app-config";
 import { useI18n } from "@/hooks/use-i18n";
 import { getClientCookie } from "@/lib/cookie.client";
@@ -93,6 +94,10 @@ export function QuizResult() {
 
   const isTimedOut = attempt.status === "Timed_Out";
   const isPassed = attempt.isPassed;
+  const incorrectCount = attempt.quiz.questions.filter((question) => {
+    const response = attempt.responses.find((r) => r.questionId === question.id);
+    return !(response?.isCorrect || response?.needsManualReview);
+  }).length;
 
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-6">
@@ -160,6 +165,15 @@ export function QuizResult() {
           </div>
         </CardContent>
       </Card>
+
+      <AiQuizReviewPanel
+        attemptId={attempt.id}
+        incorrectCount={incorrectCount}
+        quizLanguage={attempt.quiz.language}
+        quizLanguages={attempt.quiz.languages}
+        quizTitle={attempt.quiz.title}
+        sampleQuestionText={attempt.quiz.questions[0]?.questionText}
+      />
 
       <div className="space-y-3">
         <h2 className="font-semibold text-lg">{t("student.reviewAnswers")}</h2>

@@ -319,6 +319,8 @@ export function CourseQuizzesView({
                       viewCount={quiz._count.attempts ?? 0}
                       coverImageUrl={mediaUrl(quiz.coverImageUrl, APP_CONFIG.apiUrl)}
                       locked={needsUnlock(quiz)}
+                      languages={quiz.languages}
+                      language={quiz.language}
                       onPrimary={() => handlePrimary(quiz)}
                     />
                   );

@@ -8,6 +8,7 @@ import { useParams } from "next/navigation";
 import { Award, CheckCircle2, XCircle } from "lucide-react";
 
 import { BrandLogo } from "@/components/brand/brand-logo";
+import { AiQuizReviewPanel } from "@/components/quiz/ai-quiz-review";
 import { ProfileMenu, type SiteAuthUser } from "@/components/site/profile-menu";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -134,6 +135,10 @@ export function PublicQuizResult() {
 
   const isPassed = attempt.isPassed;
   const showRegisterCta = !authUser && quizCount >= 3;
+  const incorrectCount = attempt.quiz.questions.filter((question) => {
+    const response = attempt.responses.find((r) => r.questionId === question.id);
+    return !(response?.isCorrect || response?.needsManualReview);
+  }).length;
 
   return (
     <div className="min-h-screen bg-[#f4f7fb] text-slate-900">
@@ -181,6 +186,15 @@ export function PublicQuizResult() {
             Pass mark {attempt.quiz.passingScorePercentage}%
           </Badge>
         </section>
+
+        <AiQuizReviewPanel
+          resultToken={token}
+          incorrectCount={incorrectCount}
+          quizLanguage={attempt.quiz.language}
+          quizLanguages={attempt.quiz.languages}
+          quizTitle={attempt.quiz.title}
+          sampleQuestionText={attempt.quiz.questions[0]?.questionText}
+        />
 
         <section className="space-y-3">
           <h2 className="font-[family-name:var(--font-outfit)] text-lg font-extrabold text-slate-900">

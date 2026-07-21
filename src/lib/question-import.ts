@@ -37,7 +37,7 @@ const OPTION_LETTERS = ["a", "b", "c", "d", "e"] as const;
 
 /**
  * Full multilingual CSV headers.
- * - question_en is required; question_si / question_ta optional
+ * - Provide question text in at least one locale (question_en / question_si / question_ta)
  * - option_X = English (same as option_X_en); option_X_si / option_X_ta optional
  * - accepted_answers = EN pipe list; accepted_answers_si / accepted_answers_ta for other locales
  */
@@ -267,8 +267,7 @@ function readOption(
   const si = get(`option_${letter}_si`);
   const ta = get(`option_${letter}_ta`);
   if (!en.trim() && !si.trim() && !ta.trim()) return null;
-  // Prefer EN; if only SI/TA provided, use that as EN fallback so the bank still has English key
-  return loc(en || si || ta, si, ta);
+  return loc(en, si, ta);
 }
 
 function buildFromRow(
@@ -279,14 +278,10 @@ function buildFromRow(
   const si = get("question_si");
   const ta = get("question_ta");
   if (!en.trim() && !si.trim() && !ta.trim()) {
-    return { issue: { row: rowNum, message: "Missing question text (need question_en, or si/ta)" } };
-  }
-  // English is the primary locale in the LMS UI — require it when possible
-  if (!en.trim()) {
     return {
       issue: {
         row: rowNum,
-        message: "question_en is required (SI/TA alone is not enough for the bank)",
+        message: "Missing question text (need question_en, question_si, or question_ta)",
       },
     };
   }
@@ -422,6 +417,14 @@ function parseLangPrefix(line: string): { lang: LangKey; text: string } | null {
 /**
  * Multilingual Aiken (extends Moodle):
  *
+ * SI-only (Sinhala paper):
+ * SI: වයිරු
+ * A-SI: කකුල
+ * B-SI: මුහුණ
+ * C-SI: බඩ
+ * ANSWER: C
+ *
+ * Multilingual:
  * EN: What is the capital of Sri Lanka?
  * SI: ශ්‍රී ලංකාවේ අගනුවර කුමක්ද?
  * TA: இலங்கையின் தலைநகரம் எது?
@@ -499,21 +502,24 @@ export function parseAiken(text: string): ParseResult {
       unprefixedPrompt.push(line);
     }
 
-    if (!prompt.en && unprefixedPrompt.length) {
+    if (!prompt.en && !prompt.si && !prompt.ta && unprefixedPrompt.length) {
       prompt.en = unprefixedPrompt.join(" ").trim();
     }
 
-    if (!prompt.en.trim()) {
+    if (!prompt.en.trim() && !prompt.si.trim() && !prompt.ta.trim()) {
       issues.push({
         row: bi + 1,
-        message: "Missing English question (use plain text or EN: …)",
+        message: "Missing question text (use SI: …, EN: …, TA: …, or plain text)",
       });
       return;
     }
 
     const orderedLetters = [...options.keys()].sort();
     if (orderedLetters.length < 2) {
-      issues.push({ row: bi + 1, message: "Need at least two options (A. … B. …)" });
+      issues.push({
+        row: bi + 1,
+        message: "Need at least two options (A-SI: … B-SI: … or A. … B. …)",
+      });
       return;
     }
 
@@ -536,7 +542,7 @@ export function parseAiken(text: string): ParseResult {
       config: { contentFormat: "plain" },
       choices: orderedLetters.map((letter, i) => {
         const t = options.get(letter)!;
-        return choiceLoc(t.en || t.si || t.ta, t.si, t.ta, i === correctIdx);
+        return choiceLoc(t.en, t.si, t.ta, i === correctIdx);
       }),
     });
   });
@@ -544,23 +550,17 @@ export function parseAiken(text: string): ParseResult {
   return { questions, issues };
 }
 
-export const AIKEN_EXAMPLE = `EN: What is the capital of Sri Lanka?
+export const AIKEN_EXAMPLE = `SI: වයිරු
+A-SI: කකුල
+B-SI: මුහුණ
+C-SI: බඩ
+ANSWER: C
+
+EN: What is the capital of Sri Lanka?
 SI: ශ්‍රී ලංකාවේ අගනුවර කුමක්ද?
-TA: இலங்கையின் தலைநகரம் எது?
 A. Colombo
 A-SI: කොළඹ
-A-TA: கொழும்பு
 B. Kandy
 B-SI: මහනුවර
-B-TA: கண்டி
-C. Galle
-C-SI: ගාල්ල
-C-TA: காலி
 ANSWER: A
-
-What is 2 + 2?
-A. 3
-B. 4
-C. 5
-ANSWER: B
 `;

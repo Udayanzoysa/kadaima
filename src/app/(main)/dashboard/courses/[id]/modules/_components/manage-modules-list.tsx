@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
+import { usePermissions } from "@/app/(main)/dashboard/_components/sidebar/permission-guard";
 import { DataBackupActions } from "@/components/data-backup-actions";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -63,6 +64,11 @@ interface ManageModulesListProps {
 
 export function ManageModulesList({ courseId }: ManageModulesListProps) {
   const router = useRouter();
+  const { hasPermission } = usePermissions();
+  const canDelete =
+    hasPermission("MANAGE", "all") ||
+    hasPermission("DELETE", "QUIZZES") ||
+    hasPermission("MANAGE", "QUIZZES");
   const [course, setCourse] = useState<Course | null>(null);
   const [modules, setModules] = useState<CourseModule[]>([]);
   const [loading, setLoading] = useState(true);
@@ -174,7 +180,13 @@ export function ManageModulesList({ courseId }: ManageModulesListProps) {
 
   const removeModule = async (mod: CourseModule) => {
     const name = localize(mod.title, "en") || "this module";
-    if (!window.confirm(`Delete "${name}" permanently?`)) return;
+    if (
+      !window.confirm(
+        `Permanently delete "${name}"?\n\nQuizzes stay but will be unlinked from this module. This cannot be undone.`,
+      )
+    ) {
+      return;
+    }
 
     setBusyId(mod.id);
     try {
@@ -229,7 +241,7 @@ export function ManageModulesList({ courseId }: ManageModulesListProps) {
   const bulkDelete = async () => {
     if (selectedIds.length === 0) return;
     const confirmed = window.confirm(
-      `Delete ${selectedIds.length} selected module(s) permanently?`,
+      `Permanently delete ${selectedIds.length} selected module(s)?\n\nQuizzes stay but will be unlinked from these modules. This cannot be undone.`,
     );
     if (!confirmed) return;
 
@@ -329,16 +341,18 @@ export function ManageModulesList({ courseId }: ManageModulesListProps) {
             {bulkBusy ? <Spinner className="size-4" /> : null}
             Apply status
           </Button>
-          <Button
-            type="button"
-            size="sm"
-            variant="destructive"
-            disabled={bulkBusy}
-            onClick={() => void bulkDelete()}
-          >
-            <Trash2 className="size-3.5" />
-            Delete selected
-          </Button>
+          {canDelete ? (
+            <Button
+              type="button"
+              size="sm"
+              variant="destructive"
+              disabled={bulkBusy}
+              onClick={() => void bulkDelete()}
+            >
+              <Trash2 className="size-3.5" />
+              Delete selected
+            </Button>
+          ) : null}
           <Button
             type="button"
             size="sm"
@@ -435,16 +449,18 @@ export function ManageModulesList({ courseId }: ManageModulesListProps) {
                           <Pencil className="size-3.5" />
                           Edit
                         </Button>
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="outline"
-                          disabled={busyId === mod.id}
-                          onClick={() => void removeModule(mod)}
-                        >
-                          <Trash2 className="size-3.5" />
-                          Delete
-                        </Button>
+                        {canDelete ? (
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="destructive"
+                            disabled={busyId === mod.id}
+                            onClick={() => void removeModule(mod)}
+                          >
+                            <Trash2 className="size-3.5" />
+                            Delete
+                          </Button>
+                        ) : null}
                       </div>
                     </td>
                   </tr>

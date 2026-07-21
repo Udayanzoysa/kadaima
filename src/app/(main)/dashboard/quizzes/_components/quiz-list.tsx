@@ -129,6 +129,8 @@ export function QuizList() {
               iconIndex={i}
               isNew={i === 0 && !attempt}
               primaryLabel={primaryLabel}
+              languages={quiz.languages}
+              language={quiz.language}
               onPrimary={() => {
                 if (isCompleted) goToResult(quiz.id);
                 else goToQuiz(quiz.id);
