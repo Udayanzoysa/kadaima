@@ -72,6 +72,42 @@ interface TestEmailResult {
   message: string;
 }
 
+type EmailTemplateKind =
+  | "password-reset"
+  | "password-changed"
+  | "welcome"
+  | "invite"
+  | "teacher-activated"
+  | "payment-receipt"
+  | "payment-failed"
+  | "slip-reviewed"
+  | "teacher-payout-pending"
+  | "teacher-payout-approved"
+  | "teacher-payout-paid"
+  | "teacher-payout-held";
+
+const TEMPLATE_OPTIONS: { value: EmailTemplateKind; label: string }[] = [
+  { value: "password-reset", label: "Password reset link" },
+  { value: "password-changed", label: "Password changed / reset success" },
+  { value: "welcome", label: "Welcome (onboarding)" },
+  { value: "invite", label: "User invite" },
+  { value: "teacher-activated", label: "Teacher activated" },
+  { value: "payment-receipt", label: "Payment receipt (student)" },
+  { value: "payment-failed", label: "Payment failed (student)" },
+  { value: "slip-reviewed", label: "Bank slip reviewed (student)" },
+  { value: "teacher-payout-pending", label: "Teacher payroll ready (Pending)" },
+  { value: "teacher-payout-approved", label: "Teacher payout approved" },
+  { value: "teacher-payout-paid", label: "Teacher payment completed (Paid)" },
+  { value: "teacher-payout-held", label: "Teacher payout on hold" },
+];
+
+interface TemplatePreview {
+  kind: string;
+  subject: string;
+  html: string;
+  text: string;
+}
+
 export function NotificationSettings() {
   const [loading, setLoading] = useState(true);
   const [savingSmtp, setSavingSmtp] = useState(false);
@@ -79,6 +115,9 @@ export function NotificationSettings() {
   const [testTo, setTestTo] = useState("");
   const [testingEmail, setTestingEmail] = useState(false);
   const [testResult, setTestResult] = useState<TestEmailResult | null>(null);
+  const [templateKind, setTemplateKind] = useState<EmailTemplateKind>("password-reset");
+  const [preview, setPreview] = useState<TemplatePreview | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
 
   const [smtpHost, setSmtpHost] = useState(DEFAULT_SMTP.host);
   const [smtpPort, setSmtpPort] = useState(String(DEFAULT_SMTP.port));
@@ -141,6 +180,37 @@ export function NotificationSettings() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  const loadTemplatePreview = useCallback(async (kind: EmailTemplateKind) => {
+    setPreviewLoading(true);
+    try {
+      const params = new URLSearchParams({
+        kind,
+        email: "student@example.com",
+      });
+      const res = await fetch(
+        `${APP_CONFIG.apiUrl}/settings/notifications/email-template?${params}`,
+        { headers: authHeaders() },
+      );
+      if (!res.ok) throw new Error("Failed to load template preview");
+      const data = await res.json();
+      setPreview({
+        kind: data.kind,
+        subject: data.subject,
+        html: data.html,
+        text: data.text,
+      });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Preview failed");
+      setPreview(null);
+    } finally {
+      setPreviewLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!loading) void loadTemplatePreview(templateKind);
+  }, [loading, templateKind, loadTemplatePreview]);
 
   const onPortChange = (value: string) => {
     setSmtpPort(value);
@@ -389,6 +459,51 @@ export function NotificationSettings() {
                 {savingSmtp ? <Spinner className="size-4" /> : <Server className="size-4" />}
                 {savingSmtp ? "Saving…" : "Save SMTP settings"}
               </Button>
+            </div>
+
+            <div className="space-y-3 rounded-lg border border-border bg-muted/20 p-4">
+              <div className="font-medium text-sm">Email template preview</div>
+              <p className="text-muted-foreground text-xs">
+                Preview every transactional template used for onboarding, security, and payments.
+              </p>
+              <Field className="gap-1.5">
+                <FieldLabel>Template</FieldLabel>
+                <Select
+                  value={templateKind}
+                  onValueChange={(v) => setTemplateKind(v as EmailTemplateKind)}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {TEMPLATE_OPTIONS.map((opt) => (
+                      <SelectItem key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </Field>
+              {previewLoading ? (
+                <div className="flex h-40 items-center justify-center">
+                  <Spinner className="size-5 text-muted-foreground" />
+                </div>
+              ) : preview ? (
+                <div className="space-y-2">
+                  <p className="text-xs">
+                    <span className="text-muted-foreground">Subject:</span>{" "}
+                    <span className="font-medium">{preview.subject}</span>
+                  </p>
+                  <div className="max-h-[360px] overflow-auto rounded-md border border-border bg-white">
+                    <iframe
+                      title="Email preview"
+                      className="h-[340px] w-full"
+                      sandbox=""
+                      srcDoc={preview.html}
+                    />
+                  </div>
+                </div>
+              ) : null}
             </div>
 
             <div className="space-y-3 rounded-lg border border-border bg-muted/20 p-4">
