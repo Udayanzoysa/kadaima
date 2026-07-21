@@ -119,15 +119,16 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             item.id === "quizzes" ||
             item.id === "questions" ||
             item.id === "courses" ||
-            item.id === "teacher-page"
+            item.id === "teacher-page" ||
+            item.id === "earnings"
           ) {
             return canManageQuizzes;
           }
           if (item.id === "students") {
             return false; // soon / disabled
           }
-          if (item.id === "log" || item.id === "backup") {
-            return isSuperAdmin; // System logs + DB backup — super admin only
+          if (item.id === "log" || item.id === "backup" || item.id === "revenue") {
+            return isSuperAdmin; // System logs + DB backup + revenue — super admin only
           }
 
           const subject = item.id.toUpperCase().replace("-", "_");

@@ -9,10 +9,12 @@
   ListChecks,
   Lock,
   type LucideIcon,
+  PiggyBank,
   ScrollText,
   Settings,
   Store,
   Users,
+  Wallet,
 } from "lucide-react";
 
 export type NavBadge = "new" | "soon";
@@ -101,6 +103,12 @@ export const sidebarItems: NavGroup[] = [
         icon: Store,
       },
       {
+        id: "earnings",
+        title: "Earnings",
+        url: "/admin/earnings",
+        icon: Wallet,
+      },
+      {
         id: "students",
         title: "Students",
         url: "/admin/students",
@@ -131,6 +139,12 @@ export const sidebarItems: NavGroup[] = [
         title: "Payments",
         url: "/admin/payments",
         icon: CreditCard,
+      },
+      {
+        id: "revenue",
+        title: "Revenue",
+        url: "/admin/revenue",
+        icon: PiggyBank,
       },
       {
         id: "settings",

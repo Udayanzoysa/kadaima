@@ -44,6 +44,8 @@ export function SubscriptionBillingSettings() {
   const [saving, setSaving] = useState(false);
   const [fee, setFee] = useState("500");
   const [paymentMode, setPaymentMode] = useState<PaymentMode>("MIXED");
+  const [platformPct, setPlatformPct] = useState("40");
+  const [teacherPoolPct, setTeacherPoolPct] = useState("60");
 
   useEffect(() => {
     const token = getClientCookie("session_token");
@@ -63,6 +65,8 @@ export function SubscriptionBillingSettings() {
         if (mode === "MONTHLY_ONLY" || mode === "QUIZ_ONLY" || mode === "MIXED") {
           setPaymentMode(mode);
         }
+        setPlatformPct(String(data.platformPct ?? 40));
+        setTeacherPoolPct(String(data.teacherPoolPct ?? 60));
       } catch (err) {
         toast.error(err instanceof Error ? err.message : "Failed to load billing");
       } finally {
@@ -71,12 +75,45 @@ export function SubscriptionBillingSettings() {
     })();
   }, []);
 
+  const onPlatformPctChange = (raw: string) => {
+    setPlatformPct(raw);
+    const n = Number(raw);
+    if (Number.isFinite(n) && n >= 0 && n <= 100) {
+      setTeacherPoolPct(String(Math.round((100 - n) * 100) / 100));
+    }
+  };
+
+  const onTeacherPoolPctChange = (raw: string) => {
+    setTeacherPoolPct(raw);
+    const n = Number(raw);
+    if (Number.isFinite(n) && n >= 0 && n <= 100) {
+      setPlatformPct(String(Math.round((100 - n) * 100) / 100));
+    }
+  };
+
   const save = async () => {
     const token = getClientCookie("session_token");
     if (!token) return;
     const value = Number(fee);
     if (paymentMode !== "QUIZ_ONLY" && (!Number.isFinite(value) || value < 0)) {
       toast.error("Enter a valid monthly fee (LKR)");
+      return;
+    }
+    const platform = Number(platformPct);
+    const teacherPool = Number(teacherPoolPct);
+    if (
+      !Number.isFinite(platform) ||
+      !Number.isFinite(teacherPool) ||
+      platform < 0 ||
+      teacherPool < 0 ||
+      platform > 100 ||
+      teacherPool > 100
+    ) {
+      toast.error("Revenue split percentages must be between 0 and 100");
+      return;
+    }
+    if (Math.abs(platform + teacherPool - 100) > 0.01) {
+      toast.error("Platform + teacher pool must equal 100%");
       return;
     }
     setSaving(true);
@@ -90,6 +127,8 @@ export function SubscriptionBillingSettings() {
         body: JSON.stringify({
           monthlyStudentFeeLkr: Number.isFinite(value) ? value : 0,
           paymentMode,
+          platformPct: platform,
+          teacherPoolPct: teacherPool,
         }),
       });
       if (!res.ok) {
@@ -99,6 +138,8 @@ export function SubscriptionBillingSettings() {
       const data = await res.json();
       setFee(String(data.monthlyStudentFeeLkr));
       setPaymentMode(data.paymentMode);
+      setPlatformPct(String(data.platformPct ?? platform));
+      setTeacherPoolPct(String(data.teacherPoolPct ?? teacherPool));
       toast.success("Payment settings saved");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Save failed");
@@ -182,6 +223,44 @@ export function SubscriptionBillingSettings() {
             Monthly subscription is off. Teachers must set a Price (LKR) on every locked quiz.
           </p>
         )}
+
+        <Field className="gap-1.5">
+          <FieldLabel>Teacher revenue split</FieldLabel>
+          <FieldDescription>
+            Of monthly subscription revenue, this share goes to the teacher pool (split by
+            completed quiz attempts). Platform quizzes are excluded from the pool.
+          </FieldDescription>
+          <div className="mt-2 grid gap-3 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="platform-pct" className="text-xs text-muted-foreground">
+                Platform %
+              </Label>
+              <Input
+                id="platform-pct"
+                type="number"
+                min={0}
+                max={100}
+                step={1}
+                value={platformPct}
+                onChange={(e) => onPlatformPctChange(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="teacher-pool-pct" className="text-xs text-muted-foreground">
+                Teacher pool %
+              </Label>
+              <Input
+                id="teacher-pool-pct"
+                type="number"
+                min={0}
+                max={100}
+                step={1}
+                value={teacherPoolPct}
+                onChange={(e) => onTeacherPoolPctChange(e.target.value)}
+              />
+            </div>
+          </div>
+        </Field>
 
         <div className="flex items-center justify-between gap-3">
           <Label className="text-xs text-muted-foreground">

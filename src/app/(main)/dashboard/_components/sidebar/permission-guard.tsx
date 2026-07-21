@@ -79,6 +79,7 @@ function decidePath(
     pathname.startsWith("/admin/quizzes/new") ||
     pathname.startsWith("/admin/courses") ||
     pathname.startsWith("/admin/teacher-page") ||
+    pathname.startsWith("/admin/earnings") ||
     pathname === "/admin/questions" ||
     pathname.startsWith("/admin/questions/") ||
     /^\/admin\/quizzes\/[^/]+\/edit$/.test(pathname) ||
@@ -104,6 +105,7 @@ function decidePath(
     pathname.startsWith("/admin/users") ||
     pathname.startsWith("/admin/roles") ||
     pathname.startsWith("/admin/payments") ||
+    pathname.startsWith("/admin/revenue") ||
     pathname.startsWith("/admin/settings") ||
     pathname.startsWith("/admin/backup") ||
     pathname.startsWith("/admin/logs");
