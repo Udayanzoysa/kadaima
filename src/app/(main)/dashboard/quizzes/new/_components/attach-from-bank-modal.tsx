@@ -21,7 +21,9 @@ import { Spinner } from "@/components/ui/spinner";
 import { APP_CONFIG } from "@/config/app-config";
 import { getClientCookie } from "@/lib/cookie.client";
 import {
+  filledLocales,
   hasAllLocaleContent,
+  hasLocaleContent,
   localize,
   type BankQuestion,
   type LocalizedText,
@@ -58,10 +60,16 @@ export function AttachFromBankModal({ excludeIds, languages, onAttach }: Props) 
   const [selectedTag, setSelectedTag] = useState<string>("");
   const [quizzes, setQuizzes] = useState<Array<{ id: string; title: LocalizedText }>>([]);
   const [selectedQuizId, setSelectedQuizId] = useState<string>("");
+  const [selectedLanguage, setSelectedLanguage] = useState<SupportedLocale | "">("");
 
   const excludeSet = useMemo(() => new Set(excludeIds), [excludeIds]);
 
-  const load = useCallback(async (pageNum: number, tagFilter = selectedTag, quizFilter = selectedQuizId) => {
+  const load = useCallback(async (
+    pageNum: number,
+    tagFilter = selectedTag,
+    quizFilter = selectedQuizId,
+    langFilter = selectedLanguage
+  ) => {
     const token = getClientCookie("session_token");
     if (!token) return;
     setLoading(true);
@@ -78,9 +86,10 @@ export function AttachFromBankModal({ excludeIds, languages, onAttach }: Props) 
       const data = (await res.json()) as PaginatedResponse | BankQuestion[];
 
       if (Array.isArray(data)) {
-        const compatible = data.filter((q) =>
-          hasAllLocaleContent(q.questionText as LocalizedText, languages, 3),
-        );
+        const compatible = data.filter((q) => {
+          if (!langFilter) return true;
+          return hasLocaleContent(q.questionText as LocalizedText, langFilter, 3);
+        });
         const start = (pageNum - 1) * PAGE_SIZE;
         const slice = compatible.slice(start, start + PAGE_SIZE);
         setItems(slice);
@@ -88,9 +97,10 @@ export function AttachFromBankModal({ excludeIds, languages, onAttach }: Props) 
         setTotalPages(Math.max(1, Math.ceil(compatible.length / PAGE_SIZE)));
         setPage(pageNum);
       } else {
-        const filtered = (data.items ?? []).filter((q) =>
-          hasAllLocaleContent(q.questionText as LocalizedText, languages, 3),
-        );
+        const filtered = (data.items ?? []).filter((q) => {
+          if (!langFilter) return true;
+          return hasLocaleContent(q.questionText as LocalizedText, langFilter, 3);
+        });
         setItems(filtered);
         setTotal(filtered.length);
         setTotalPages(Math.max(1, data.totalPages ?? 1));
@@ -101,7 +111,7 @@ export function AttachFromBankModal({ excludeIds, languages, onAttach }: Props) 
     } finally {
       setLoading(false);
     }
-  }, [languages, selectedTag, selectedQuizId]);
+  }, [selectedTag, selectedQuizId, selectedLanguage]);
 
   useEffect(() => {
     if (!open) return;
@@ -130,8 +140,8 @@ export function AttachFromBankModal({ excludeIds, languages, onAttach }: Props) 
     if (!open) return;
     setSelected(new Map());
     setPage(1);
-    void load(1, selectedTag, selectedQuizId);
-  }, [open, load, selectedTag, selectedQuizId]);
+    void load(1, selectedTag, selectedQuizId, selectedLanguage);
+  }, [open, load, selectedTag, selectedQuizId, selectedLanguage]);
 
   const visibleIds = items.map((q) => q.id).filter((id) => !excludeSet.has(id));
   const allVisibleSelected =
@@ -172,7 +182,6 @@ export function AttachFromBankModal({ excludeIds, languages, onAttach }: Props) 
   };
 
   const previewLang = languages[0] ?? "en";
-  const langList = languages.map((l) => l.toUpperCase()).join(" + ");
   const textAt = (q: BankQuestion) => localize(q.questionText as LocalizedText, previewLang);
 
   return (
@@ -187,12 +196,11 @@ export function AttachFromBankModal({ excludeIds, languages, onAttach }: Props) 
         <DialogHeader className="shrink-0 border-b px-6 py-4">
           <DialogTitle>Attach from question bank</DialogTitle>
           <DialogDescription>
-            Only questions that include {langList} text are shown — this quiz uses{" "}
-            {langList}.
+            Attach questions from the shared bank to your quiz. Filter by tag, quiz, or language.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="grid grid-cols-2 gap-3 border-b bg-muted/10 px-6 py-3">
+        <div className="grid grid-cols-3 gap-3 border-b bg-muted/10 px-6 py-3">
           <div>
             <label className="text-[10px] uppercase font-semibold text-muted-foreground block mb-1">Filter by Tag</label>
             <select
@@ -223,6 +231,19 @@ export function AttachFromBankModal({ excludeIds, languages, onAttach }: Props) 
               ))}
             </select>
           </div>
+          <div>
+            <label className="text-[10px] uppercase font-semibold text-muted-foreground block mb-1">Filter by Language</label>
+            <select
+              className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-xs shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              value={selectedLanguage}
+              onChange={(e) => setSelectedLanguage(e.target.value as SupportedLocale | "")}
+            >
+              <option value="">All Languages</option>
+              <option value="en">English</option>
+              <option value="si">Sinhala</option>
+              <option value="ta">Tamil</option>
+            </select>
+          </div>
         </div>
 
         <div className="flex shrink-0 items-center justify-between gap-3 border-b bg-muted/30 px-6 py-2">
@@ -250,7 +271,7 @@ export function AttachFromBankModal({ excludeIds, languages, onAttach }: Props) 
             </div>
           ) : items.length === 0 ? (
             <p className="py-10 text-center text-muted-foreground text-sm">
-              No published questions with {langList} text in the bank.
+              No published questions matching the filters found in the bank.
             </p>
           ) : (
             <ul className="space-y-2">
@@ -278,7 +299,9 @@ export function AttachFromBankModal({ excludeIds, languages, onAttach }: Props) 
                             {q.type?.replace("_", " ") ?? "MCQ"}
                           </Badge>
                           <Badge variant="secondary" className="text-[10px] uppercase">
-                            {langList}
+                            {filledLocales(q.questionText as LocalizedText, 3)
+                              .map((l) => l.toUpperCase())
+                              .join(" + ")}
                           </Badge>
                           <span className="text-muted-foreground text-xs">{q.points} pts</span>
                           {attached && (

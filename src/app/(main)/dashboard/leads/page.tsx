@@ -35,13 +35,14 @@ export default function LeadsPage() {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(true);
+  const [pageSize, setPageSize] = useState(10);
 
-  const fetchLeads = async (pageNum: number) => {
+  const fetchLeads = async (pageNum: number, currentSize = pageSize) => {
     const token = getClientCookie("session_token");
     if (!token) return;
     setLoading(true);
     try {
-      const res = await fetch(`${APP_CONFIG.apiUrl}/support/chat/leads?page=${pageNum}&pageSize=15`, {
+      const res = await fetch(`${APP_CONFIG.apiUrl}/support/chat/leads?page=${pageNum}&pageSize=${currentSize}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) throw new Error("Failed to load leads");
@@ -177,32 +178,52 @@ export default function LeadsPage() {
                 </table>
               </div>
               
-              {totalPages > 1 && (
-                <div className="flex items-center justify-between border-t border-slate-100 px-6 py-3">
-                  <span className="text-slate-500 text-xs">
-                    Page <span className="font-semibold">{page}</span> of{" "}
-                    <span className="font-semibold">{totalPages}</span>
-                  </span>
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      disabled={page <= 1}
-                      onClick={() => void fetchLeads(page - 1)}
-                    >
-                      Previous
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      disabled={page >= totalPages}
-                      onClick={() => void fetchLeads(page + 1)}
-                    >
-                      Next
-                    </Button>
-                  </div>
+              <div className="flex items-center justify-between border-t border-slate-100 px-6 py-3">
+                <div className="flex items-center gap-2">
+                  <span className="text-slate-500 text-xs">Rows per page:</span>
+                  <select
+                    className="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-[#1563b8]"
+                    value={pageSize}
+                    onChange={(e) => {
+                      const newSize = Number(e.target.value);
+                      setPageSize(newSize);
+                      void fetchLeads(1, newSize);
+                    }}
+                  >
+                    {[10, 20, 40, 50].map((sz) => (
+                      <option key={sz} value={sz}>
+                        {sz}
+                      </option>
+                    ))}
+                  </select>
                 </div>
-              )}
+                {totalPages > 1 && (
+                  <div className="flex items-center gap-4">
+                    <span className="text-slate-500 text-xs">
+                      Page <span className="font-semibold">{page}</span> of{" "}
+                      <span className="font-semibold">{totalPages}</span>
+                    </span>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={page <= 1}
+                        onClick={() => void fetchLeads(page - 1)}
+                      >
+                        Previous
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={page >= totalPages}
+                        onClick={() => void fetchLeads(page + 1)}
+                      >
+                        Next
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
             </>
           )}
         </CardContent>

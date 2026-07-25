@@ -70,17 +70,18 @@ export function ManageCoursesList() {
   const [bulkBusy, setBulkBusy] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
   const [bulkStatus, setBulkStatus] = useState<CourseStatus | "">("");
 
-  const load = useCallback(async (pageNum = page) => {
+  const load = useCallback(async (pageNum = page, currentSize = pageSize) => {
     const token = getClientCookie("session_token");
     if (!token) return;
     setLoading(true);
     try {
       const res = await fetch(
-        `${APP_CONFIG.apiUrl}/courses?page=${pageNum}&pageSize=${PAGE_SIZE}`,
+        `${APP_CONFIG.apiUrl}/courses?page=${pageNum}&pageSize=${currentSize}`,
         { headers: { Authorization: `Bearer ${token}` } },
       );
       if (!res.ok) throw new Error("Failed to load courses");
@@ -103,11 +104,11 @@ export function ManageCoursesList() {
     } finally {
       setLoading(false);
     }
-  }, [page]);
+  }, [pageSize]);
 
   useEffect(() => {
-    void load(page);
-  }, [page]); // eslint-disable-line react-hooks/exhaustive-deps -- reload on page change only
+    void load(page, pageSize);
+  }, [page, pageSize, load]); // eslint-disable-line react-hooks/exhaustive-deps -- reload on dependencies change
 
   const authHeaders = () => ({
     Authorization: `Bearer ${getClientCookie("session_token")}`,
@@ -445,10 +446,30 @@ export function ManageCoursesList() {
           </div>
 
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <p className="text-muted-foreground text-sm">
-              Showing {(page - 1) * PAGE_SIZE + 1}–
-              {Math.min(page * PAGE_SIZE, total)} of {total}
-            </p>
+            <div className="flex items-center gap-4">
+              <p className="text-muted-foreground text-sm">
+                Showing {total === 0 ? 0 : (page - 1) * pageSize + 1}–
+                {Math.min(page * pageSize, total)} of {total}
+              </p>
+              <div className="flex items-center gap-2">
+                <span className="text-slate-500 text-xs">Rows per page:</span>
+                <select
+                  className="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-[#1563b8]"
+                  value={pageSize}
+                  onChange={(e) => {
+                    const newSize = Number(e.target.value);
+                    setPageSize(newSize);
+                    setPage(1);
+                  }}
+                >
+                  {[10, 20, 40, 50].map((sz) => (
+                    <option key={sz} value={sz}>
+                      {sz}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
             <div className="flex items-center gap-2">
               <Button
                 type="button"
