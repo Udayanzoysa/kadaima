@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useCallback, useEffect, useState } from "react";
 
@@ -79,6 +79,7 @@ export function QuestionEditor({ questionId }: QuestionEditorProps) {
   const [numMax, setNumMax] = useState("");
   const [minWords, setMinWords] = useState("");
   const [minSentences, setMinSentences] = useState("");
+  const [tags, setTags] = useState<string[]>([]);
   const [loading, setLoading] = useState(isEdit);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -99,6 +100,7 @@ export function QuestionEditor({ questionId }: QuestionEditorProps) {
         setType(data.type);
         setPoints(data.points);
         setStatus(data.status);
+        setTags(data.tags ?? []);
         setImageUrl(data.imageUrl ?? null);
         setContentFormat(data.config?.contentFormat === "html" ? "html" : "plain");
         setAcceptedAnswers((data.config?.acceptedAnswers ?? []).join("\n"));
@@ -271,6 +273,7 @@ export function QuestionEditor({ questionId }: QuestionEditorProps) {
         type,
         imageUrl,
         config: buildConfig(),
+        tags,
         choices: needsChoices
           ? choices.map((c) => ({
               choiceText: c.choiceText,
@@ -489,6 +492,18 @@ export function QuestionEditor({ questionId }: QuestionEditorProps) {
               </Select>
             </Field>
           </div>
+
+          <Field>
+            <FieldLabel>Tags / Labels (comma-separated)</FieldLabel>
+            <Input
+              placeholder="e.g. Sinhala Paper, Science Unit 1"
+              value={tags.join(", ")}
+              onChange={(e) => {
+                const val = e.target.value;
+                setTags(val.split(",").map((s) => s.trim()).filter(Boolean));
+              }}
+            />
+          </Field>
 
           {type === "SHORT_TEXT" && (
             <div className="space-y-3 rounded-lg border p-4">

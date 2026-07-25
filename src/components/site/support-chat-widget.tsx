@@ -64,6 +64,8 @@ function ChatBotAvatar({
   );
 }
 
+import { toast } from "sonner";
+
 export function SupportChatWidget() {
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
@@ -78,6 +80,46 @@ export function SupportChatWidget() {
   const whatsappUrl =
     APP_CONFIG.whatsappUrl ??
     "https://wa.me/94775075179?text=" + encodeURIComponent("Hi Kadaima!");
+
+  const [leadSubmitted, setLeadSubmitted] = useState(() => {
+    try {
+      return sessionStorage.getItem("kadaima-chat-lead-submitted") === "1";
+    } catch {
+      return false;
+    }
+  });
+  const [formName, setFormName] = useState("");
+  const [formAge, setFormAge] = useState("");
+  const [formMobile, setFormMobile] = useState("");
+  const [formEmail, setFormEmail] = useState("");
+  const [formSubmitting, setFormSubmitting] = useState(false);
+  const [lead, setLead] = useState<{ name: string; age: number; email: string; mobileNumber: string } | null>(() => {
+    try {
+      const stored = sessionStorage.getItem("kadaima-chat-lead");
+      return stored ? JSON.parse(stored) : null;
+    } catch {
+      return null;
+    }
+  });
+
+  const suggestions = useMemo(() => {
+    if (!messages.length) return [];
+    const last = messages[messages.length - 1];
+    if (last.role !== "assistant") return [];
+
+    const lines = last.text.split("\n");
+    const found: string[] = [];
+    for (const line of lines) {
+      const match = line.match(/^(\d+\.|[-*•])\s*(.+)$/);
+      if (match) {
+        const text = match[2].trim().replace(/\*\*|__/g, "");
+        if (text.length > 2 && text.length < 50) {
+          found.push(text);
+        }
+      }
+    }
+    return found;
+  }, [messages]);
 
   useEffect(() => {
     try {
@@ -135,19 +177,87 @@ export function SupportChatWidget() {
     );
   };
 
-  const sendMessage = async () => {
-    const text = input.trim();
+  const handleLeadSubmit = async () => {
+    if (!formName.trim() || !formAge.trim() || !formMobile.trim() || !formEmail.trim()) {
+      toast.error("Please fill in all fields.");
+      return;
+    }
+    setFormSubmitting(true);
+    const leadData = {
+      name: formName.trim(),
+      age: Number(formAge),
+      mobileNumber: formMobile.trim(),
+      email: formEmail.trim(),
+    };
+    try {
+      const res = await fetch(`${APP_CONFIG.apiUrl}/support/chat/leads`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(leadData),
+      });
+      if (!res.ok) throw new Error("Failed to save lead");
+
+      sessionStorage.setItem("kadaima-chat-lead", JSON.stringify(leadData));
+      sessionStorage.setItem("kadaima-chat-lead-submitted", "1");
+      setLead(leadData);
+      setLeadSubmitted(true);
+
+      const introMsg = `Hi! My name is ${leadData.name}, and I am ${leadData.age} years old. Please provide personalized learning options tailored to what students are currently studying in Sri Lankan schools.`;
+      setMessages((prev) => [
+        ...prev,
+        { id: randomId(), role: "user", text: introMsg },
+      ]);
+
+      setSending(true);
+      const chatRes = await fetch(`${APP_CONFIG.apiUrl}/support/chat`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: introMsg,
+          sessionId,
+          lead: leadData,
+          history: [],
+        }),
+      });
+      if (!chatRes.ok) throw new Error("Chat request failed");
+      const data = await chatRes.json();
+      setMessages((prev) => [
+        ...prev,
+        { id: randomId(), role: "assistant", text: data.reply ?? t("public.chat.errorMessage") },
+      ]);
+    } catch (err) {
+      toast.error("An error occurred. Please try again.");
+    } finally {
+      setFormSubmitting(false);
+      setSending(false);
+    }
+  };
+
+  const sendMessage = async (overrideText?: string) => {
+    const text = (overrideText ?? input).trim();
     if (!text || sending) return;
 
-    setInput("");
+    if (!overrideText) {
+      setInput("");
+    }
     setMessages((prev) => [...prev, { id: randomId(), role: "user", text }]);
     setSending(true);
 
     try {
+      const historyPayload = messages.map((m) => ({
+        role: m.role,
+        text: m.text,
+      }));
+
       const res = await fetch(`${APP_CONFIG.apiUrl}/support/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: text, sessionId }),
+        body: JSON.stringify({
+          message: text,
+          sessionId,
+          lead: lead ?? undefined,
+          history: historyPayload,
+        }),
       });
       if (!res.ok) throw new Error("Chat request failed");
       const data = await res.json();
@@ -220,6 +330,75 @@ export function SupportChatWidget() {
                 </div>
               </div>
             ))}
+
+            {!leadSubmitted && (
+              <div className="flex justify-start">
+                <div className="w-full max-w-[90%] rounded-2xl border border-slate-200 bg-white p-4 text-slate-700 shadow-md">
+                  <p className="font-semibold text-slate-800 text-sm mb-3">
+                    Please introduce yourself to find tailored learning options:
+                  </p>
+                  <div className="space-y-3">
+                    <div>
+                      <label className="text-[10px] uppercase font-bold text-slate-500 block mb-1">Name</label>
+                      <input
+                        type="text"
+                        required
+                        className="w-full h-8 px-2 border border-slate-200 rounded text-xs outline-none focus:border-[#1563b8]"
+                        placeholder="e.g. Nimal Perera"
+                        value={formName}
+                        onChange={(e) => setFormName(e.target.value)}
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="text-[10px] uppercase font-bold text-slate-500 block mb-1">Age</label>
+                        <input
+                          type="number"
+                          required
+                          min={1}
+                          max={100}
+                          className="w-full h-8 px-2 border border-slate-200 rounded text-xs outline-none focus:border-[#1563b8]"
+                          placeholder="e.g. 10"
+                          value={formAge}
+                          onChange={(e) => setFormAge(e.target.value)}
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[10px] uppercase font-bold text-slate-500 block mb-1">Mobile</label>
+                        <input
+                          type="tel"
+                          required
+                          className="w-full h-8 px-2 border border-slate-200 rounded text-xs outline-none focus:border-[#1563b8]"
+                          placeholder="e.g. 0771234567"
+                          value={formMobile}
+                          onChange={(e) => setFormMobile(e.target.value)}
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="text-[10px] uppercase font-bold text-slate-500 block mb-1">Email Address</label>
+                      <input
+                        type="email"
+                        required
+                        className="w-full h-8 px-2 border border-slate-200 rounded text-xs outline-none focus:border-[#1563b8]"
+                        placeholder="e.g. nimal@example.com"
+                        value={formEmail}
+                        onChange={(e) => setFormEmail(e.target.value)}
+                      />
+                    </div>
+                    <Button
+                      type="button"
+                      disabled={formSubmitting || !formName || !formAge || !formMobile || !formEmail}
+                      onClick={handleLeadSubmit}
+                      className="w-full h-8 text-xs bg-[#1563b8] hover:bg-[#114f94] text-white rounded-md mt-2 flex items-center justify-center gap-1"
+                    >
+                      {formSubmitting ? "Submitting..." : "Get Personalised Options"}
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {sending ? (
               <div className="flex justify-start">
                 <div className="rounded-2xl border border-slate-200 bg-white px-3.5 py-2 text-slate-400 text-xs italic">
@@ -227,6 +406,23 @@ export function SupportChatWidget() {
                 </div>
               </div>
             ) : null}
+
+            {suggestions.length > 0 && !sending && (
+              <div className="flex flex-wrap gap-1.5 py-1">
+                {suggestions.map((s, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => {
+                      void sendMessage(s);
+                    }}
+                    className="rounded-full border border-[#1563b8]/30 bg-white px-3 py-1 text-left text-[#1563b8] text-[11px] font-medium transition hover:bg-[#1563b8]/5 shadow-sm"
+                  >
+                    {s}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           <form
@@ -239,14 +435,13 @@ export function SupportChatWidget() {
             <input
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder={t("public.chat.placeholder")}
-              disabled={sending}
+              placeholder={leadSubmitted ? t("public.chat.placeholder") : "Introduce yourself above first..."}
+              disabled={sending || !leadSubmitted}
               className="h-9 flex-1 rounded-full border border-slate-200 bg-slate-50 px-3.5 text-sm outline-none focus-visible:border-[#1563b8] focus-visible:ring-2 focus-visible:ring-[#1563b8]/20 disabled:opacity-60"
             />
             <Button
               type="submit"
-              size="icon"
-              disabled={sending || !input.trim()}
+              disabled={sending || !leadSubmitted || !input.trim()}
               className="size-9 shrink-0 rounded-full bg-[#1563b8] hover:bg-[#114f94]"
               aria-label={t("public.chat.send")}
             >

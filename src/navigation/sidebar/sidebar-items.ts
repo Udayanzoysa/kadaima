@@ -1,4 +1,4 @@
-﻿import {
+import {
   ClipboardList,
   BookOpen,
   CreditCard,
@@ -163,6 +163,12 @@ export const sidebarItems: NavGroup[] = [
         title: "System Logs",
         url: "/admin/logs",
         icon: ScrollText,
+      },
+      {
+        id: "leads",
+        title: "Leads",
+        url: "/admin/leads",
+        icon: Users,
       },
     ],
   },

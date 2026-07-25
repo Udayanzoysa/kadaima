@@ -117,11 +117,12 @@ export function BulkImportQuestions({ onImported, variant = "outline" }: Props) 
   const handleCsvFile = async (file: File) => {
     const name = file.name.toLowerCase();
     if (!name.endsWith(".csv") && !name.endsWith(".txt")) {
-      toast.error("Please upload a .csv file (Excel: File → Save As → CSV)");
+      toast.error("Please upload a .csv or .txt file");
       return;
     }
     const text = await file.text();
-    const { questions, issues: nextIssues } = parseQuestionsCsv(text);
+    const isAiken = name.endsWith(".txt") || text.toLowerCase().includes("answer:") || !text.includes(",");
+    const { questions, issues: nextIssues } = isAiken ? parseAiken(text) : parseQuestionsCsv(text);
     applyParse(questions, nextIssues, file.name);
   };
 
@@ -180,9 +181,10 @@ export function BulkImportQuestions({ onImported, variant = "outline" }: Props) 
         </DialogHeader>
 
         <Tabs defaultValue="csv" className="gap-4">
-          <TabsList className="grid w-full grid-cols-2">
+          <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="csv">CSV / Excel</TabsTrigger>
             <TabsTrigger value="aiken">Aiken text</TabsTrigger>
+            <TabsTrigger value="guide">Syntax Guide</TabsTrigger>
           </TabsList>
 
           <TabsContent value="csv" className="space-y-4">
@@ -212,10 +214,10 @@ export function BulkImportQuestions({ onImported, variant = "outline" }: Props) 
             </div>
             <label className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border border-dashed px-4 py-8 text-sm hover:bg-muted/40">
               <FileUp className="size-6 text-muted-foreground" />
-              <span>{fileName ? fileName : "Choose .csv file"}</span>
+              <span>{fileName ? fileName : "Choose .csv or .txt file"}</span>
               <input
                 type="file"
-                accept=".csv,text/csv"
+                accept=".csv,text/csv,.txt,text/plain"
                 className="hidden"
                 onChange={(e) => {
                   const file = e.target.files?.[0];
@@ -263,6 +265,82 @@ export function BulkImportQuestions({ onImported, variant = "outline" }: Props) 
               <Button type="button" size="sm" onClick={handleParseAiken} disabled={!aikenText.trim()}>
                 Parse text
               </Button>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="guide" className="space-y-4 max-h-[50vh] overflow-y-auto pr-2 text-xs">
+            <div className="space-y-4">
+              <div className="rounded-md border p-3 bg-muted/20">
+                <h4 className="font-semibold text-sm mb-1 text-foreground">Aiken Syntax Rules</h4>
+                <p className="text-muted-foreground mb-2">
+                  Use double newlines to separate questions. Add metadata properties at the bottom of a block.
+                </p>
+                <ul className="list-disc list-inside space-y-1 text-muted-foreground">
+                  <li><strong className="text-foreground">POINTS:</strong> Point weight (e.g. <code className="bg-muted px-1 rounded">POINTS: 2</code>)</li>
+                  <li><strong className="text-foreground">STATUS:</strong> Draft, Published, or Archived</li>
+                  <li><strong className="text-foreground">TAGS:</strong> Comma-separated labels (e.g. <code className="bg-muted px-1 rounded">TAGS: Math, Science</code>)</li>
+                </ul>
+              </div>
+
+              <div className="space-y-2">
+                <h5 className="font-semibold text-foreground text-sm">Question Types Syntax</h5>
+                
+                <div className="space-y-2">
+                  <div className="p-2 border rounded-md">
+                    <strong className="text-foreground block mb-1">1. Multiple Choice (MCQ)</strong>
+                    <pre className="bg-muted p-2 rounded text-[10px] font-mono whitespace-pre">
+{`EN: What is the capital of Sri Lanka?
+SI: ශ්‍රී ලංකාවේ අගනුවර කුමක්ද?
+A. Colombo
+A-SI: කොළඹ
+B. Kandy
+B-SI: මහනුවර
+ANSWER: A`}
+                    </pre>
+                  </div>
+
+                  <div className="p-2 border rounded-md">
+                    <strong className="text-foreground block mb-1">2. Fill in the Blank (SHORT_TEXT)</strong>
+                    <pre className="bg-muted p-2 rounded text-[10px] font-mono whitespace-pre">
+{`EN: The capital of Sri Lanka is _____.
+TYPE: FILL_IN_THE_BLANK
+ANSWER: Colombo | Sri Jayawardenepura Kotte
+MATCH_MODE: case_insensitive`}
+                    </pre>
+                  </div>
+
+                  <div className="p-2 border rounded-md">
+                    <strong className="text-foreground block mb-1">3. Numeric Answer (NUMERIC)</strong>
+                    <pre className="bg-muted p-2 rounded text-[10px] font-mono whitespace-pre">
+{`EN: What is 2 + 2?
+TYPE: NUMERIC
+ANSWER: 4
+TOLERANCE: 0`}
+                    </pre>
+                  </div>
+
+                  <div className="p-2 border rounded-md">
+                    <strong className="text-foreground block mb-1">4. Sequencing (SEQUENCE)</strong>
+                    <pre className="bg-muted p-2 rounded text-[10px] font-mono whitespace-pre">
+{`EN: Arrange in order:
+TYPE: SEQUENCE
+A. Boil water
+B. Steep tea leaves
+C. Serve hot`}
+                    </pre>
+                  </div>
+
+                  <div className="p-2 border rounded-md">
+                    <strong className="text-foreground block mb-1">5. Free-text Essay (ESSAY)</strong>
+                    <pre className="bg-muted p-2 rounded text-[10px] font-mono whitespace-pre">
+{`EN: Write about climate change.
+TYPE: ESSAY
+MIN_WORDS: 100
+MIN_SENTENCES: 5`}
+                    </pre>
+                  </div>
+                </div>
+              </div>
             </div>
           </TabsContent>
         </Tabs>

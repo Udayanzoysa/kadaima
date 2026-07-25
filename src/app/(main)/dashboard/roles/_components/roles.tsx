@@ -109,6 +109,7 @@ const MODULES_LIST = [
   { subject: "ROLES", label: "Roles", subtext: "Role" },
   { subject: "DASHBOARD_ACCESS", label: "Dashboard Access", subtext: "Dashboard Access" },
   { subject: "REPORTS", label: "Reports", subtext: "Report" },
+  { subject: "LEADS", label: "Leads", subtext: "Lead" },
 ];
 const ACTIONS_LIST = [
   { action: "READ", label: "View" },

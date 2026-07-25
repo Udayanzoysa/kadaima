@@ -54,18 +54,26 @@ export function AttachFromBankModal({ excludeIds, languages, onAttach }: Props) 
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
   const [selected, setSelected] = useState<Map<string, BankQuestion>>(new Map());
+  const [tags, setTags] = useState<string[]>([]);
+  const [selectedTag, setSelectedTag] = useState<string>("");
+  const [quizzes, setQuizzes] = useState<Array<{ id: string; title: LocalizedText }>>([]);
+  const [selectedQuizId, setSelectedQuizId] = useState<string>("");
 
   const excludeSet = useMemo(() => new Set(excludeIds), [excludeIds]);
 
-  const load = useCallback(async (pageNum: number) => {
+  const load = useCallback(async (pageNum: number, tagFilter = selectedTag, quizFilter = selectedQuizId) => {
     const token = getClientCookie("session_token");
     if (!token) return;
     setLoading(true);
     try {
-      const res = await fetch(
-        `${APP_CONFIG.apiUrl}/questions?status=Published&page=${pageNum}&pageSize=${PAGE_SIZE}`,
-        { headers: { Authorization: `Bearer ${token}` } },
-      );
+      let url = `${APP_CONFIG.apiUrl}/questions?status=Published&page=${pageNum}&pageSize=${PAGE_SIZE}`;
+      if (tagFilter) {
+        url += `&tag=${encodeURIComponent(tagFilter)}`;
+      }
+      if (quizFilter) {
+        url += `&quizId=${encodeURIComponent(quizFilter)}`;
+      }
+      const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
       if (!res.ok) throw new Error("Failed to load question bank");
       const data = (await res.json()) as PaginatedResponse | BankQuestion[];
 
@@ -93,14 +101,37 @@ export function AttachFromBankModal({ excludeIds, languages, onAttach }: Props) 
     } finally {
       setLoading(false);
     }
-  }, [languages]);
+  }, [languages, selectedTag, selectedQuizId]);
+
+  useEffect(() => {
+    if (!open) return;
+    const token = getClientCookie("session_token");
+    if (!token) return;
+
+    fetch(`${APP_CONFIG.apiUrl}/questions/tags`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((res) => (res.ok ? res.json() : []))
+      .then((data) => setTags(data))
+      .catch(() => {});
+
+    fetch(`${APP_CONFIG.apiUrl}/quizzes`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((res) => (res.ok ? res.json() : []))
+      .then((data) => {
+        const items = Array.isArray(data) ? data : data.items ?? [];
+        setQuizzes(items);
+      })
+      .catch(() => {});
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
     setSelected(new Map());
     setPage(1);
-    void load(1);
-  }, [open, load]);
+    void load(1, selectedTag, selectedQuizId);
+  }, [open, load, selectedTag, selectedQuizId]);
 
   const visibleIds = items.map((q) => q.id).filter((id) => !excludeSet.has(id));
   const allVisibleSelected =
@@ -160,6 +191,39 @@ export function AttachFromBankModal({ excludeIds, languages, onAttach }: Props) 
             {langList}.
           </DialogDescription>
         </DialogHeader>
+
+        <div className="grid grid-cols-2 gap-3 border-b bg-muted/10 px-6 py-3">
+          <div>
+            <label className="text-[10px] uppercase font-semibold text-muted-foreground block mb-1">Filter by Tag</label>
+            <select
+              className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-xs shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              value={selectedTag}
+              onChange={(e) => setSelectedTag(e.target.value)}
+            >
+              <option value="">All Tags</option>
+              {tags.map((t) => (
+                <option key={t} value={t}>
+                  {t}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="text-[10px] uppercase font-semibold text-muted-foreground block mb-1">Filter by Quiz</label>
+            <select
+              className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-xs shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              value={selectedQuizId}
+              onChange={(e) => setSelectedQuizId(e.target.value)}
+            >
+              <option value="">All Quizzes</option>
+              {quizzes.map((q) => (
+                <option key={q.id} value={q.id}>
+                  {localize(q.title, previewLang)}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
 
         <div className="flex shrink-0 items-center justify-between gap-3 border-b bg-muted/30 px-6 py-2">
           <label className="flex items-center gap-2 text-sm">

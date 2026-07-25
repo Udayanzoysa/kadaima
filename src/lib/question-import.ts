@@ -13,6 +13,7 @@ export type ImportQuestionPayload = {
   status: QuestionStatus;
   imageUrl: null;
   config: QuestionConfig;
+  tags?: string[];
   choices: Array<{ choiceText: LocalizedText; isCorrect: boolean }>;
 };
 
@@ -292,7 +293,7 @@ function buildFromRow(
   const statusRaw = (get("status") || "Draft").trim();
   const status: QuestionStatus = STATUSES.has(statusRaw as QuestionStatus)
     ? (statusRaw as QuestionStatus)
-    : "Draft";
+     : "Draft";
 
   const options = OPTION_LETTERS.map((letter) => readOption(get, letter)).filter(
     (o): o is LocalizedText => Boolean(o),
@@ -364,7 +365,17 @@ function buildFromRow(
     config.correctNumber = num;
     const tol = Number(get("tolerance") || "0");
     config.tolerance = Number.isFinite(tol) ? tol : 0;
+  } else if (type === "ESSAY") {
+    const minW = Number(get("min_words") || "");
+    if (Number.isFinite(minW) && minW > 0) config.minWords = minW;
+    const minS = Number(get("min_sentences") || "");
+    if (Number.isFinite(minS) && minS > 0) config.minSentences = minS;
   }
+
+  const tagsRaw = get("tags") || get("labels") || "";
+  const tags = tagsRaw
+    ? tagsRaw.split(",").map((t) => t.trim()).filter(Boolean)
+    : [];
 
   return {
     question: {
@@ -374,6 +385,7 @@ function buildFromRow(
       status,
       imageUrl: null,
       config,
+      tags,
       choices,
     },
   };
@@ -453,26 +465,67 @@ export function parseAiken(text: string): ParseResult {
 
   blocks.forEach((block, bi) => {
     const lines = block.split("\n").map((l) => l.trim()).filter(Boolean);
-    if (lines.length < 3) {
-      issues.push({ row: bi + 1, message: "Aiken block needs question, options, and ANSWER" });
-      return;
+    if (lines.length === 0) return;
+
+    // Detect type
+    let questionType: QuestionType = "MCQ";
+    const typeLine = lines.find((l) => /^TYPE\s*:/i.test(l));
+    if (typeLine) {
+      const typeStr = typeLine.replace(/^TYPE\s*:/i, "").trim().toUpperCase();
+      if (typeStr === "FILL_IN_THE_BLANK" || typeStr === "FILL_IN" || typeStr === "SHORT_TEXT" || typeStr === "SHORT") {
+        questionType = "SHORT_TEXT";
+      } else if (typeStr === "NUMERIC" || typeStr === "NUMBER") {
+        questionType = "NUMERIC";
+      } else if (typeStr === "SEQUENCE" || typeStr === "SEQUENCING" || typeStr === "ORDER") {
+        questionType = "SEQUENCE";
+      } else if (typeStr === "ESSAY") {
+        questionType = "ESSAY";
+      } else if (typeStr === "MCQ" || typeStr === "MULTIPLE_CHOICE") {
+        questionType = "MCQ";
+      } else {
+        issues.push({ row: bi + 1, message: `Unknown TYPE "${typeStr}", defaulting to MCQ` });
+      }
     }
 
-    const answerLineIdx = lines.findIndex((l) => /^ANSWER\s*:/i.test(l));
-    if (answerLineIdx < 0) {
-      issues.push({ row: bi + 1, message: "Missing ANSWER: line (e.g. ANSWER: A)" });
-      return;
+    // Parse metadata (points, status, tags)
+    let points = 1;
+    const pointsLine = lines.find((l) => /^POINTS\s*:/i.test(l));
+    if (pointsLine) {
+      const pts = Number(pointsLine.replace(/^POINTS\s*:/i, "").trim());
+      if (Number.isFinite(pts) && pts >= 1) points = Math.floor(pts);
     }
 
-    const answerLetter = lines[answerLineIdx].replace(/^ANSWER\s*:/i, "").trim();
-    const bodyLines = lines.slice(0, answerLineIdx);
+    let status: QuestionStatus = "Draft";
+    const statusLine = lines.find((l) => /^STATUS\s*:/i.test(l));
+    if (statusLine) {
+      const st = statusLine.replace(/^STATUS\s*:/i, "").trim();
+      const matched = [...STATUSES].find((s) => s.toLowerCase() === st.toLowerCase());
+      if (matched) status = matched;
+    }
 
+    let tags: string[] = [];
+    const tagsLine = lines.find((l) => /^(TAGS|LABELS)\s*:/i.test(l));
+    if (tagsLine) {
+      const tgRaw = tagsLine.replace(/^(TAGS|LABELS)\s*:/i, "").trim();
+      tags = tgRaw.split(",").map((t) => t.trim()).filter(Boolean);
+    }
+
+    // Question prompt lines (lines that do not start with metadata/options keywords)
     const prompt: LocalizedText = { en: "", si: "", ta: "" };
     const unprefixedPrompt: string[] = [];
+
+    const bodyLines = lines.filter((l) => {
+      // Exclude metadata/answer lines
+      if (/^(TYPE|POINTS|STATUS|TAGS|LABELS|ANSWER|ANSWER-SI|ANSWER-TA|MATCH_MODE|TOLERANCE|MIN_WORDS|MIN_SENTENCES)\s*:/i.test(l)) {
+        return false;
+      }
+      return true;
+    });
+
     const options = new Map<string, LocalizedText>();
 
     for (const line of bodyLines) {
-      // A-SI: / A-TA: / A-EN:
+      // Option letters check: A-SI: / A-TA: / A-EN: or A. English / A) English
       const optLang = line.match(/^([A-E])-(EN|SI|TA)\s*:\s*(.+)$/i);
       if (optLang) {
         const letter = optLang[1].toUpperCase();
@@ -483,7 +536,6 @@ export function parseAiken(text: string): ParseResult {
         continue;
       }
 
-      // A. English option (primary)
       const opt = line.match(/^([A-E])[.)]\s*(.+)$/i);
       if (opt) {
         const letter = opt[1].toUpperCase();
@@ -493,6 +545,7 @@ export function parseAiken(text: string): ParseResult {
         continue;
       }
 
+      // Check lang prefix (EN: / SI: / TA:)
       const langLine = parseLangPrefix(line);
       if (langLine) {
         prompt[langLine.lang] = langLine.text;
@@ -514,53 +567,150 @@ export function parseAiken(text: string): ParseResult {
       return;
     }
 
-    const orderedLetters = [...options.keys()].sort();
-    if (orderedLetters.length < 2) {
-      issues.push({
-        row: bi + 1,
-        message: "Need at least two options (A-SI: … B-SI: … or A. … B. …)",
-      });
-      return;
-    }
+    const config: QuestionConfig = { contentFormat: "plain" };
+    let choices: ImportQuestionPayload["choices"] = [];
 
-    const answerKey = answerLetter.trim().toUpperCase();
-    const correctIdx = orderedLetters.indexOf(answerKey);
-    if (correctIdx < 0) {
-      issues.push({
-        row: bi + 1,
-        message: `ANSWER letter "${answerLetter}" does not match options`,
+    if (questionType === "MCQ") {
+      const orderedLetters = [...options.keys()].sort();
+      if (orderedLetters.length < 2) {
+        issues.push({
+          row: bi + 1,
+          message: "MCQ needs at least two options (A-SI: … or A. …)",
+        });
+        return;
+      }
+      const answerLine = lines.find((l) => /^ANSWER\s*:/i.test(l));
+      if (!answerLine) {
+        issues.push({ row: bi + 1, message: "Missing ANSWER: line (e.g. ANSWER: A)" });
+        return;
+      }
+      const answerLetter = answerLine.replace(/^ANSWER\s*:/i, "").trim().toUpperCase();
+      const correctIdx = orderedLetters.indexOf(answerLetter);
+      if (correctIdx < 0) {
+        issues.push({
+          row: bi + 1,
+          message: `ANSWER letter "${answerLetter}" does not match options`,
+        });
+        return;
+      }
+      choices = orderedLetters.map((letter, i) => {
+        const t = options.get(letter)!;
+        return choiceLoc(t.en, t.si, t.ta, i === correctIdx);
       });
-      return;
+    } else if (questionType === "SEQUENCE") {
+      const orderedLetters = [...options.keys()].sort();
+      if (orderedLetters.length < 2) {
+        issues.push({
+          row: bi + 1,
+          message: "SEQUENCE needs at least two options (A-SI: … or A. …)",
+        });
+        return;
+      }
+      choices = orderedLetters.map((letter) => {
+        const t = options.get(letter)!;
+        return choiceLoc(t.en, t.si, t.ta, false);
+      });
+    } else if (questionType === "SHORT_TEXT") {
+      const answerLine = lines.find((l) => /^ANSWER\s*:/i.test(l));
+      const answerSiLine = lines.find((l) => /^ANSWER-SI\s*:/i.test(l));
+      const answerTaLine = lines.find((l) => /^ANSWER-TA\s*:/i.test(l));
+
+      const acceptedEn = answerLine ? answerLine.replace(/^ANSWER\s*:/i, "").split(/[|;]/).map((s) => s.trim()).filter(Boolean) : [];
+      const acceptedSi = answerSiLine ? answerSiLine.replace(/^ANSWER-SI\s*:/i, "").split(/[|;]/).map((s) => s.trim()).filter(Boolean) : [];
+      const acceptedTa = answerTaLine ? answerTaLine.replace(/^ANSWER-TA\s*:/i, "").split(/[|;]/).map((s) => s.trim()).filter(Boolean) : [];
+
+      const accepted = [...acceptedEn, ...acceptedSi, ...acceptedTa];
+      if (!accepted.length) {
+        issues.push({
+          row: bi + 1,
+          message: "SHORT_TEXT needs ANSWER: line (use | to separate alternative answers)",
+        });
+        return;
+      }
+      config.acceptedAnswers = accepted;
+
+      const mmLine = lines.find((l) => /^MATCH_MODE\s*:/i.test(l));
+      const mode = mmLine ? mmLine.replace(/^MATCH_MODE\s*:/i, "").trim().toLowerCase() : "case_insensitive";
+      config.matchMode = (mode === "exact" || mode === "regex") ? mode : "case_insensitive";
+    } else if (questionType === "NUMERIC") {
+      const answerLine = lines.find((l) => /^ANSWER\s*:/i.test(l));
+      if (!answerLine) {
+        issues.push({ row: bi + 1, message: "NUMERIC needs ANSWER: <number> line" });
+        return;
+      }
+      const num = Number(answerLine.replace(/^ANSWER\s*:/i, "").trim());
+      if (!Number.isFinite(num)) {
+        issues.push({ row: bi + 1, message: "NUMERIC correct must be a number" });
+        return;
+      }
+      config.correctNumber = num;
+
+      const tolLine = lines.find((l) => /^TOLERANCE\s*:/i.test(l));
+      const tol = tolLine ? Number(tolLine.replace(/^TOLERANCE\s*:/i, "").trim()) : 0;
+      config.tolerance = Number.isFinite(tol) ? tol : 0;
+    } else if (questionType === "ESSAY") {
+      const minWLine = lines.find((l) => /^MIN_WORDS\s*:/i.test(l));
+      if (minWLine) {
+        const minW = Number(minWLine.replace(/^MIN_WORDS\s*:/i, "").trim());
+        if (Number.isFinite(minW) && minW > 0) config.minWords = minW;
+      }
+      const minSLine = lines.find((l) => /^MIN_SENTENCES\s*:/i.test(l));
+      if (minSLine) {
+        const minS = Number(minSLine.replace(/^MIN_SENTENCES\s*:/i, "").trim());
+        if (Number.isFinite(minS) && minS > 0) config.minSentences = minS;
+      }
     }
 
     questions.push({
       questionText: loc(prompt.en, prompt.si, prompt.ta),
-      type: "MCQ",
-      points: 1,
-      status: "Draft",
+      type: questionType,
+      points,
+      status,
       imageUrl: null,
-      config: { contentFormat: "plain" },
-      choices: orderedLetters.map((letter, i) => {
-        const t = options.get(letter)!;
-        return choiceLoc(t.en, t.si, t.ta, i === correctIdx);
-      }),
+      config,
+      tags,
+      choices,
     });
   });
 
   return { questions, issues };
 }
 
-export const AIKEN_EXAMPLE = `SI: වයිරු
-A-SI: කකුල
-B-SI: මුහුණ
-C-SI: බඩ
-ANSWER: C
-
-EN: What is the capital of Sri Lanka?
+export const AIKEN_EXAMPLE = `EN: What is the capital of Sri Lanka?
 SI: ශ්‍රී ලංකාවේ අගනුවර කුමක්ද?
 A. Colombo
 A-SI: කොළඹ
 B. Kandy
 B-SI: මහනුවර
 ANSWER: A
+POINTS: 1
+STATUS: Published
+TAGS: Capital, General Knowledge
+
+EN: The primary visual symbol on the Sri Lankan flag is a _____.
+SI: ශ්‍රී ලංකා ධජයේ ප්‍රධාන දෘශ්‍ය සංකේතය _____ වේ.
+TYPE: FILL_IN_THE_BLANK
+ANSWER: lion | Lion
+ANSWER-SI: සිංහයා
+MATCH_MODE: case_insensitive
+TAGS: History, Flags
+
+EN: What is the value of pi to two decimal places?
+TYPE: NUMERIC
+ANSWER: 3.14
+TOLERANCE: 0.01
+TAGS: Math, Pi
+
+EN: Order the following steps in making tea:
+TYPE: SEQUENCE
+A. Boil water
+B. Steep tea bag
+C. Add milk and sugar
+TAGS: Recipe
+
+EN: Discuss the impact of the Industrial Revolution on modern society.
+TYPE: ESSAY
+MIN_WORDS: 200
+MIN_SENTENCES: 10
+TAGS: History, Essay
 `;

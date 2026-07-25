@@ -257,6 +257,7 @@ export interface BankQuestion {
   status: QuestionStatus;
   imageUrl?: string | null;
   config?: QuestionConfig | null;
+  tags?: string[];
   choices: Array<{
     id: string;
     choiceText: LocalizedText;

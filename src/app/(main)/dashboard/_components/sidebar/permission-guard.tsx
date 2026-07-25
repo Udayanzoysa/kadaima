@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { createContext, type ReactNode, useContext, useEffect, useState } from "react";
 
@@ -99,6 +99,15 @@ function decidePath(
       return { ok: false, redirectTo: "/admin/quizzes/manage" };
     }
     return { ok: true };
+  }
+
+  const isLeadsRoute = pathname.startsWith("/admin/leads");
+  if (isLeadsRoute) {
+    const hasLeadsPerm =
+      isSuperAdmin ||
+      hasPerm(allowedPermissions, "manage", "leads") ||
+      hasPerm(allowedPermissions, "read", "leads");
+    return hasLeadsPerm ? { ok: true } : { ok: false, redirectTo: "/unauthorized" };
   }
 
   const isAdminOnlyRoute =
