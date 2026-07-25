@@ -8,13 +8,16 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Spinner } from "@/components/ui/spinner";
 import { APP_CONFIG } from "@/config/app-config";
 import { getClientCookie } from "@/lib/cookie.client";
+import { cn } from "@/lib/utils";
 
 interface ChatLead {
   id: string;
   name: string;
-  email: string;
+  email: string | null;
   mobileNumber: string;
-  age: number;
+  age: number | null;
+  school: string | null;
+  tag: string;
   createdAt: string;
 }
 
@@ -61,9 +64,9 @@ export default function LeadsPage() {
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-1.5">
-        <h1 className="font-bold text-2xl tracking-tight text-slate-900">Chatbot Leads</h1>
+        <h1 className="font-bold text-2xl tracking-tight text-slate-900">Leads Tracking</h1>
         <p className="text-muted-foreground text-sm">
-          Displaying contacts and profiles collected through the landing page AI chatbot.
+          Displaying contacts and profiles collected through the chatbot and guest quiz attempts.
         </p>
       </div>
 
@@ -76,7 +79,7 @@ export default function LeadsPage() {
                 All Lead Profiles
               </CardTitle>
               <CardDescription className="text-xs">
-                Tailored educational suggestions are provided to students based on these profile properties.
+                Track and manage contacts collected from chatbot inquiries and guest users attempting quizzes.
               </CardDescription>
             </div>
             <div className="rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700">
@@ -94,7 +97,7 @@ export default function LeadsPage() {
             <div className="py-16 text-center">
               <Users className="mx-auto size-12 text-slate-300" />
               <p className="mt-4 font-medium text-slate-800 text-sm">No leads captured yet</p>
-              <p className="mt-1 text-slate-400 text-xs">Leads will appear here as users engage with the chatbot.</p>
+              <p className="mt-1 text-slate-400 text-xs">Leads will appear here as users engage with the website.</p>
             </div>
           ) : (
             <>
@@ -102,8 +105,9 @@ export default function LeadsPage() {
                 <table className="w-full text-left text-sm border-collapse">
                   <thead>
                     <tr className="bg-slate-50/30 border-b border-slate-100 text-slate-500 text-xs font-semibold uppercase tracking-wider">
-                      <th className="px-6 py-3.5">Student Name</th>
-                      <th className="px-6 py-3.5">Age & Grade Equivalent</th>
+                      <th className="px-6 py-3.5">Name</th>
+                      <th className="px-6 py-3.5">Source Tag</th>
+                      <th className="px-6 py-3.5">Age / School</th>
                       <th className="px-6 py-3.5">Mobile Number</th>
                       <th className="px-6 py-3.5">Email Address</th>
                       <th className="px-6 py-3.5">Captured Date</th>
@@ -111,19 +115,36 @@ export default function LeadsPage() {
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {leads.map((lead) => {
-                      const gradeEquiv = Math.max(1, lead.age - 5);
                       return (
                         <tr key={lead.id} className="hover:bg-slate-50/40 transition">
                           <td className="whitespace-nowrap px-6 py-4 font-medium text-slate-900">
                             {lead.name}
                           </td>
-                          <td className="whitespace-nowrap px-6 py-4 text-slate-700">
-                            <span className="inline-flex items-center gap-1">
-                              <span className="font-semibold">{lead.age}</span> yrs
-                              <span className="text-muted-foreground text-xs font-normal">
-                                · (Grade {gradeEquiv} equivalent)
-                              </span>
+                          <td className="whitespace-nowrap px-6 py-4">
+                            <span className={cn(
+                              "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ring-1 ring-inset",
+                              lead.tag === "Quiz Attempt"
+                                ? "bg-purple-50 text-purple-700 ring-purple-700/10"
+                                : "bg-blue-50 text-blue-700 ring-blue-700/10"
+                            )}>
+                              {lead.tag || "Chatbot"}
                             </span>
+                          </td>
+                          <td className="whitespace-nowrap px-6 py-4 text-slate-700">
+                            {lead.tag === "Quiz Attempt" && lead.school ? (
+                              <span className="text-sm font-medium text-slate-700">
+                                {lead.school}
+                              </span>
+                            ) : lead.age ? (
+                              <span className="inline-flex items-center gap-1">
+                                <span className="font-semibold">{lead.age}</span> yrs
+                                <span className="text-muted-foreground text-xs font-normal">
+                                  · (Grade {Math.max(1, lead.age - 5)} equivalent)
+                                </span>
+                              </span>
+                            ) : (
+                              <span className="text-muted-foreground text-xs">-</span>
+                            )}
                           </td>
                           <td className="whitespace-nowrap px-6 py-4 text-slate-600">
                             <span className="flex items-center gap-1.5">
