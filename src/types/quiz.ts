@@ -1,4 +1,4 @@
-export type SupportedLocale = "en" | "si" | "ta";
+export type SupportedLocale = "en" | "si" | "ta"; 
 
 export type LocalizedText = Record<SupportedLocale, string>;
 
