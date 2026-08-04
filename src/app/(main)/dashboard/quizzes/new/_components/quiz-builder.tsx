@@ -950,7 +950,7 @@ export function QuizBuilder({ quizId }: QuizBuilderProps) {
         sections={quizDetails.sections}
         contentLang={contentLang}
         languages={quizDetails.languages}
-        langLabel={langLabel(contentLang)}
+        langLabel={langLabel}
         uploadingQuestionId={uploadingQuestionId}
         onChange={(sections) => setQuizDetails((prev) => ({ ...prev, sections }))}
         onUploadImage={(sectionId, questionId, file) =>

@@ -25,7 +25,7 @@ type Props = {
   contentLang: SupportedLocale;
   /** All languages required for this quiz. */
   languages: SupportedLocale[];
-  langLabel: string;
+  langLabel: (lang: SupportedLocale) => string;
   uploadingQuestionId: string | null;
   onChange: (sections: QuizSectionForm[]) => void;
   onUploadImage: (sectionId: string, questionId: string, file: File) => void;
@@ -33,6 +33,11 @@ type Props = {
 
 function sectionQuestionCount(section: QuizSectionForm) {
   return section.attached.length + section.questions.length;
+}
+
+/** Selected languages whose instruction slot is still blank. */
+function missingInstructionLangs(section: QuizSectionForm, languages: SupportedLocale[]) {
+  return languages.filter((lang) => (section.instruction[lang] ?? "").trim().length === 0);
 }
 
 export function QuizSectionsPanel({
@@ -142,7 +147,6 @@ export function QuizSectionsPanel({
       </Card>
 
       {sections.map((section, sectionIndex) => {
-        const instructionValue = localize(section.instruction, contentLang);
         const startIndex = globalIndex;
 
         return (
@@ -174,11 +178,13 @@ export function QuizSectionsPanel({
             </CardHeader>
             <CardContent className="space-y-5">
               <Field>
-                <FieldLabel>Instruction / passage ({langLabel})</FieldLabel>
+                <FieldLabel>Instruction / passage ({langLabel(contentLang)})</FieldLabel>
                 <Textarea
                   rows={4}
                   placeholder="e.g. Read the following paragraph and answer the questions…"
-                  value={instructionValue}
+                  // Index directly instead of localize() so an empty slot stays visibly empty
+                  // rather than showing another language's text.
+                  value={section.instruction[contentLang] ?? ""}
                   onChange={(e) =>
                     updateSection(section.id, {
                       instruction: {
@@ -188,7 +194,14 @@ export function QuizSectionsPanel({
                     })
                   }
                 />
-                <FieldDescription>Shown above this section&apos;s questions on the student quiz page.</FieldDescription>
+                <FieldDescription>
+                  Shown above this section&apos;s questions on the student quiz page.
+                  {missingInstructionLangs(section, languages).length > 0
+                    ? ` Still needed in ${missingInstructionLangs(section, languages)
+                        .map(langLabel)
+                        .join(", ")} — switch the editing language above.`
+                    : ""}
+                </FieldDescription>
               </Field>
 
               <div className="flex flex-wrap items-center gap-2">
