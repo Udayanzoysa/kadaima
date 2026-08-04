@@ -104,30 +104,28 @@ export function PublicQuizCard({
 
       <div className="flex min-w-0 flex-1 flex-col justify-between gap-2.5 py-0.5">
         <div className={cn("min-w-0", locked && "pr-5")}>
-          <div className="flex items-start gap-2">
-            <h3 className="min-w-0 flex-1 line-clamp-1 font-[family-name:var(--font-outfit)] text-base leading-snug font-bold text-[#123a6b] sm:text-[1.0625rem]">
-              {title}
-            </h3>
-            {availableLanguages.length > 0 ? (
-              <div
-                className="flex shrink-0 flex-wrap justify-end gap-1 pt-0.5"
-                aria-label={availableLanguages.map(localeLabel).join(", ")}
-              >
-                {availableLanguages.map((code) => (
-                  <span
-                    key={code}
-                    className="inline-flex max-w-[5.5rem] items-center truncate rounded-md bg-white/70 px-1.5 py-0.5 text-[10px] font-semibold leading-none tracking-wide text-slate-600 ring-1 ring-slate-200/70"
-                    title={localeLabel(code as Locale)}
-                  >
-                    {localeLabel(code as Locale)}
-                  </span>
-                ))}
-              </div>
-            ) : null}
-          </div>
+          <h3 className="font-[family-name:var(--font-outfit)] text-base leading-snug font-bold text-[#123a6b] sm:text-[1.0625rem]">
+            {title}
+          </h3>
           <p className="mt-1 line-clamp-2 text-[13px] leading-relaxed text-slate-600 sm:text-sm">
             {description}
           </p>
+          {availableLanguages.length > 0 ? (
+            <div
+              className="mt-2 flex flex-wrap gap-1"
+              aria-label={availableLanguages.map(localeLabel).join(", ")}
+            >
+              {availableLanguages.map((code) => (
+                <span
+                  key={code}
+                  className="inline-flex max-w-[5.5rem] items-center truncate rounded-md bg-white/70 px-1.5 py-0.5 text-[10px] font-semibold leading-none tracking-wide text-slate-600 ring-1 ring-slate-200/70"
+                  title={localeLabel(code as Locale)}
+                >
+                  {localeLabel(code as Locale)}
+                </span>
+              ))}
+            </div>
+          ) : null}
           {locked ? (
             <span className="mt-2 inline-flex items-center gap-1 rounded-full bg-[#1563b8]/10 px-2.5 py-1 text-[11px] font-semibold text-[#1563b8]">
               <Crown className="size-3" strokeWidth={2.25} aria-hidden />

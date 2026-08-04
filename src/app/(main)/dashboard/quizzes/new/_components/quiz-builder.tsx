@@ -4,13 +4,11 @@ import { useCallback, useEffect, useState } from "react";
 
 import { useRouter } from "next/navigation";
 
-import { Trash2, ImagePlus } from "lucide-react";
+import { ImagePlus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
-import {
-  toBankQuestionPayload,
-  validateInlineQuestion,
-} from "@/components/quiz/inline-question-fields";
+import { SeoFieldsCard } from "@/components/admin/seo-fields-card";
+import { toBankQuestionPayload, validateInlineQuestion } from "@/components/quiz/inline-question-fields";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -19,8 +17,8 @@ import { Input } from "@/components/ui/input";
 import { RichTextEditor } from "@/components/ui/rich-text-editor";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Spinner } from "@/components/ui/spinner";
-import { useI18n } from "@/hooks/use-i18n";
 import { APP_CONFIG } from "@/config/app-config";
+import { useI18n } from "@/hooks/use-i18n";
 import { getClientCookie } from "@/lib/cookie.client";
 import { LOCALES } from "@/lib/i18n";
 import { hideGlobalLoader, showGlobalLoader } from "@/stores/global-loader-store";
@@ -28,26 +26,29 @@ import {
   type BankQuestion,
   type Course,
   type CourseModule,
-  type LocalizedText,
-  type QuizFormState,
-  type QuizSectionForm,
-  type SupportedLocale,
   createEmptySection,
   emptyLocalizedText,
   hasAllLocaleContent,
   hasLocaleContent,
   initialQuizFormState,
+  type LocalizedText,
   localize,
   mediaUrl,
   multiLocalizedText,
   normalizeQuizLanguages,
+  type QuizFormState,
+  type QuizSectionForm,
   resolveQuizLanguage,
+  type SupportedLocale,
 } from "@/types/quiz";
 
 import { QuizSectionsPanel } from "./quiz-sections-panel";
 
 function plainTextFromHtml(html: string) {
-  return html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+  return html
+    .replace(/<[^>]+>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 const QUIZ_DRAFT_COVER_KEY = "quiz-draft-cover";
@@ -136,9 +137,7 @@ export function QuizBuilder({ quizId }: QuizBuilderProps) {
     if (isEdit) return;
     const draft = readDraftCover();
     if (!draft) return;
-    setQuizDetails((prev) =>
-      prev.coverImageUrl ? prev : { ...prev, coverImageUrl: draft },
-    );
+    setQuizDetails((prev) => (prev.coverImageUrl ? prev : { ...prev, coverImageUrl: draft }));
   }, [isEdit]);
 
   useEffect(() => {
@@ -206,6 +205,8 @@ export function QuizBuilder({ quizId }: QuizBuilderProps) {
           language,
           title: data.title,
           description: data.description ?? emptyLocalizedText(),
+          seoTitle: data.seoTitle ?? "",
+          seoDescription: data.seoDescription ?? "",
           coverImageUrl: data.coverImageUrl ?? null,
           courseId: data.courseId ?? data.course?.id ?? "",
           moduleId: data.moduleId ?? data.module?.id ?? "",
@@ -269,9 +270,7 @@ export function QuizBuilder({ quizId }: QuizBuilderProps) {
 
       if (removedBank > 0) {
         const list = languages.map((l) => l.toUpperCase()).join(" + ");
-        toast.message(
-          `Removed ${removedBank} bank question${removedBank === 1 ? "" : "s"} missing ${list} text.`,
-        );
+        toast.message(`Removed ${removedBank} bank question${removedBank === 1 ? "" : "s"} missing ${list} text.`);
       }
 
       return {
@@ -353,11 +352,7 @@ export function QuizBuilder({ quizId }: QuizBuilderProps) {
 
   const coverPreview = mediaUrl(quizDetails.coverImageUrl, APP_CONFIG.apiUrl);
 
-  const handleQuestionImageUpload = async (
-    _sectionId: string,
-    questionId: string,
-    file: File,
-  ) => {
+  const handleQuestionImageUpload = async (_sectionId: string, questionId: string, file: File) => {
     const token = getClientCookie("session_token");
     if (!token) return;
     setUploadingQuestionId(questionId);
@@ -377,9 +372,7 @@ export function QuizBuilder({ quizId }: QuizBuilderProps) {
         ...prev,
         sections: prev.sections.map((section) => ({
           ...section,
-          questions: section.questions.map((q) =>
-            q.id === questionId ? { ...q, imageUrl: data.url! } : q,
-          ),
+          questions: section.questions.map((q) => (q.id === questionId ? { ...q, imageUrl: data.url! } : q)),
         })),
       }));
       toast.success("Question image uploaded");
@@ -418,11 +411,7 @@ export function QuizBuilder({ quizId }: QuizBuilderProps) {
     ) {
       return "Per-quiz payment mode requires a Price (LKR) for locked quizzes.";
     }
-    if (
-      quizDetails.requiresUnlock &&
-      quizDetails.priceLkr != null &&
-      quizDetails.priceLkr <= 0
-    ) {
+    if (quizDetails.requiresUnlock && quizDetails.priceLkr != null && quizDetails.priceLkr <= 0) {
       return "Price must be greater than 0, or leave it empty for monthly subscription unlock.";
     }
 
@@ -471,16 +460,12 @@ export function QuizBuilder({ quizId }: QuizBuilderProps) {
         const res = await fetch(`${APP_CONFIG.apiUrl}/questions`, {
           method: "POST",
           headers,
-          body: JSON.stringify(
-            toBankQuestionPayload(q, status, quizDetails.languages),
-          ),
+          body: JSON.stringify(toBankQuestionPayload(q, status, quizDetails.languages)),
         });
         if (!res.ok) {
           const err = await res.json().catch(() => ({}));
           throw new Error(
-            Array.isArray(err.message)
-              ? err.message.join(", ")
-              : err.message || "Failed to create question",
+            Array.isArray(err.message) ? err.message.join(", ") : err.message || "Failed to create question",
           );
         }
         const created = await res.json();
@@ -523,10 +508,9 @@ export function QuizBuilder({ quizId }: QuizBuilderProps) {
         language: quizDetails.languages[0],
         languages: quizDetails.languages,
         title: multiLocalizedText(quizDetails.title, quizDetails.languages),
-        description: multiLocalizedText(
-          quizDetails.description,
-          quizDetails.languages,
-        ),
+        description: multiLocalizedText(quizDetails.description, quizDetails.languages),
+        seoTitle: quizDetails.seoTitle.trim() || null,
+        seoDescription: quizDetails.seoDescription.trim() || null,
         coverImageUrl: quizDetails.coverImageUrl,
         durationMinutes: quizDetails.durationMinutes,
         passingScorePercentage: quizDetails.passingScorePercentage,
@@ -534,10 +518,7 @@ export function QuizBuilder({ quizId }: QuizBuilderProps) {
         status: quizDetails.status,
         shuffleQuestions: quizDetails.shuffleQuestions,
         requiresUnlock: quizDetails.requiresUnlock,
-        priceLkr:
-          quizDetails.requiresUnlock && paymentMode !== "MONTHLY_ONLY"
-            ? quizDetails.priceLkr
-            : null,
+        priceLkr: quizDetails.requiresUnlock && paymentMode !== "MONTHLY_ONLY" ? quizDetails.priceLkr : null,
         sections,
       };
 
@@ -549,9 +530,7 @@ export function QuizBuilder({ quizId }: QuizBuilderProps) {
         });
         if (!res.ok) {
           const err = await res.json().catch(() => ({}));
-          throw new Error(
-            Array.isArray(err.message) ? err.message.join(", ") : err.message || "Update failed",
-          );
+          throw new Error(Array.isArray(err.message) ? err.message.join(", ") : err.message || "Update failed");
         }
         toast.success("Quiz updated");
         router.push("/admin/quizzes/manage");
@@ -605,9 +584,7 @@ export function QuizBuilder({ quizId }: QuizBuilderProps) {
           {isEdit ? "Edit Quiz" : t("quiz.addQuiz")}
         </h1>
         <p className="text-muted-foreground text-sm">
-          {isEdit
-            ? "Update quiz details, shuffle, and attached bank questions."
-            : t("quiz.addQuizDescription")}
+          {isEdit ? "Update quiz details, shuffle, and attached bank questions." : t("quiz.addQuizDescription")}
         </p>
       </div>
 
@@ -652,8 +629,8 @@ export function QuizBuilder({ quizId }: QuizBuilderProps) {
               })}
             </div>
             <FieldDescription>
-              Select every language this quiz uses. Questions attached to it must
-              include text in each selected language.
+              Select every language this quiz uses. Questions attached to it must include text in each selected
+              language.
             </FieldDescription>
           </Field>
 
@@ -666,17 +643,14 @@ export function QuizBuilder({ quizId }: QuizBuilderProps) {
                   type="button"
                   size="sm"
                   variant={contentLang === lang ? "default" : "outline"}
-                  onClick={() =>
-                    setQuizDetails((prev) => ({ ...prev, language: lang }))
-                  }
+                  onClick={() => setQuizDetails((prev) => ({ ...prev, language: lang }))}
                 >
                   {langLabel(lang)}
                 </Button>
               ))}
             </div>
             <FieldDescription>
-              Switch tabs to fill title, description, and instructions for each
-              selected language.
+              Switch tabs to fill title, description, and instructions for each selected language.
             </FieldDescription>
           </Field>
 
@@ -696,9 +670,7 @@ export function QuizBuilder({ quizId }: QuizBuilderProps) {
               <FieldLabel>{t("quiz.course")}</FieldLabel>
               <Select
                 value={quizDetails.courseId}
-                onValueChange={(val) =>
-                  setQuizDetails((prev) => ({ ...prev, courseId: val, moduleId: "" }))
-                }
+                onValueChange={(val) => setQuizDetails((prev) => ({ ...prev, courseId: val, moduleId: "" }))}
                 disabled={loadingCourses}
               >
                 <SelectTrigger>
@@ -774,12 +746,7 @@ export function QuizBuilder({ quizId }: QuizBuilderProps) {
                 />
               </label>
               {quizDetails.coverImageUrl && (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => void handleCoverRemove()}
-                >
+                <Button type="button" variant="ghost" size="sm" onClick={() => void handleCoverRemove()}>
                   Remove
                 </Button>
               )}
@@ -847,18 +814,14 @@ export function QuizBuilder({ quizId }: QuizBuilderProps) {
                   }))
                 }
               />
-              <FieldDescription>
-                Total tries per student (e.g. 3 = three attempts).
-              </FieldDescription>
+              <FieldDescription>Total tries per student (e.g. 3 = three attempts).</FieldDescription>
             </Field>
 
             <Field>
               <FieldLabel>{t("quiz.status")}</FieldLabel>
               <Select
                 value={quizDetails.status}
-                onValueChange={(val: QuizFormState["status"]) =>
-                  setQuizDetails((prev) => ({ ...prev, status: val }))
-                }
+                onValueChange={(val: QuizFormState["status"]) => setQuizDetails((prev) => ({ ...prev, status: val }))}
               >
                 <SelectTrigger>
                   <SelectValue />
@@ -893,12 +856,7 @@ export function QuizBuilder({ quizId }: QuizBuilderProps) {
                   setQuizDetails((prev) => ({
                     ...prev,
                     requiresUnlock: checked === true,
-                    priceLkr:
-                      checked === true
-                        ? paymentMode === "QUIZ_ONLY"
-                          ? prev.priceLkr ?? 500
-                          : null
-                        : null,
+                    priceLkr: checked === true ? (paymentMode === "QUIZ_ONLY" ? (prev.priceLkr ?? 500) : null) : null,
                   }))
                 }
               />
@@ -908,23 +866,19 @@ export function QuizBuilder({ quizId }: QuizBuilderProps) {
               <>
                 {paymentMode === "MONTHLY_ONLY" ? (
                   <p className="text-xs text-muted-foreground">
-                    Platform mode is <span className="font-medium">monthly only</span>. Students
-                    unlock this quiz with the monthly subscription (no separate quiz price).
+                    Platform mode is <span className="font-medium">monthly only</span>. Students unlock this quiz with
+                    the monthly subscription (no separate quiz price).
                   </p>
                 ) : (
                   <Field>
                     <FieldLabel>
-                      {paymentMode === "QUIZ_ONLY"
-                        ? "Price (LKR) — required"
-                        : "Special price (LKR) — optional"}
+                      {paymentMode === "QUIZ_ONLY" ? "Price (LKR) — required" : "Special price (LKR) — optional"}
                     </FieldLabel>
                     <Input
                       type="number"
                       min={1}
                       step={0.01}
-                      placeholder={
-                        paymentMode === "QUIZ_ONLY" ? "e.g. 500" : "Leave empty for monthly unlock"
-                      }
+                      placeholder={paymentMode === "QUIZ_ONLY" ? "e.g. 500" : "Leave empty for monthly unlock"}
                       value={quizDetails.priceLkr ?? ""}
                       onChange={(e) =>
                         setQuizDetails((prev) => ({
@@ -946,6 +900,16 @@ export function QuizBuilder({ quizId }: QuizBuilderProps) {
         </CardContent>
       </Card>
 
+      <SeoFieldsCard
+        idPrefix="quiz"
+        seoTitle={quizDetails.seoTitle}
+        seoDescription={quizDetails.seoDescription}
+        onSeoTitleChange={(value) => setQuizDetails((prev) => ({ ...prev, seoTitle: value }))}
+        onSeoDescriptionChange={(value) => setQuizDetails((prev) => ({ ...prev, seoDescription: value }))}
+        fallbackTitle={quizDetails.title.en?.trim() || undefined}
+        fallbackDescription={plainTextFromHtml(quizDetails.description.en ?? "").trim() || undefined}
+      />
+
       <QuizSectionsPanel
         sections={quizDetails.sections}
         contentLang={contentLang}
@@ -953,9 +917,7 @@ export function QuizBuilder({ quizId }: QuizBuilderProps) {
         langLabel={langLabel}
         uploadingQuestionId={uploadingQuestionId}
         onChange={(sections) => setQuizDetails((prev) => ({ ...prev, sections }))}
-        onUploadImage={(sectionId, questionId, file) =>
-          void handleQuestionImageUpload(sectionId, questionId, file)
-        }
+        onUploadImage={(sectionId, questionId, file) => void handleQuestionImageUpload(sectionId, questionId, file)}
       />
 
       <div className="flex justify-end gap-3">

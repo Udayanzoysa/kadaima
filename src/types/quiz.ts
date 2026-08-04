@@ -1,4 +1,4 @@
-export type SupportedLocale = "en" | "si" | "ta"; 
+export type SupportedLocale = "en" | "si" | "ta";
 
 export type LocalizedText = Record<SupportedLocale, string>;
 
@@ -15,7 +15,10 @@ export function monoLocalizedText(value: string, language: SupportedLocale): Loc
 
 export function plainTextFromLocalized(value: string | null | undefined): string {
   if (!value) return "";
-  return value.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+  return value
+    .replace(/<[^>]+>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 export function hasLocaleContent(
@@ -36,13 +39,8 @@ export function hasAllLocaleContent(
   return languages.every((lang) => hasLocaleContent(text, lang, minLen));
 }
 
-export function filledLocales(
-  text: LocalizedText | null | undefined,
-  minLen = 1,
-): SupportedLocale[] {
-  return (["en", "si", "ta"] as const).filter((lang) =>
-    hasLocaleContent(text, lang, minLen),
-  );
+export function filledLocales(text: LocalizedText | null | undefined, minLen = 1): SupportedLocale[] {
+  return (["en", "si", "ta"] as const).filter((lang) => hasLocaleContent(text, lang, minLen));
 }
 
 export function normalizeQuizLanguages(
@@ -50,11 +48,7 @@ export function normalizeQuizLanguages(
   fallback?: SupportedLocale | string | null,
 ): SupportedLocale[] {
   const raw: Array<SupportedLocale | string> =
-    languages && languages.length > 0
-      ? languages
-      : fallback
-        ? [fallback]
-        : ["en"];
+    languages && languages.length > 0 ? languages : fallback ? [fallback] : ["en"];
   const order: SupportedLocale[] = ["en", "si", "ta"];
   return order.filter((l) => raw.includes(l));
 }
@@ -75,10 +69,7 @@ export function resolveQuizLanguage(
 }
 
 /** Keep only selected language slots filled. */
-export function multiLocalizedText(
-  text: LocalizedText,
-  languages: SupportedLocale[],
-): LocalizedText {
+export function multiLocalizedText(text: LocalizedText, languages: SupportedLocale[]): LocalizedText {
   const set = new Set(languages);
   return {
     en: set.has("en") ? text.en : "",
@@ -115,6 +106,9 @@ export interface QuizFormState {
   language: SupportedLocale;
   title: LocalizedText;
   description: LocalizedText;
+  /** Optional search-engine overrides — blank keeps the derived metadata. */
+  seoTitle: string;
+  seoDescription: string;
   coverImageUrl: string | null;
   courseId: string;
   moduleId: string;
@@ -141,6 +135,8 @@ export const initialQuizFormState = (): QuizFormState => ({
   language: "en",
   title: emptyLocalizedText(),
   description: emptyLocalizedText(),
+  seoTitle: "",
+  seoDescription: "",
   coverImageUrl: null,
   courseId: "",
   moduleId: "",
@@ -160,6 +156,8 @@ export interface Course {
   id: string;
   title: LocalizedText;
   description?: LocalizedText | null;
+  seoTitle?: string | null;
+  seoDescription?: string | null;
   status?: "Draft" | "Published" | "Archived";
   createdAt?: string;
   updatedAt?: string;
@@ -189,6 +187,8 @@ export interface QuizSummary {
   languages?: SupportedLocale[];
   title: LocalizedText;
   description: LocalizedText | null;
+  seoTitle?: string | null;
+  seoDescription?: string | null;
   coverImageUrl?: string | null;
   durationMinutes: number;
   passingScorePercentage: number;
@@ -223,10 +223,7 @@ export interface QuestionConfig {
   minSentences?: number;
 }
 
-export const QUESTION_TYPE_META: Record<
-  QuestionType,
-  { label: string; description: string }
-> = {
+export const QUESTION_TYPE_META: Record<QuestionType, { label: string; description: string }> = {
   MCQ: {
     label: "Multiple choice",
     description: "Single-select MCQ — text, image/spatial, or table/grid prompts",
@@ -363,10 +360,7 @@ export interface AttemptDetail extends QuizAttempt {
   };
 }
 
-export function localize(
-  text: LocalizedText | string | null | undefined,
-  locale: SupportedLocale,
-): string {
+export function localize(text: LocalizedText | string | null | undefined, locale: SupportedLocale): string {
   if (!text) return "";
   if (typeof text === "string") return text;
   // Prefer requested locale, then any filled slot (mono-language quizzes).
@@ -386,4 +380,3 @@ export function mediaUrl(path: string | null | undefined, apiBase: string): stri
   if (path.startsWith("http://") || path.startsWith("https://")) return path;
   return `${apiBase.replace(/\/$/, "")}${path.startsWith("/") ? path : `/${path}`}`;
 }
-

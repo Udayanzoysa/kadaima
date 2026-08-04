@@ -5,27 +5,23 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
-import { ChevronLeft, ChevronRight, Pencil, Plus, Trash2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Pencil, Plus, Search, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
+import { usePermissions } from "@/app/(main)/dashboard/_components/sidebar/permission-guard";
 import { DataBackupActions } from "@/components/data-backup-actions";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Spinner } from "@/components/ui/spinner";
 import { APP_CONFIG } from "@/config/app-config";
+import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { getClientCookie } from "@/lib/cookie.client";
-import { localize, type QuizSummary } from "@/types/quiz";
+import { type Course, type CourseModule, type LocalizedText, localize, type QuizSummary } from "@/types/quiz";
 
-import { usePermissions } from "@/app/(main)/dashboard/_components/sidebar/permission-guard";
-
-const PAGE_SIZE = 10;
+/** Radix Select cannot use "" as a value, so "all" stands in for no filter. */
+const ALL = "all";
 
 type QuizStatus = QuizSummary["status"];
 
@@ -37,18 +33,34 @@ type PaginatedResponse = {
   totalPages: number;
 };
 
+type Filters = {
+  search: string;
+  courseId: string;
+  moduleId: string;
+  status: QuizStatus | "";
+};
+
+const EMPTY_FILTERS: Filters = {
+  search: "",
+  courseId: "",
+  moduleId: "",
+  status: "",
+};
+
 function statusLabel(status: QuizStatus) {
   if (status === "Published") return "Public";
   return status;
+}
+
+function optionTitle(title: LocalizedText | string | null | undefined) {
+  return localize(title, "en") || "Untitled";
 }
 
 export function ManageQuizzesList() {
   const router = useRouter();
   const { hasPermission } = usePermissions();
   const canDelete =
-    hasPermission("MANAGE", "all") ||
-    hasPermission("DELETE", "QUIZZES") ||
-    hasPermission("MANAGE", "QUIZZES");
+    hasPermission("MANAGE", "all") || hasPermission("DELETE", "QUIZZES") || hasPermission("MANAGE", "QUIZZES");
   const [quizzes, setQuizzes] = useState<QuizSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -60,40 +72,101 @@ export function ManageQuizzesList() {
   const [totalPages, setTotalPages] = useState(1);
   const [bulkStatus, setBulkStatus] = useState<QuizStatus | "">("");
 
-  const load = useCallback(async (pageNum = page, currentSize = pageSize) => {
-    const token = getClientCookie("session_token");
-    if (!token) return;
-    setLoading(true);
-    try {
-      const res = await fetch(
-        `${APP_CONFIG.apiUrl}/quizzes?page=${pageNum}&pageSize=${currentSize}`,
-        { headers: { Authorization: `Bearer ${token}` } },
-      );
-      if (!res.ok) throw new Error("Failed to load quizzes");
-      const data = (await res.json()) as PaginatedResponse | QuizSummary[];
+  const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
+  const [courseOptions, setCourseOptions] = useState<Course[]>([]);
+  const [moduleOptions, setModuleOptions] = useState<CourseModule[]>([]);
+  const debouncedSearch = useDebouncedValue(filters.search, 300);
 
-      if (Array.isArray(data)) {
-        setQuizzes(data);
-        setTotal(data.length);
-        setTotalPages(1);
-        setPage(1);
-      } else {
-        setQuizzes(data.items ?? []);
-        setTotal(data.total ?? 0);
-        setTotalPages(data.totalPages ?? 1);
-        setPage(data.page ?? pageNum);
+  const filtersActive =
+    Boolean(debouncedSearch.trim()) || Boolean(filters.courseId || filters.moduleId || filters.status);
+
+  const patchFilters = (patch: Partial<Filters>) => {
+    setFilters((prev) => ({ ...prev, ...patch }));
+    setPage(1);
+  };
+
+  const buildQuery = useCallback(
+    (pageNum: number, size: number) => {
+      const params = new URLSearchParams();
+      params.set("page", String(pageNum));
+      params.set("pageSize", String(size));
+      if (debouncedSearch.trim()) params.set("search", debouncedSearch.trim());
+      if (filters.courseId) params.set("courseId", filters.courseId);
+      if (filters.moduleId) params.set("moduleId", filters.moduleId);
+      if (filters.status) params.set("status", filters.status);
+      return params.toString();
+    },
+    [debouncedSearch, filters.courseId, filters.moduleId, filters.status],
+  );
+
+  const load = useCallback(
+    async (pageNum = page, currentSize = pageSize) => {
+      const token = getClientCookie("session_token");
+      if (!token) return;
+      setLoading(true);
+      try {
+        const res = await fetch(`${APP_CONFIG.apiUrl}/quizzes?${buildQuery(pageNum, currentSize)}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!res.ok) throw new Error("Failed to load quizzes");
+        const data = (await res.json()) as PaginatedResponse | QuizSummary[];
+
+        if (Array.isArray(data)) {
+          setQuizzes(data);
+          setTotal(data.length);
+          setTotalPages(1);
+          setPage(1);
+        } else {
+          setQuizzes(data.items ?? []);
+          setTotal(data.total ?? 0);
+          setTotalPages(data.totalPages ?? 1);
+          setPage(data.page ?? pageNum);
+        }
+        setSelected(new Set());
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Failed to load quizzes");
+      } finally {
+        setLoading(false);
       }
-      setSelected(new Set());
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to load quizzes");
-    } finally {
-      setLoading(false);
-    }
-  }, [pageSize]);
+    },
+    [buildQuery, page, pageSize],
+  );
 
   useEffect(() => {
     void load(page, pageSize);
   }, [page, pageSize, load]);
+
+  useEffect(() => {
+    const token = getClientCookie("session_token");
+    if (!token) return;
+    void fetch(`${APP_CONFIG.apiUrl}/courses`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((res) => (res.ok ? res.json() : []))
+      .then((data) => {
+        const items = Array.isArray(data) ? data : (data?.items ?? []);
+        setCourseOptions(items);
+      })
+      .catch(() => setCourseOptions([]));
+  }, []);
+
+  useEffect(() => {
+    if (!filters.courseId) {
+      setModuleOptions([]);
+      return;
+    }
+    const token = getClientCookie("session_token");
+    if (!token) return;
+    void fetch(`${APP_CONFIG.apiUrl}/courses/${filters.courseId}/modules`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((res) => (res.ok ? res.json() : []))
+      .then((data) => {
+        const items = Array.isArray(data) ? data : (data?.items ?? []);
+        setModuleOptions(items);
+      })
+      .catch(() => setModuleOptions([]));
+  }, [filters.courseId]);
 
   const authHeaders = () => ({
     Authorization: `Bearer ${getClientCookie("session_token")}`,
@@ -101,8 +174,7 @@ export function ManageQuizzesList() {
   });
 
   const pageIds = useMemo(() => quizzes.map((q) => q.id), [quizzes]);
-  const allPageSelected =
-    pageIds.length > 0 && pageIds.every((id) => selected.has(id));
+  const allPageSelected = pageIds.length > 0 && pageIds.every((id) => selected.has(id));
   const somePageSelected = pageIds.some((id) => selected.has(id));
 
   const toggleAllPage = (checked: boolean) => {
@@ -182,9 +254,7 @@ export function ManageQuizzesList() {
       });
       if (!res.ok) throw new Error("Bulk status update failed");
       const body = await res.json();
-      toast.success(
-        `Updated ${body.updated ?? selectedIds.length} to ${statusLabel(bulkStatus)}`,
-      );
+      toast.success(`Updated ${body.updated ?? selectedIds.length} to ${statusLabel(bulkStatus)}`);
       setBulkStatus("");
       await load(page);
     } catch (err) {
@@ -211,9 +281,7 @@ export function ManageQuizzesList() {
       if (!res.ok) throw new Error("Bulk delete failed");
       const body = await res.json();
       toast.success(`Deleted ${body.deleted ?? selectedIds.length} quiz(zes)`);
-      const remainingOnPage =
-        quizzes.length -
-        selectedIds.filter((id) => quizzes.some((q) => q.id === id)).length;
+      const remainingOnPage = quizzes.length - selectedIds.filter((id) => quizzes.some((q) => q.id === id)).length;
       const nextPage = remainingOnPage <= 0 && page > 1 ? page - 1 : page;
       if (nextPage !== page) setPage(nextPage);
       else await load(page);
@@ -253,6 +321,103 @@ export function ManageQuizzesList() {
         </div>
       </div>
 
+      <div className="flex flex-wrap items-end gap-3 rounded-lg border border-border bg-muted/20 px-4 py-3">
+        <div className="min-w-[220px] flex-1">
+          <label htmlFor="quiz-search" className="mb-1 block text-muted-foreground text-xs">
+            Quiz name
+          </label>
+          <div className="relative">
+            <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              id="quiz-search"
+              className="h-9 pl-8"
+              placeholder="Search quiz title…"
+              value={filters.search}
+              onChange={(e) => patchFilters({ search: e.target.value })}
+            />
+          </div>
+        </div>
+
+        <div>
+          <span className="mb-1 block text-muted-foreground text-xs">Course</span>
+          <Select
+            value={filters.courseId || ALL}
+            onValueChange={(val) =>
+              patchFilters({
+                courseId: val === ALL ? "" : val,
+                moduleId: "",
+              })
+            }
+          >
+            <SelectTrigger className="h-9 w-[180px]" aria-label="Filter by course">
+              <SelectValue placeholder="All courses" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL}>All courses</SelectItem>
+              {courseOptions.map((course) => (
+                <SelectItem key={course.id} value={course.id}>
+                  {optionTitle(course.title)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div>
+          <span className="mb-1 block text-muted-foreground text-xs">Module</span>
+          <Select
+            value={filters.moduleId || ALL}
+            onValueChange={(val) => patchFilters({ moduleId: val === ALL ? "" : val })}
+            disabled={!filters.courseId}
+          >
+            <SelectTrigger className="h-9 w-[180px]" aria-label="Filter by module">
+              <SelectValue placeholder={filters.courseId ? "All modules" : "Pick a course"} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL}>All modules</SelectItem>
+              {moduleOptions.map((mod) => (
+                <SelectItem key={mod.id} value={mod.id}>
+                  {optionTitle(mod.title)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div>
+          <span className="mb-1 block text-muted-foreground text-xs">Status</span>
+          <Select
+            value={filters.status || ALL}
+            onValueChange={(val) => patchFilters({ status: val === ALL ? "" : (val as QuizStatus) })}
+          >
+            <SelectTrigger className="h-9 w-[130px]" aria-label="Filter by status">
+              <SelectValue placeholder="All statuses" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL}>All statuses</SelectItem>
+              <SelectItem value="Draft">Draft</SelectItem>
+              <SelectItem value="Published">Public</SelectItem>
+              <SelectItem value="Archived">Archived</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        {filtersActive ? (
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            className="h-9"
+            onClick={() => {
+              setFilters(EMPTY_FILTERS);
+              setPage(1);
+            }}
+          >
+            Clear filters
+          </Button>
+        ) : null}
+      </div>
+
       {selectedIds.length > 0 && (
         <div className="flex flex-wrap items-center gap-3 rounded-lg border border-border bg-muted/30 px-4 py-3">
           <span className="text-sm font-medium">{selectedIds.length} selected</span>
@@ -270,12 +435,7 @@ export function ManageQuizzesList() {
               <SelectItem value="Archived">Archived</SelectItem>
             </SelectContent>
           </Select>
-          <Button
-            type="button"
-            size="sm"
-            disabled={bulkBusy || !bulkStatus}
-            onClick={() => void bulkChangeStatus()}
-          >
+          <Button type="button" size="sm" disabled={bulkBusy || !bulkStatus} onClick={() => void bulkChangeStatus()}>
             {bulkBusy ? <Spinner className="size-4" /> : null}
             Apply status
           </Button>
@@ -290,20 +450,16 @@ export function ManageQuizzesList() {
             <Trash2 className="size-3.5" />
             Delete selected
           </Button>
-          <Button
-            type="button"
-            size="sm"
-            variant="ghost"
-            disabled={bulkBusy}
-            onClick={() => setSelected(new Set())}
-          >
+          <Button type="button" size="sm" variant="ghost" disabled={bulkBusy} onClick={() => setSelected(new Set())}>
             Clear
           </Button>
         </div>
       )}
 
       {total === 0 ? (
-        <p className="text-muted-foreground text-sm">No quizzes yet. Add your first quiz.</p>
+        <p className="text-muted-foreground text-sm">
+          {filtersActive ? "No quizzes match these filters." : "No quizzes yet. Add your first quiz."}
+        </p>
       ) : (
         <>
           <div className="relative overflow-x-auto rounded-lg border border-border">
@@ -312,24 +468,19 @@ export function ManageQuizzesList() {
                 <Spinner className="size-5" />
               </div>
             )}
-            <table className="w-full min-w-[760px] text-left text-sm">
+            <table className="w-full min-w-[860px] text-left text-sm">
               <thead className="border-b border-border bg-muted/40">
                 <tr>
                   <th className="w-10 px-3 py-3">
                     <Checkbox
-                      checked={
-                        allPageSelected
-                          ? true
-                          : somePageSelected
-                            ? "indeterminate"
-                            : false
-                      }
+                      checked={allPageSelected ? true : somePageSelected ? "indeterminate" : false}
                       onCheckedChange={(v) => toggleAllPage(v === true)}
                       aria-label="Select all on page"
                     />
                   </th>
                   <th className="px-4 py-3 font-medium">Title</th>
                   <th className="px-4 py-3 font-medium">Course</th>
+                  <th className="px-4 py-3 font-medium">Module</th>
                   <th className="px-4 py-3 font-medium">Questions</th>
                   <th className="px-4 py-3 font-medium">Attempts</th>
                   <th className="px-4 py-3 font-medium">Status</th>
@@ -353,15 +504,14 @@ export function ManageQuizzesList() {
                         {quiz.requiresUnlock ? (
                           <span>
                             Locked
-                            {quiz.priceLkr != null
-                              ? ` · LKR ${Number(quiz.priceLkr).toFixed(0)}`
-                              : ""}
+                            {quiz.priceLkr != null ? ` · LKR ${Number(quiz.priceLkr).toFixed(0)}` : ""}
                           </span>
                         ) : null}
                       </div>
                     </td>
+                    <td className="px-4 py-3 text-muted-foreground">{localize(quiz.course?.title, "en")}</td>
                     <td className="px-4 py-3 text-muted-foreground">
-                      {localize(quiz.course?.title, "en")}
+                      {quiz.module ? localize(quiz.module.title, "en") : "—"}
                     </td>
                     <td className="px-4 py-3">{quiz._count.questions}</td>
                     <td className="px-4 py-3">{quiz._count.attempts}</td>
@@ -416,8 +566,7 @@ export function ManageQuizzesList() {
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-4">
               <p className="text-muted-foreground text-sm">
-                Showing {total === 0 ? 0 : (page - 1) * pageSize + 1}–
-                {Math.min(page * pageSize, total)} of {total}
+                Showing {total === 0 ? 0 : (page - 1) * pageSize + 1}–{Math.min(page * pageSize, total)} of {total}
               </p>
               <div className="flex items-center gap-2">
                 <span className="text-slate-500 text-xs">Rows per page:</span>

@@ -20,13 +20,14 @@ import {
 import { Spinner } from "@/components/ui/spinner";
 import { APP_CONFIG } from "@/config/app-config";
 import { getClientCookie } from "@/lib/cookie.client";
+import { tagNames } from "@/lib/question-tags";
 import {
+  type BankQuestion,
   filledLocales,
   hasAllLocaleContent,
   hasLocaleContent,
-  localize,
-  type BankQuestion,
   type LocalizedText,
+  localize,
   type SupportedLocale,
 } from "@/types/quiz";
 
@@ -64,54 +65,52 @@ export function AttachFromBankModal({ excludeIds, languages, onAttach }: Props) 
 
   const excludeSet = useMemo(() => new Set(excludeIds), [excludeIds]);
 
-  const load = useCallback(async (
-    pageNum: number,
-    tagFilter = selectedTag,
-    quizFilter = selectedQuizId,
-    langFilter = selectedLanguage
-  ) => {
-    const token = getClientCookie("session_token");
-    if (!token) return;
-    setLoading(true);
-    try {
-      let url = `${APP_CONFIG.apiUrl}/questions?status=Published&page=${pageNum}&pageSize=${PAGE_SIZE}`;
-      if (tagFilter) {
-        url += `&tag=${encodeURIComponent(tagFilter)}`;
-      }
-      if (quizFilter) {
-        url += `&quizId=${encodeURIComponent(quizFilter)}`;
-      }
-      const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
-      if (!res.ok) throw new Error("Failed to load question bank");
-      const data = (await res.json()) as PaginatedResponse | BankQuestion[];
+  const load = useCallback(
+    async (pageNum: number, tagFilter = selectedTag, quizFilter = selectedQuizId, langFilter = selectedLanguage) => {
+      const token = getClientCookie("session_token");
+      if (!token) return;
+      setLoading(true);
+      try {
+        let url = `${APP_CONFIG.apiUrl}/questions?status=Published&page=${pageNum}&pageSize=${PAGE_SIZE}`;
+        if (tagFilter) {
+          url += `&tag=${encodeURIComponent(tagFilter)}`;
+        }
+        if (quizFilter) {
+          url += `&quizId=${encodeURIComponent(quizFilter)}`;
+        }
+        const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+        if (!res.ok) throw new Error("Failed to load question bank");
+        const data = (await res.json()) as PaginatedResponse | BankQuestion[];
 
-      if (Array.isArray(data)) {
-        const compatible = data.filter((q) => {
-          if (!langFilter) return true;
-          return hasLocaleContent(q.questionText as LocalizedText, langFilter, 3);
-        });
-        const start = (pageNum - 1) * PAGE_SIZE;
-        const slice = compatible.slice(start, start + PAGE_SIZE);
-        setItems(slice);
-        setTotal(compatible.length);
-        setTotalPages(Math.max(1, Math.ceil(compatible.length / PAGE_SIZE)));
-        setPage(pageNum);
-      } else {
-        const filtered = (data.items ?? []).filter((q) => {
-          if (!langFilter) return true;
-          return hasLocaleContent(q.questionText as LocalizedText, langFilter, 3);
-        });
-        setItems(filtered);
-        setTotal(filtered.length);
-        setTotalPages(Math.max(1, data.totalPages ?? 1));
-        setPage(data.page ?? pageNum);
+        if (Array.isArray(data)) {
+          const compatible = data.filter((q) => {
+            if (!langFilter) return true;
+            return hasLocaleContent(q.questionText as LocalizedText, langFilter, 3);
+          });
+          const start = (pageNum - 1) * PAGE_SIZE;
+          const slice = compatible.slice(start, start + PAGE_SIZE);
+          setItems(slice);
+          setTotal(compatible.length);
+          setTotalPages(Math.max(1, Math.ceil(compatible.length / PAGE_SIZE)));
+          setPage(pageNum);
+        } else {
+          const filtered = (data.items ?? []).filter((q) => {
+            if (!langFilter) return true;
+            return hasLocaleContent(q.questionText as LocalizedText, langFilter, 3);
+          });
+          setItems(filtered);
+          setTotal(filtered.length);
+          setTotalPages(Math.max(1, data.totalPages ?? 1));
+          setPage(data.page ?? pageNum);
+        }
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Failed to load bank");
+      } finally {
+        setLoading(false);
       }
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to load bank");
-    } finally {
-      setLoading(false);
-    }
-  }, [selectedTag, selectedQuizId, selectedLanguage]);
+    },
+    [selectedTag, selectedQuizId, selectedLanguage],
+  );
 
   useEffect(() => {
     if (!open) return;
@@ -122,7 +121,7 @@ export function AttachFromBankModal({ excludeIds, languages, onAttach }: Props) 
       headers: { Authorization: `Bearer ${token}` },
     })
       .then((res) => (res.ok ? res.json() : []))
-      .then((data) => setTags(data))
+      .then((data) => setTags(tagNames(data)))
       .catch(() => {});
 
     fetch(`${APP_CONFIG.apiUrl}/quizzes`, {
@@ -130,7 +129,7 @@ export function AttachFromBankModal({ excludeIds, languages, onAttach }: Props) 
     })
       .then((res) => (res.ok ? res.json() : []))
       .then((data) => {
-        const items = Array.isArray(data) ? data : data.items ?? [];
+        const items = Array.isArray(data) ? data : (data.items ?? []);
         setQuizzes(items);
       })
       .catch(() => {});
@@ -144,8 +143,7 @@ export function AttachFromBankModal({ excludeIds, languages, onAttach }: Props) 
   }, [open, load, selectedTag, selectedQuizId, selectedLanguage]);
 
   const visibleIds = items.map((q) => q.id).filter((id) => !excludeSet.has(id));
-  const allVisibleSelected =
-    visibleIds.length > 0 && visibleIds.every((id) => selected.has(id));
+  const allVisibleSelected = visibleIds.length > 0 && visibleIds.every((id) => selected.has(id));
   const someVisibleSelected = visibleIds.some((id) => selected.has(id));
 
   const toggleOne = (q: BankQuestion, checked: boolean) => {
@@ -202,7 +200,9 @@ export function AttachFromBankModal({ excludeIds, languages, onAttach }: Props) 
 
         <div className="grid grid-cols-3 gap-3 border-b bg-muted/10 px-6 py-3">
           <div>
-            <label className="text-[10px] uppercase font-semibold text-muted-foreground block mb-1">Filter by Tag</label>
+            <label className="text-[10px] uppercase font-semibold text-muted-foreground block mb-1">
+              Filter by Tag
+            </label>
             <select
               className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-xs shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               value={selectedTag}
@@ -217,7 +217,9 @@ export function AttachFromBankModal({ excludeIds, languages, onAttach }: Props) 
             </select>
           </div>
           <div>
-            <label className="text-[10px] uppercase font-semibold text-muted-foreground block mb-1">Filter by Quiz</label>
+            <label className="text-[10px] uppercase font-semibold text-muted-foreground block mb-1">
+              Filter by Quiz
+            </label>
             <select
               className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-xs shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               value={selectedQuizId}
@@ -232,7 +234,9 @@ export function AttachFromBankModal({ excludeIds, languages, onAttach }: Props) 
             </select>
           </div>
           <div>
-            <label className="text-[10px] uppercase font-semibold text-muted-foreground block mb-1">Filter by Language</label>
+            <label className="text-[10px] uppercase font-semibold text-muted-foreground block mb-1">
+              Filter by Language
+            </label>
             <select
               className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-xs shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               value={selectedLanguage}
@@ -249,9 +253,7 @@ export function AttachFromBankModal({ excludeIds, languages, onAttach }: Props) 
         <div className="flex shrink-0 items-center justify-between gap-3 border-b bg-muted/30 px-6 py-2">
           <label className="flex items-center gap-2 text-sm">
             <Checkbox
-              checked={
-                allVisibleSelected ? true : someVisibleSelected ? "indeterminate" : false
-              }
+              checked={allVisibleSelected ? true : someVisibleSelected ? "indeterminate" : false}
               onCheckedChange={(v) => toggleAllVisible(v === true)}
               disabled={visibleIds.length === 0}
             />

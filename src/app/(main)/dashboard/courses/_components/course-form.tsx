@@ -7,27 +7,17 @@ import { useRouter } from "next/navigation";
 
 import { toast } from "sonner";
 
+import { SeoFieldsCard } from "@/components/admin/seo-fields-card";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
 import { APP_CONFIG } from "@/config/app-config";
 import { getClientCookie } from "@/lib/cookie.client";
-import {
-  emptyLocalizedText,
-  type Course,
-  type CourseStatus,
-  type LocalizedText,
-} from "@/types/quiz";
+import { type Course, type CourseStatus, emptyLocalizedText, type LocalizedText } from "@/types/quiz";
 
 type ContentLang = "en" | "si" | "ta";
 
@@ -47,6 +37,8 @@ export function CourseForm({ courseId }: CourseFormProps) {
   const [activeLang, setActiveLang] = useState<ContentLang>("en");
   const [title, setTitle] = useState<LocalizedText>(emptyLocalizedText());
   const [description, setDescription] = useState<LocalizedText>(emptyLocalizedText());
+  const [seoTitle, setSeoTitle] = useState("");
+  const [seoDescription, setSeoDescription] = useState("");
   const [status, setStatus] = useState<CourseStatus>("Draft");
   const [loading, setLoading] = useState(isEdit);
   const [saving, setSaving] = useState(false);
@@ -64,6 +56,8 @@ export function CourseForm({ courseId }: CourseFormProps) {
         const data: Course = await res.json();
         setTitle(data.title ?? emptyLocalizedText());
         setDescription(data.description ?? emptyLocalizedText());
+        setSeoTitle(data.seoTitle ?? "");
+        setSeoDescription(data.seoDescription ?? "");
         setStatus((data.status as CourseStatus) ?? "Draft");
       })
       .catch((err) => toast.error(err instanceof Error ? err.message : "Load failed"))
@@ -91,20 +85,19 @@ export function CourseForm({ courseId }: CourseFormProps) {
           si: description.si.trim() || description.en.trim(),
           ta: description.ta.trim() || description.en.trim(),
         },
+        seoTitle: seoTitle.trim() || null,
+        seoDescription: seoDescription.trim() || null,
         status,
       };
 
-      const res = await fetch(
-        isEdit ? `${APP_CONFIG.apiUrl}/courses/${courseId}` : `${APP_CONFIG.apiUrl}/courses`,
-        {
-          method: isEdit ? "PUT" : "POST",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(payload),
+      const res = await fetch(isEdit ? `${APP_CONFIG.apiUrl}/courses/${courseId}` : `${APP_CONFIG.apiUrl}/courses`, {
+        method: isEdit ? "PUT" : "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
         },
-      );
+        body: JSON.stringify(payload),
+      });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         throw new Error(err.message || "Could not save course");
@@ -131,12 +124,8 @@ export function CourseForm({ courseId }: CourseFormProps) {
   return (
     <div className="flex flex-col gap-6">
       <div className="space-y-1">
-        <h1 className="font-semibold text-2xl tracking-tight md:text-3xl">
-          {isEdit ? "Edit Course" : "Add Course"}
-        </h1>
-        <p className="text-muted-foreground text-sm">
-          Enter titles and descriptions in English, Sinhala, and Tamil.
-        </p>
+        <h1 className="font-semibold text-2xl tracking-tight md:text-3xl">{isEdit ? "Edit Course" : "Add Course"}</h1>
+        <p className="text-muted-foreground text-sm">Enter titles and descriptions in English, Sinhala, and Tamil.</p>
       </div>
 
       <Card className="border-border">
@@ -187,25 +176,33 @@ export function CourseForm({ courseId }: CourseFormProps) {
             <FieldLabel>Description ({LANG_LABELS[activeLang]})</FieldLabel>
             <Textarea
               value={description[activeLang]}
-              onChange={(e) =>
-                setDescription((prev) => ({ ...prev, [activeLang]: e.target.value }))
-              }
+              onChange={(e) => setDescription((prev) => ({ ...prev, [activeLang]: e.target.value }))}
               placeholder="Optional description"
               rows={4}
             />
           </Field>
-
-          <div className="flex flex-wrap gap-2">
-            <Button type="button" disabled={saving} onClick={() => void save()}>
-              {saving ? <Spinner className="size-4" /> : null}
-              {isEdit ? "Save changes" : "Create course"}
-            </Button>
-            <Button type="button" variant="outline" asChild>
-              <Link href="/admin/courses">Cancel</Link>
-            </Button>
-          </div>
         </CardContent>
       </Card>
+
+      <SeoFieldsCard
+        idPrefix="course"
+        seoTitle={seoTitle}
+        seoDescription={seoDescription}
+        onSeoTitleChange={setSeoTitle}
+        onSeoDescriptionChange={setSeoDescription}
+        fallbackTitle={title.en.trim() ? `${title.en.trim()} Quizzes` : undefined}
+        fallbackDescription={description.en.trim() || undefined}
+      />
+
+      <div className="flex flex-wrap gap-2">
+        <Button type="button" disabled={saving} onClick={() => void save()}>
+          {saving ? <Spinner className="size-4" /> : null}
+          {isEdit ? "Save changes" : "Create course"}
+        </Button>
+        <Button type="button" variant="outline" asChild>
+          <Link href="/admin/courses">Cancel</Link>
+        </Button>
+      </div>
     </div>
   );
 }

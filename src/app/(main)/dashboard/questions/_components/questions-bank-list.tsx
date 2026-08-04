@@ -5,29 +5,37 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
-import { ChevronLeft, ChevronRight, Pencil, Plus, Trash2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Pencil, Plus, Search, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { usePermissions } from "@/app/(main)/dashboard/_components/sidebar/permission-guard";
-import { BulkImportQuestions } from "./bulk-import-questions";
-import { AiImportPdfQuestions } from "./ai-import-pdf-questions";
 import { DataBackupActions } from "@/components/data-backup-actions";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Spinner } from "@/components/ui/spinner";
 import { APP_CONFIG } from "@/config/app-config";
+import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { getClientCookie } from "@/lib/cookie.client";
-import { localize, type BankQuestion, type QuestionStatus } from "@/types/quiz";
+import { tagNames } from "@/lib/question-tags";
+import { type BankQuestion, type LocalizedText, localize, type QuestionStatus } from "@/types/quiz";
+
+import { AiImportPdfQuestions } from "./ai-import-pdf-questions";
+import { BulkImportQuestions } from "./bulk-import-questions";
+import { ManageTagsDialog } from "./manage-tags-dialog";
 
 const PAGE_SIZE = 10;
+
+/** Radix Select cannot use "" as a value, so "all" stands in for no filter. */
+const ALL = "all";
+
+const LANGUAGE_OPTIONS = [
+  { value: "en", label: "English" },
+  { value: "si", label: "සිංහල" },
+  { value: "ta", label: "தமிழ்" },
+] as const;
 
 function statusLabel(status: QuestionStatus) {
   if (status === "Published") return "Public";
@@ -42,13 +50,31 @@ type PaginatedResponse = {
   totalPages: number;
 };
 
+type QuizOption = { id: string; title: LocalizedText };
+
+type Filters = {
+  search: string;
+  tag: string;
+  quizId: string;
+  status: QuestionStatus | "";
+  language: "" | "en" | "si" | "ta";
+  unassigned: boolean;
+};
+
+const EMPTY_FILTERS: Filters = {
+  search: "",
+  tag: "",
+  quizId: "",
+  status: "",
+  language: "",
+  unassigned: false,
+};
+
 export function QuestionsBankList() {
   const router = useRouter();
   const { hasPermission } = usePermissions();
   const canDelete =
-    hasPermission("MANAGE", "all") ||
-    hasPermission("DELETE", "QUIZZES") ||
-    hasPermission("MANAGE", "QUIZZES");
+    hasPermission("MANAGE", "all") || hasPermission("DELETE", "QUIZZES") || hasPermission("MANAGE", "QUIZZES");
   const [questions, setQuestions] = useState<BankQuestion[]>([]);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -60,41 +86,100 @@ export function QuestionsBankList() {
   const [totalPages, setTotalPages] = useState(1);
   const [bulkStatus, setBulkStatus] = useState<QuestionStatus | "">("");
 
-  const load = useCallback(async (pageNum = page, currentSize = pageSize) => {
-    const token = getClientCookie("session_token");
-    if (!token) return;
-    setLoading(true);
-    try {
-      const res = await fetch(
-        `${APP_CONFIG.apiUrl}/questions?page=${pageNum}&pageSize=${currentSize}`,
-        { headers: { Authorization: `Bearer ${token}` } },
-      );
-      if (!res.ok) throw new Error("Failed to load questions");
-      const data = (await res.json()) as PaginatedResponse | BankQuestion[];
+  const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
+  const [tagOptions, setTagOptions] = useState<string[]>([]);
+  const [quizOptions, setQuizOptions] = useState<QuizOption[]>([]);
+  const debouncedSearch = useDebouncedValue(filters.search, 300);
 
-      if (Array.isArray(data)) {
-        // Fallback if API not yet restarted with pagination
-        setQuestions(data);
-        setTotal(data.length);
-        setTotalPages(1);
-        setPage(1);
-      } else {
-        setQuestions(data.items ?? []);
-        setTotal(data.total ?? 0);
-        setTotalPages(data.totalPages ?? 1);
-        setPage(data.page ?? pageNum);
+  const filtersActive =
+    Boolean(debouncedSearch.trim()) ||
+    Boolean(filters.tag || filters.quizId || filters.status || filters.language) ||
+    filters.unassigned;
+
+  /** Any filter change invalidates the current page number. */
+  const patchFilters = (patch: Partial<Filters>) => {
+    setFilters((prev) => ({ ...prev, ...patch }));
+    setPage(1);
+  };
+
+  const buildQuery = useCallback(
+    (pageNum: number, size: number) => {
+      const params = new URLSearchParams();
+      params.set("page", String(pageNum));
+      params.set("pageSize", String(size));
+      if (debouncedSearch.trim()) params.set("search", debouncedSearch.trim());
+      if (filters.tag) params.set("tag", filters.tag);
+      if (filters.status) params.set("status", filters.status);
+      if (filters.language) params.set("language", filters.language);
+      // Unassigned and a specific quiz are mutually exclusive.
+      if (filters.unassigned) params.set("unassigned", "true");
+      else if (filters.quizId) params.set("quizId", filters.quizId);
+      return params.toString();
+    },
+    [debouncedSearch, filters.tag, filters.status, filters.language, filters.unassigned, filters.quizId],
+  );
+
+  const load = useCallback(
+    async (pageNum = page, currentSize = pageSize) => {
+      const token = getClientCookie("session_token");
+      if (!token) return;
+      setLoading(true);
+      try {
+        const res = await fetch(`${APP_CONFIG.apiUrl}/questions?${buildQuery(pageNum, currentSize)}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!res.ok) throw new Error("Failed to load questions");
+        const data = (await res.json()) as PaginatedResponse | BankQuestion[];
+
+        if (Array.isArray(data)) {
+          // Fallback if API not yet restarted with pagination
+          setQuestions(data);
+          setTotal(data.length);
+          setTotalPages(1);
+          setPage(1);
+        } else {
+          setQuestions(data.items ?? []);
+          setTotal(data.total ?? 0);
+          setTotalPages(data.totalPages ?? 1);
+          setPage(data.page ?? pageNum);
+        }
+        setSelected(new Set());
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Failed to load questions");
+      } finally {
+        setLoading(false);
       }
-      setSelected(new Set());
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to load questions");
-    } finally {
-      setLoading(false);
-    }
-  }, [pageSize]);
+    },
+    [buildQuery, page, pageSize],
+  );
 
   useEffect(() => {
     void load(page, pageSize);
   }, [page, pageSize, load]);
+
+  const loadTagOptions = useCallback(() => {
+    const token = getClientCookie("session_token");
+    if (!token) return;
+    void fetch(`${APP_CONFIG.apiUrl}/questions/tags`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((res) => (res.ok ? res.json() : []))
+      .then((data) => setTagOptions(tagNames(data)))
+      .catch(() => setTagOptions([]));
+  }, []);
+
+  useEffect(() => {
+    const token = getClientCookie("session_token");
+    if (!token) return;
+    const headers = { Authorization: `Bearer ${token}` };
+
+    loadTagOptions();
+
+    void fetch(`${APP_CONFIG.apiUrl}/quizzes`, { headers })
+      .then((res) => (res.ok ? res.json() : []))
+      .then((data) => setQuizOptions(Array.isArray(data) ? data : (data?.items ?? [])))
+      .catch(() => setQuizOptions([]));
+  }, [loadTagOptions]);
 
   const authHeaders = () => ({
     Authorization: `Bearer ${getClientCookie("session_token")}`,
@@ -102,8 +187,7 @@ export function QuestionsBankList() {
   });
 
   const pageIds = useMemo(() => questions.map((q) => q.id), [questions]);
-  const allPageSelected =
-    pageIds.length > 0 && pageIds.every((id) => selected.has(id));
+  const allPageSelected = pageIds.length > 0 && pageIds.every((id) => selected.has(id));
   const somePageSelected = pageIds.some((id) => selected.has(id));
 
   const toggleAllPage = (checked: boolean) => {
@@ -177,9 +261,7 @@ export function QuestionsBankList() {
       });
       if (!res.ok) throw new Error("Bulk status update failed");
       const body = await res.json();
-      toast.success(
-        `Updated ${body.updated ?? selectedIds.length} to ${statusLabel(bulkStatus)}`,
-      );
+      toast.success(`Updated ${body.updated ?? selectedIds.length} to ${statusLabel(bulkStatus)}`);
       setBulkStatus("");
       await load(page);
     } catch (err) {
@@ -207,11 +289,8 @@ export function QuestionsBankList() {
       const body = await res.json();
       toast.success(`Deleted ${body.deleted ?? selectedIds.length} question(s)`);
       // If current page becomes empty after delete, go back a page
-      const remainingOnPage = questions.length - selectedIds.filter((id) =>
-        questions.some((q) => q.id === id),
-      ).length;
-      const nextPage =
-        remainingOnPage <= 0 && page > 1 ? page - 1 : page;
+      const remainingOnPage = questions.length - selectedIds.filter((id) => questions.some((q) => q.id === id)).length;
+      const nextPage = remainingOnPage <= 0 && page > 1 ? page - 1 : page;
       if (nextPage !== page) setPage(nextPage);
       else await load(page);
     } catch (err) {
@@ -240,9 +319,13 @@ export function QuestionsBankList() {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <DataBackupActions
-            resource="questions"
-            onImported={() => void load(1)}
+          <DataBackupActions resource="questions" onImported={() => void load(1)} />
+          <ManageTagsDialog
+            selectedQuestionIds={selectedIds}
+            onChanged={() => {
+              loadTagOptions();
+              void load(page);
+            }}
           />
           <AiImportPdfQuestions onImported={() => void load(1)} />
           <BulkImportQuestions onImported={() => void load(1)} />
@@ -253,6 +336,126 @@ export function QuestionsBankList() {
             </Link>
           </Button>
         </div>
+      </div>
+
+      <div className="flex flex-wrap items-end gap-3 rounded-lg border border-border bg-muted/20 px-4 py-3">
+        <div className="min-w-[220px] flex-1">
+          <label htmlFor="question-search" className="mb-1 block text-muted-foreground text-xs">
+            Search
+          </label>
+          <div className="relative">
+            <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              id="question-search"
+              className="h-9 pl-8"
+              placeholder="Question text or tag…"
+              value={filters.search}
+              onChange={(e) => patchFilters({ search: e.target.value })}
+            />
+          </div>
+        </div>
+
+        <div>
+          <span className="mb-1 block text-muted-foreground text-xs">Tag</span>
+          <Select value={filters.tag || ALL} onValueChange={(val) => patchFilters({ tag: val === ALL ? "" : val })}>
+            <SelectTrigger className="h-9 w-[160px]" aria-label="Filter by tag">
+              <SelectValue placeholder="All tags" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL}>All tags</SelectItem>
+              {tagOptions.map((t) => (
+                <SelectItem key={t} value={t}>
+                  {t}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div>
+          <span className="mb-1 block text-muted-foreground text-xs">Quiz</span>
+          <Select
+            value={filters.quizId || ALL}
+            disabled={filters.unassigned}
+            onValueChange={(val) => patchFilters({ quizId: val === ALL ? "" : val })}
+          >
+            <SelectTrigger className="h-9 w-[180px]" aria-label="Filter by quiz">
+              <SelectValue placeholder="All quizzes" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL}>All quizzes</SelectItem>
+              {quizOptions.map((q) => (
+                <SelectItem key={q.id} value={q.id}>
+                  {localize(q.title, "en")}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div>
+          <span className="mb-1 block text-muted-foreground text-xs">Language</span>
+          <Select
+            value={filters.language || ALL}
+            onValueChange={(val) => patchFilters({ language: val === ALL ? "" : (val as Filters["language"]) })}
+          >
+            <SelectTrigger className="h-9 w-[140px]" aria-label="Filter by language">
+              <SelectValue placeholder="Any language" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL}>Any language</SelectItem>
+              {LANGUAGE_OPTIONS.map((l) => (
+                <SelectItem key={l.value} value={l.value}>
+                  {l.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div>
+          <span className="mb-1 block text-muted-foreground text-xs">Status</span>
+          <Select
+            value={filters.status || ALL}
+            onValueChange={(val) => patchFilters({ status: val === ALL ? "" : (val as QuestionStatus) })}
+          >
+            <SelectTrigger className="h-9 w-[130px]" aria-label="Filter by status">
+              <SelectValue placeholder="All statuses" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL}>All statuses</SelectItem>
+              <SelectItem value="Draft">Draft</SelectItem>
+              <SelectItem value="Published">Public</SelectItem>
+              <SelectItem value="Archived">Archived</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="flex h-9 items-center gap-2">
+          <Checkbox
+            id="unassigned-only"
+            checked={filters.unassigned}
+            onCheckedChange={(v) => patchFilters({ unassigned: v === true })}
+          />
+          <label htmlFor="unassigned-only" className="text-sm">
+            Unassigned only
+          </label>
+        </div>
+
+        {filtersActive ? (
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            className="h-9"
+            onClick={() => {
+              setFilters(EMPTY_FILTERS);
+              setPage(1);
+            }}
+          >
+            Clear filters
+          </Button>
+        ) : null}
       </div>
 
       {selectedIds.length > 0 && (
@@ -272,41 +475,26 @@ export function QuestionsBankList() {
               <SelectItem value="Archived">Archived</SelectItem>
             </SelectContent>
           </Select>
-          <Button
-            type="button"
-            size="sm"
-            disabled={bulkBusy || !bulkStatus}
-            onClick={() => void bulkChangeStatus()}
-          >
+          <Button type="button" size="sm" disabled={bulkBusy || !bulkStatus} onClick={() => void bulkChangeStatus()}>
             {bulkBusy ? <Spinner className="size-4" /> : null}
             Apply status
           </Button>
           {canDelete ? (
-            <Button
-              type="button"
-              size="sm"
-              variant="destructive"
-              disabled={bulkBusy}
-              onClick={() => void bulkDelete()}
-            >
+            <Button type="button" size="sm" variant="destructive" disabled={bulkBusy} onClick={() => void bulkDelete()}>
               <Trash2 className="size-3.5" />
               Delete selected
             </Button>
           ) : null}
-          <Button
-            type="button"
-            size="sm"
-            variant="ghost"
-            disabled={bulkBusy}
-            onClick={() => setSelected(new Set())}
-          >
+          <Button type="button" size="sm" variant="ghost" disabled={bulkBusy} onClick={() => setSelected(new Set())}>
             Clear
           </Button>
         </div>
       )}
 
       {total === 0 ? (
-        <p className="text-muted-foreground text-sm">No questions yet.</p>
+        <p className="text-muted-foreground text-sm">
+          {filtersActive ? "No questions match these filters." : "No questions yet."}
+        </p>
       ) : (
         <>
           <div className="relative overflow-x-auto rounded-lg border border-border">
@@ -320,13 +508,7 @@ export function QuestionsBankList() {
                 <tr>
                   <th className="w-10 px-3 py-3">
                     <Checkbox
-                      checked={
-                        allPageSelected
-                          ? true
-                          : somePageSelected
-                            ? "indeterminate"
-                            : false
-                      }
+                      checked={allPageSelected ? true : somePageSelected ? "indeterminate" : false}
                       onCheckedChange={(v) => toggleAllPage(v === true)}
                       aria-label="Select all on page"
                     />
@@ -350,9 +532,7 @@ export function QuestionsBankList() {
                       />
                     </td>
                     <td className="max-w-md px-4 py-3">
-                      <div className="line-clamp-2 font-medium">
-                        {localize(q.questionText, "en")}
-                      </div>
+                      <div className="line-clamp-2 font-medium">{localize(q.questionText, "en")}</div>
                     </td>
                     <td className="px-4 py-3">
                       <Badge variant="outline" className="text-[10px] uppercase">
@@ -412,8 +592,7 @@ export function QuestionsBankList() {
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-4">
               <p className="text-muted-foreground text-sm">
-                Showing {total === 0 ? 0 : (page - 1) * pageSize + 1}–
-                {Math.min(page * pageSize, total)} of {total}
+                Showing {total === 0 ? 0 : (page - 1) * pageSize + 1}–{Math.min(page * pageSize, total)} of {total}
               </p>
               <div className="flex items-center gap-2">
                 <span className="text-slate-500 text-xs">Rows per page:</span>

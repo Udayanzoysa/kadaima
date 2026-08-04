@@ -7,39 +7,35 @@ import { useRouter } from "next/navigation";
 import { ImagePlus, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
-import { BulkImportQuestions } from "./bulk-import-questions";
-import { AiImportPdfQuestions } from "./ai-import-pdf-questions";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
 import { APP_CONFIG } from "@/config/app-config";
 import { getClientCookie } from "@/lib/cookie.client";
+import { tagNames } from "@/lib/question-tags";
 import { hideGlobalLoader, showGlobalLoader } from "@/stores/global-loader-store";
 import {
-  QUESTION_TYPE_META,
+  type AnswerChoiceForm,
+  type BankQuestion,
   emptyLocalizedText,
   filledLocales,
   hasLocaleContent,
-  mediaUrl,
-  type AnswerChoiceForm,
-  type BankQuestion,
   type LocalizedText,
   type MatchMode,
+  mediaUrl,
+  QUESTION_TYPE_META,
   type QuestionConfig,
   type QuestionStatus,
   type QuestionType,
 } from "@/types/quiz";
+
+import { AiImportPdfQuestions } from "./ai-import-pdf-questions";
+import { BulkImportQuestions } from "./bulk-import-questions";
 
 type ContentLang = "en" | "si" | "ta";
 
@@ -80,10 +76,22 @@ export function QuestionEditor({ questionId }: QuestionEditorProps) {
   const [minWords, setMinWords] = useState("");
   const [minSentences, setMinSentences] = useState("");
   const [tags, setTags] = useState<string[]>([]);
+  const [tagSuggestions, setTagSuggestions] = useState<string[]>([]);
   const [loading, setLoading] = useState(isEdit);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadingChoiceId, setUploadingChoiceId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const token = getClientCookie("session_token");
+    if (!token) return;
+    void fetch(`${APP_CONFIG.apiUrl}/questions/tags`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((res) => (res.ok ? res.json() : []))
+      .then((data) => setTagSuggestions(tagNames(data)))
+      .catch(() => setTagSuggestions([]));
+  }, []);
 
   useEffect(() => {
     if (!questionId) return;
@@ -105,16 +113,12 @@ export function QuestionEditor({ questionId }: QuestionEditorProps) {
         setContentFormat(data.config?.contentFormat === "html" ? "html" : "plain");
         setAcceptedAnswers((data.config?.acceptedAnswers ?? []).join("\n"));
         setMatchMode(data.config?.matchMode ?? "case_insensitive");
-        setCorrectNumber(
-          data.config?.correctNumber !== undefined ? String(data.config.correctNumber) : "",
-        );
+        setCorrectNumber(data.config?.correctNumber !== undefined ? String(data.config.correctNumber) : "");
         setTolerance(String(data.config?.tolerance ?? 0));
         setNumMin(data.config?.min !== undefined ? String(data.config.min) : "");
         setNumMax(data.config?.max !== undefined ? String(data.config.max) : "");
         setMinWords(data.config?.minWords !== undefined ? String(data.config.minWords) : "");
-        setMinSentences(
-          data.config?.minSentences !== undefined ? String(data.config.minSentences) : "",
-        );
+        setMinSentences(data.config?.minSentences !== undefined ? String(data.config.minSentences) : "");
         setChoices(
           data.choices.length
             ? data.choices.map((c) => ({
@@ -198,7 +202,10 @@ export function QuestionEditor({ questionId }: QuestionEditorProps) {
       }
     }
     if (type === "SHORT_TEXT") {
-      const answers = acceptedAnswers.split("\n").map((s) => s.trim()).filter(Boolean);
+      const answers = acceptedAnswers
+        .split("\n")
+        .map((s) => s.trim())
+        .filter(Boolean);
       if (!answers.length) return "Add at least one accepted answer (one per line).";
     }
     if (type === "NUMERIC" && correctNumber === "") {
@@ -242,9 +249,7 @@ export function QuestionEditor({ questionId }: QuestionEditorProps) {
     showGlobalLoader(`Uploading choice image…`);
     try {
       const url = await uploadImageFile(file);
-      setChoices((prev) =>
-        prev.map((c) => (c.id === choiceId ? { ...c, imageUrl: url } : c)),
-      );
+      setChoices((prev) => prev.map((c) => (c.id === choiceId ? { ...c, imageUrl: url } : c)));
       toast.success("Choice image uploaded");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Upload failed");
@@ -296,9 +301,7 @@ export function QuestionEditor({ questionId }: QuestionEditorProps) {
       );
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        throw new Error(
-          Array.isArray(err.message) ? err.message.join(", ") : err.message || "Save failed",
-        );
+        throw new Error(Array.isArray(err.message) ? err.message.join(", ") : err.message || "Save failed");
       }
       toast.success(isEdit ? "Question updated" : "Question created");
       router.push("/admin/questions");
@@ -333,14 +336,8 @@ export function QuestionEditor({ questionId }: QuestionEditorProps) {
         </div>
         {!isEdit && (
           <div className="flex flex-wrap gap-2">
-            <AiImportPdfQuestions
-              variant="outline"
-              onImported={() => router.push("/admin/questions")}
-            />
-            <BulkImportQuestions
-              variant="outline"
-              onImported={() => router.push("/admin/questions")}
-            />
+            <AiImportPdfQuestions variant="outline" onImported={() => router.push("/admin/questions")} />
+            <BulkImportQuestions variant="outline" onImported={() => router.push("/admin/questions")} />
           </div>
         )}
       </div>
@@ -397,10 +394,7 @@ export function QuestionEditor({ questionId }: QuestionEditorProps) {
 
           <Field>
             <FieldLabel>Prompt format</FieldLabel>
-            <Select
-              value={contentFormat}
-              onValueChange={(v: "plain" | "html") => setContentFormat(v)}
-            >
+            <Select value={contentFormat} onValueChange={(v: "plain" | "html") => setContentFormat(v)}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
@@ -417,9 +411,7 @@ export function QuestionEditor({ questionId }: QuestionEditorProps) {
               <Textarea
                 rows={6}
                 value={questionText[activeLang]}
-                onChange={(e) =>
-                  setQuestionText((prev) => ({ ...prev, [activeLang]: e.target.value }))
-                }
+                onChange={(e) => setQuestionText((prev) => ({ ...prev, [activeLang]: e.target.value }))}
                 placeholder="<p>Question…</p><table>…</table>"
                 className="font-mono text-xs"
               />
@@ -427,9 +419,7 @@ export function QuestionEditor({ questionId }: QuestionEditorProps) {
               <Textarea
                 rows={3}
                 value={questionText[activeLang]}
-                onChange={(e) =>
-                  setQuestionText((prev) => ({ ...prev, [activeLang]: e.target.value }))
-                }
+                onChange={(e) => setQuestionText((prev) => ({ ...prev, [activeLang]: e.target.value }))}
                 placeholder="Enter question text"
               />
             )}
@@ -460,23 +450,14 @@ export function QuestionEditor({ questionId }: QuestionEditorProps) {
             </div>
             {previewImg && (
               // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={previewImg}
-                alt="Prompt preview"
-                className="mt-2 max-h-48 rounded-md border object-contain"
-              />
+              <img src={previewImg} alt="Prompt preview" className="mt-2 max-h-48 rounded-md border object-contain" />
             )}
           </Field>
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Field>
               <FieldLabel>Points</FieldLabel>
-              <Input
-                type="number"
-                min={1}
-                value={points}
-                onChange={(e) => setPoints(Number(e.target.value))}
-              />
+              <Input type="number" min={1} value={points} onChange={(e) => setPoints(Number(e.target.value))} />
             </Field>
             <Field>
               <FieldLabel>Status</FieldLabel>
@@ -496,13 +477,44 @@ export function QuestionEditor({ questionId }: QuestionEditorProps) {
           <Field>
             <FieldLabel>Tags / Labels (comma-separated)</FieldLabel>
             <Input
+              list="question-tag-suggestions"
               placeholder="e.g. Sinhala Paper, Science Unit 1"
               value={tags.join(", ")}
               onChange={(e) => {
                 const val = e.target.value;
-                setTags(val.split(",").map((s) => s.trim()).filter(Boolean));
+                setTags(
+                  val
+                    .split(",")
+                    .map((s) => s.trim())
+                    .filter(Boolean),
+                );
               }}
             />
+            <datalist id="question-tag-suggestions">
+              {tagSuggestions.map((tag) => (
+                <option key={tag} value={tag} />
+              ))}
+            </datalist>
+            {tagSuggestions.length > 0 ? (
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {tagSuggestions
+                  .filter((tag) => !tags.includes(tag))
+                  .slice(0, 12)
+                  .map((tag) => (
+                    <Button
+                      key={tag}
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      className="h-7 px-2 text-xs"
+                      onClick={() => setTags((prev) => [...prev, tag])}
+                    >
+                      <Plus className="size-3" />
+                      {tag}
+                    </Button>
+                  ))}
+              </div>
+            ) : null}
           </Field>
 
           {type === "SHORT_TEXT" && (
@@ -545,12 +557,7 @@ export function QuestionEditor({ questionId }: QuestionEditorProps) {
               </Field>
               <Field>
                 <FieldLabel>Tolerance (±)</FieldLabel>
-                <Input
-                  type="number"
-                  step="any"
-                  value={tolerance}
-                  onChange={(e) => setTolerance(e.target.value)}
-                />
+                <Input type="number" step="any" value={tolerance} onChange={(e) => setTolerance(e.target.value)} />
               </Field>
               <Field>
                 <FieldLabel>Min (optional)</FieldLabel>
@@ -567,21 +574,11 @@ export function QuestionEditor({ questionId }: QuestionEditorProps) {
             <div className="grid grid-cols-1 gap-3 rounded-lg border p-4 sm:grid-cols-2">
               <Field>
                 <FieldLabel>Min words (optional)</FieldLabel>
-                <Input
-                  type="number"
-                  min={0}
-                  value={minWords}
-                  onChange={(e) => setMinWords(e.target.value)}
-                />
+                <Input type="number" min={0} value={minWords} onChange={(e) => setMinWords(e.target.value)} />
               </Field>
               <Field>
                 <FieldLabel>Min sentences (optional)</FieldLabel>
-                <Input
-                  type="number"
-                  min={0}
-                  value={minSentences}
-                  onChange={(e) => setMinSentences(e.target.value)}
-                />
+                <Input type="number" min={0} value={minSentences} onChange={(e) => setMinSentences(e.target.value)} />
               </Field>
               <p className="text-muted-foreground text-xs sm:col-span-2">
                 Essays skip auto-grading and are flagged for instructor review.
@@ -592,9 +589,7 @@ export function QuestionEditor({ questionId }: QuestionEditorProps) {
           {(type === "MCQ" || type === "SEQUENCE") && (
             <div className="space-y-2">
               <span className="font-medium text-sm">
-                {type === "SEQUENCE"
-                  ? "Items in the correct order (students will reorder them)"
-                  : "Answer choices"}
+                {type === "SEQUENCE" ? "Items in the correct order (students will reorder them)" : "Answer choices"}
               </span>
               {choices.map((choice) => {
                 const choiceImg = mediaUrl(choice.imageUrl, APP_CONFIG.apiUrl);
@@ -605,9 +600,7 @@ export function QuestionEditor({ questionId }: QuestionEditorProps) {
                         <Checkbox
                           checked={choice.isCorrect}
                           onCheckedChange={() =>
-                            setChoices((prev) =>
-                              prev.map((c) => ({ ...c, isCorrect: c.id === choice.id })),
-                            )
+                            setChoices((prev) => prev.map((c) => ({ ...c, isCorrect: c.id === choice.id })))
                           }
                         />
                       )}
@@ -630,9 +623,7 @@ export function QuestionEditor({ questionId }: QuestionEditorProps) {
                           )
                         }
                         placeholder={
-                          type === "SEQUENCE"
-                            ? "Label (optional if image)"
-                            : "Choice text (optional if image)"
+                          type === "SEQUENCE" ? "Label (optional if image)" : "Choice text (optional if image)"
                         }
                       />
                       <label className="inline-flex cursor-pointer items-center gap-1 rounded-md border px-2 py-1.5 text-xs hover:bg-muted/40">
@@ -655,9 +646,7 @@ export function QuestionEditor({ questionId }: QuestionEditorProps) {
                           type="button"
                           variant="ghost"
                           size="icon"
-                          onClick={() =>
-                            setChoices((prev) => prev.filter((c) => c.id !== choice.id))
-                          }
+                          onClick={() => setChoices((prev) => prev.filter((c) => c.id !== choice.id))}
                         >
                           <Trash2 className="size-4" />
                         </Button>
@@ -666,21 +655,13 @@ export function QuestionEditor({ questionId }: QuestionEditorProps) {
                     {choiceImg && (
                       <div className="flex items-start gap-2 pl-7">
                         {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          src={choiceImg}
-                          alt="Choice"
-                          className="max-h-28 rounded-md border object-contain"
-                        />
+                        <img src={choiceImg} alt="Choice" className="max-h-28 rounded-md border object-contain" />
                         <Button
                           type="button"
                           variant="ghost"
                           size="sm"
                           onClick={() =>
-                            setChoices((prev) =>
-                              prev.map((c) =>
-                                c.id === choice.id ? { ...c, imageUrl: null } : c,
-                              ),
-                            )
+                            setChoices((prev) => prev.map((c) => (c.id === choice.id ? { ...c, imageUrl: null } : c)))
                           }
                         >
                           Remove image

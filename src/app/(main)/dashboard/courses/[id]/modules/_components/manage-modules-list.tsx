@@ -5,14 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
-import {
-  ArrowLeft,
-  ChevronLeft,
-  ChevronRight,
-  Pencil,
-  Plus,
-  Trash2,
-} from "lucide-react";
+import { ArrowLeft, ChevronLeft, ChevronRight, Pencil, Plus, Search, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { usePermissions } from "@/app/(main)/dashboard/_components/sidebar/permission-guard";
@@ -20,24 +13,17 @@ import { DataBackupActions } from "@/components/data-backup-actions";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Spinner } from "@/components/ui/spinner";
 import { APP_CONFIG } from "@/config/app-config";
+import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { getClientCookie } from "@/lib/cookie.client";
-import {
-  localize,
-  type Course,
-  type CourseModule,
-  type CourseStatus,
-} from "@/types/quiz";
+import { type Course, type CourseModule, type CourseStatus, localize } from "@/types/quiz";
 
 const PAGE_SIZE = 10;
+
+const ALL = "all";
 
 type PaginatedResponse = {
   items: CourseModule[];
@@ -45,6 +31,16 @@ type PaginatedResponse = {
   page: number;
   pageSize: number;
   totalPages: number;
+};
+
+type Filters = {
+  search: string;
+  status: CourseStatus | "";
+};
+
+const EMPTY_FILTERS: Filters = {
+  search: "",
+  status: "",
 };
 
 function statusLabel(status: CourseStatus) {
@@ -66,9 +62,7 @@ export function ManageModulesList({ courseId }: ManageModulesListProps) {
   const router = useRouter();
   const { hasPermission } = usePermissions();
   const canDelete =
-    hasPermission("MANAGE", "all") ||
-    hasPermission("DELETE", "QUIZZES") ||
-    hasPermission("MANAGE", "QUIZZES");
+    hasPermission("MANAGE", "all") || hasPermission("DELETE", "QUIZZES") || hasPermission("MANAGE", "QUIZZES");
   const [course, setCourse] = useState<Course | null>(null);
   const [modules, setModules] = useState<CourseModule[]>([]);
   const [loading, setLoading] = useState(true);
@@ -80,6 +74,28 @@ export function ManageModulesList({ courseId }: ManageModulesListProps) {
   const [totalPages, setTotalPages] = useState(1);
   const [bulkStatus, setBulkStatus] = useState<CourseStatus | "">("");
 
+  const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
+  const debouncedSearch = useDebouncedValue(filters.search, 300);
+
+  const filtersActive = Boolean(debouncedSearch.trim()) || Boolean(filters.status);
+
+  const patchFilters = (patch: Partial<Filters>) => {
+    setFilters((prev) => ({ ...prev, ...patch }));
+    setPage(1);
+  };
+
+  const buildQuery = useCallback(
+    (pageNum: number) => {
+      const params = new URLSearchParams();
+      params.set("page", String(pageNum));
+      params.set("pageSize", String(PAGE_SIZE));
+      if (debouncedSearch.trim()) params.set("search", debouncedSearch.trim());
+      if (filters.status) params.set("status", filters.status);
+      return params.toString();
+    },
+    [debouncedSearch, filters.status],
+  );
+
   const load = useCallback(
     async (pageNum = page) => {
       const token = getClientCookie("session_token");
@@ -90,10 +106,9 @@ export function ManageModulesList({ courseId }: ManageModulesListProps) {
           fetch(`${APP_CONFIG.apiUrl}/courses/${courseId}`, {
             headers: { Authorization: `Bearer ${token}` },
           }),
-          fetch(
-            `${APP_CONFIG.apiUrl}/courses/${courseId}/modules?page=${pageNum}&pageSize=${PAGE_SIZE}`,
-            { headers: { Authorization: `Bearer ${token}` } },
-          ),
+          fetch(`${APP_CONFIG.apiUrl}/courses/${courseId}/modules?${buildQuery(pageNum)}`, {
+            headers: { Authorization: `Bearer ${token}` },
+          }),
         ]);
         if (!courseRes.ok) throw new Error("Failed to load course");
         if (!modulesRes.ok) throw new Error("Failed to load modules");
@@ -119,12 +134,12 @@ export function ManageModulesList({ courseId }: ManageModulesListProps) {
         setLoading(false);
       }
     },
-    [courseId, page],
+    [buildQuery, courseId, page],
   );
 
   useEffect(() => {
     void load(page);
-  }, [page, courseId]); // eslint-disable-line react-hooks/exhaustive-deps -- reload on page/course change
+  }, [page, load]);
 
   const authHeaders = () => ({
     Authorization: `Bearer ${getClientCookie("session_token")}`,
@@ -132,8 +147,7 @@ export function ManageModulesList({ courseId }: ManageModulesListProps) {
   });
 
   const pageIds = useMemo(() => modules.map((m) => m.id), [modules]);
-  const allPageSelected =
-    pageIds.length > 0 && pageIds.every((id) => selected.has(id));
+  const allPageSelected = pageIds.length > 0 && pageIds.every((id) => selected.has(id));
   const somePageSelected = pageIds.some((id) => selected.has(id));
 
   const toggleAllPage = (checked: boolean) => {
@@ -157,14 +171,11 @@ export function ManageModulesList({ courseId }: ManageModulesListProps) {
   const updateStatus = async (id: string, status: CourseStatus) => {
     setBusyId(id);
     try {
-      const res = await fetch(
-        `${APP_CONFIG.apiUrl}/courses/${courseId}/modules/${id}/status`,
-        {
-          method: "PATCH",
-          headers: authHeaders(),
-          body: JSON.stringify({ status }),
-        },
-      );
+      const res = await fetch(`${APP_CONFIG.apiUrl}/courses/${courseId}/modules/${id}/status`, {
+        method: "PATCH",
+        headers: authHeaders(),
+        body: JSON.stringify({ status }),
+      });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         throw new Error(err.message || "Could not update status");
@@ -190,13 +201,10 @@ export function ManageModulesList({ courseId }: ManageModulesListProps) {
 
     setBusyId(mod.id);
     try {
-      const res = await fetch(
-        `${APP_CONFIG.apiUrl}/courses/${courseId}/modules/${mod.id}`,
-        {
-          method: "DELETE",
-          headers: authHeaders(),
-        },
-      );
+      const res = await fetch(`${APP_CONFIG.apiUrl}/courses/${courseId}/modules/${mod.id}`, {
+        method: "DELETE",
+        headers: authHeaders(),
+      });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         throw new Error(err.message || "Could not delete module");
@@ -216,19 +224,14 @@ export function ManageModulesList({ courseId }: ManageModulesListProps) {
     if (!bulkStatus || selectedIds.length === 0) return;
     setBulkBusy(true);
     try {
-      const res = await fetch(
-        `${APP_CONFIG.apiUrl}/courses/${courseId}/modules/bulk/status`,
-        {
-          method: "PATCH",
-          headers: authHeaders(),
-          body: JSON.stringify({ ids: selectedIds, status: bulkStatus }),
-        },
-      );
+      const res = await fetch(`${APP_CONFIG.apiUrl}/courses/${courseId}/modules/bulk/status`, {
+        method: "PATCH",
+        headers: authHeaders(),
+        body: JSON.stringify({ ids: selectedIds, status: bulkStatus }),
+      });
       if (!res.ok) throw new Error("Bulk status update failed");
       const body = await res.json();
-      toast.success(
-        `Updated ${body.updated ?? selectedIds.length} to ${statusLabel(bulkStatus)}`,
-      );
+      toast.success(`Updated ${body.updated ?? selectedIds.length} to ${statusLabel(bulkStatus)}`);
       setBulkStatus("");
       await load(page);
     } catch (err) {
@@ -247,20 +250,15 @@ export function ManageModulesList({ courseId }: ManageModulesListProps) {
 
     setBulkBusy(true);
     try {
-      const res = await fetch(
-        `${APP_CONFIG.apiUrl}/courses/${courseId}/modules/bulk/delete`,
-        {
-          method: "POST",
-          headers: authHeaders(),
-          body: JSON.stringify({ ids: selectedIds }),
-        },
-      );
+      const res = await fetch(`${APP_CONFIG.apiUrl}/courses/${courseId}/modules/bulk/delete`, {
+        method: "POST",
+        headers: authHeaders(),
+        body: JSON.stringify({ ids: selectedIds }),
+      });
       if (!res.ok) throw new Error("Bulk delete failed");
       const body = await res.json();
       toast.success(`Deleted ${body.deleted ?? selectedIds.length} module(s)`);
-      const remainingOnPage =
-        modules.length -
-        selectedIds.filter((id) => modules.some((m) => m.id === id)).length;
+      const remainingOnPage = modules.length - selectedIds.filter((id) => modules.some((m) => m.id === id)).length;
       const nextPage = remainingOnPage <= 0 && page > 1 ? page - 1 : page;
       if (nextPage !== page) setPage(nextPage);
       else await load(page);
@@ -295,8 +293,8 @@ export function ManageModulesList({ courseId }: ManageModulesListProps) {
           <div className="space-y-1">
             <h1 className="font-semibold text-2xl tracking-tight md:text-3xl">Modules</h1>
             <p className="text-muted-foreground text-sm">
-              Modules for <span className="font-medium text-foreground">{courseName}</span>. Add,
-              edit, publish, or archive in English, Sinhala, and Tamil.
+              Modules for <span className="font-medium text-foreground">{courseName}</span>. Add, edit, publish, or
+              archive in English, Sinhala, and Tamil.
             </p>
           </div>
         </div>
@@ -313,6 +311,57 @@ export function ManageModulesList({ courseId }: ManageModulesListProps) {
             </Link>
           </Button>
         </div>
+      </div>
+
+      <div className="flex flex-wrap items-end gap-3 rounded-lg border border-border bg-muted/20 px-4 py-3">
+        <div className="min-w-[220px] flex-1">
+          <label htmlFor="module-search" className="mb-1 block text-muted-foreground text-xs">
+            Search
+          </label>
+          <div className="relative">
+            <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              id="module-search"
+              className="h-9 pl-8"
+              placeholder="Module title…"
+              value={filters.search}
+              onChange={(e) => patchFilters({ search: e.target.value })}
+            />
+          </div>
+        </div>
+
+        <div>
+          <span className="mb-1 block text-muted-foreground text-xs">Status</span>
+          <Select
+            value={filters.status || ALL}
+            onValueChange={(val) => patchFilters({ status: val === ALL ? "" : (val as CourseStatus) })}
+          >
+            <SelectTrigger className="h-9 w-[130px]" aria-label="Filter by status">
+              <SelectValue placeholder="All statuses" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL}>All statuses</SelectItem>
+              <SelectItem value="Draft">Draft</SelectItem>
+              <SelectItem value="Published">Public</SelectItem>
+              <SelectItem value="Archived">Archived</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        {filtersActive ? (
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            className="h-9"
+            onClick={() => {
+              setFilters(EMPTY_FILTERS);
+              setPage(1);
+            }}
+          >
+            Clear filters
+          </Button>
+        ) : null}
       </div>
 
       {selectedIds.length > 0 && (
@@ -332,41 +381,26 @@ export function ManageModulesList({ courseId }: ManageModulesListProps) {
               <SelectItem value="Archived">Archived</SelectItem>
             </SelectContent>
           </Select>
-          <Button
-            type="button"
-            size="sm"
-            disabled={bulkBusy || !bulkStatus}
-            onClick={() => void bulkChangeStatus()}
-          >
+          <Button type="button" size="sm" disabled={bulkBusy || !bulkStatus} onClick={() => void bulkChangeStatus()}>
             {bulkBusy ? <Spinner className="size-4" /> : null}
             Apply status
           </Button>
           {canDelete ? (
-            <Button
-              type="button"
-              size="sm"
-              variant="destructive"
-              disabled={bulkBusy}
-              onClick={() => void bulkDelete()}
-            >
+            <Button type="button" size="sm" variant="destructive" disabled={bulkBusy} onClick={() => void bulkDelete()}>
               <Trash2 className="size-3.5" />
               Delete selected
             </Button>
           ) : null}
-          <Button
-            type="button"
-            size="sm"
-            variant="ghost"
-            disabled={bulkBusy}
-            onClick={() => setSelected(new Set())}
-          >
+          <Button type="button" size="sm" variant="ghost" disabled={bulkBusy} onClick={() => setSelected(new Set())}>
             Clear
           </Button>
         </div>
       )}
 
       {total === 0 ? (
-        <p className="text-muted-foreground text-sm">No modules yet. Add your first module.</p>
+        <p className="text-muted-foreground text-sm">
+          {filtersActive ? "No modules match these filters." : "No modules yet. Add your first module."}
+        </p>
       ) : (
         <>
           <div className="relative overflow-x-auto rounded-lg border border-border">
@@ -380,13 +414,7 @@ export function ManageModulesList({ courseId }: ManageModulesListProps) {
                 <tr>
                   <th className="w-10 px-3 py-3">
                     <Checkbox
-                      checked={
-                        allPageSelected
-                          ? true
-                          : somePageSelected
-                            ? "indeterminate"
-                            : false
-                      }
+                      checked={allPageSelected ? true : somePageSelected ? "indeterminate" : false}
                       onCheckedChange={(v) => toggleAllPage(v === true)}
                       aria-label="Select all on page"
                     />
@@ -442,9 +470,7 @@ export function ManageModulesList({ courseId }: ManageModulesListProps) {
                           size="sm"
                           variant="outline"
                           disabled={busyId === mod.id}
-                          onClick={() =>
-                            router.push(`/admin/courses/${courseId}/modules/${mod.id}/edit`)
-                          }
+                          onClick={() => router.push(`/admin/courses/${courseId}/modules/${mod.id}/edit`)}
                         >
                           <Pencil className="size-3.5" />
                           Edit
@@ -471,8 +497,7 @@ export function ManageModulesList({ courseId }: ManageModulesListProps) {
 
           <div className="flex flex-wrap items-center justify-between gap-3">
             <p className="text-muted-foreground text-sm">
-              Showing {(page - 1) * PAGE_SIZE + 1}–
-              {Math.min(page * PAGE_SIZE, total)} of {total}
+              Showing {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, total)} of {total}
             </p>
             <div className="flex items-center gap-2">
               <Button

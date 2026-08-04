@@ -1,20 +1,17 @@
 import { Suspense } from "react";
 
-import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+
+import type { Metadata } from "next";
 
 import { PublicQuizShell } from "@/app/quiz/_components/public-quiz-shell";
 import { JsonLd } from "@/components/site/json-ld";
 import { PublicContentSkeleton } from "@/components/site/public-content-skeleton";
 import { APP_CONFIG } from "@/config/app-config";
-import { buildPageMetadata, jsonLdCollectionPage } from "@/lib/page-seo";
+import { buildPageMetadata, jsonLdCollectionPage, withSeoOverrides } from "@/lib/page-seo";
 import { isValidCourseId } from "@/lib/public-catalog";
 import { fetchPublicQuizzesByCourse } from "@/lib/public-quizzes";
-import {
-  localize,
-  plainTextFromLocalized,
-  type LocalizedText,
-} from "@/types/quiz";
+import { type LocalizedText, localize, plainTextFromLocalized } from "@/types/quiz";
 
 import { CourseQuizzesView } from "./_components/course-quizzes-view";
 
@@ -49,12 +46,17 @@ export async function generateMetadata({ params }: CoursePageProps): Promise<Met
       ? `Browse ${count} practice quiz${count === 1 ? "" : "zes"} for ${titleBase} on ${APP_CONFIG.name}. Filter by module and start free or unlock premium papers.`
       : `Practice quizzes for ${titleBase} on ${APP_CONFIG.name} — Sri Lanka’s online exam & quiz portal.`;
 
-  return buildPageMetadata({
-    title,
-    description,
-    path: `/quiz/course/${courseId}`,
-    noIndex: count === 0,
-  });
+  return buildPageMetadata(
+    withSeoOverrides(
+      {
+        title,
+        description,
+        path: `/quiz/course/${courseId}`,
+        noIndex: count === 0,
+      },
+      course,
+    ),
+  );
 }
 
 export default async function CourseQuizzesPage({ params }: CoursePageProps) {

@@ -6,12 +6,8 @@ import { PublicQuizShell } from "@/app/quiz/_components/public-quiz-shell";
 import { JsonLd } from "@/components/site/json-ld";
 import { PublicContentSkeleton } from "@/components/site/public-content-skeleton";
 import { APP_CONFIG } from "@/config/app-config";
-import { buildPageMetadata, jsonLdQuizPage } from "@/lib/page-seo";
-import {
-  localize,
-  plainTextFromLocalized,
-  type LocalizedText,
-} from "@/types/quiz";
+import { buildPageMetadata, jsonLdQuizPage, withSeoOverrides } from "@/lib/page-seo";
+import { type LocalizedText, localize, plainTextFromLocalized } from "@/types/quiz";
 
 import { PublicQuizDetail } from "./_components/public-quiz-detail";
 
@@ -23,6 +19,8 @@ type PublishedQuizMeta = {
   id: string;
   title?: LocalizedText | string | null;
   description?: LocalizedText | string | null;
+  seoTitle?: string | null;
+  seoDescription?: string | null;
   coverImageUrl?: string | null;
   durationMinutes?: number | null;
 };
@@ -51,21 +49,24 @@ export async function generateMetadata({ params }: QuizPageProps): Promise<Metad
     metaText(quiz?.description) ||
     `Take the ${title} practice quiz on ${APP_CONFIG.name} — Sri Lanka’s online exam & quiz portal.`;
 
-  return buildPageMetadata({
-    title,
-    description,
-    path: `/quiz/${id}`,
-    image: quiz?.coverImageUrl,
-  });
+  return buildPageMetadata(
+    withSeoOverrides(
+      {
+        title,
+        description,
+        path: `/quiz/${id}`,
+        image: quiz?.coverImageUrl,
+      },
+      quiz,
+    ),
+  );
 }
 
 export default async function PublicQuizDetailPage({ params }: QuizPageProps) {
   const { id } = await params;
   const quiz = await fetchQuizMeta(id);
   const title = metaText(quiz?.title) || "Practice Quiz";
-  const description =
-    metaText(quiz?.description) ||
-    `Take the ${title} practice quiz on ${APP_CONFIG.name}.`;
+  const description = metaText(quiz?.description) || `Take the ${title} practice quiz on ${APP_CONFIG.name}.`;
 
   return (
     <>

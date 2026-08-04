@@ -7,13 +7,20 @@ export interface CatalogQuiz {
   languages?: Array<"en" | "si" | "ta">;
   title: LocalizedText;
   description: LocalizedText | null;
+  seoTitle?: string | null;
+  seoDescription?: string | null;
   coverImageUrl?: string | null;
   durationMinutes: number;
   passingScorePercentage: number;
   requiresUnlock?: boolean;
   priceLkr?: number | null;
   unlocked?: boolean;
-  course: { id: string; title: LocalizedText | string };
+  course: {
+    id: string;
+    title: LocalizedText | string;
+    seoTitle?: string | null;
+    seoDescription?: string | null;
+  };
   module?: { id: string; title: LocalizedText | string } | null;
   _count: { questions: number; attempts?: number };
 }
@@ -36,10 +43,9 @@ export async function fetchPublicQuizzesByCourse(courseId: string): Promise<Cata
   const id = courseId.trim();
   if (!id) return [];
   try {
-    const res = await fetch(
-      `${APP_CONFIG.apiUrl}/public/quizzes?courseId=${encodeURIComponent(id)}`,
-      { next: { revalidate: 60 } },
-    );
+    const res = await fetch(`${APP_CONFIG.apiUrl}/public/quizzes?courseId=${encodeURIComponent(id)}`, {
+      next: { revalidate: 60 },
+    });
     if (!res.ok) return [];
     return (await res.json()) as CatalogQuiz[];
   } catch {

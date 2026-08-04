@@ -85,6 +85,30 @@ export function buildPageMetadata(input: BuildPageMetadataInput): Metadata {
   };
 }
 
+export type SeoOverrides = {
+  seoTitle?: string | null;
+  seoDescription?: string | null;
+};
+
+/**
+ * Layers admin-authored SEO fields over derived metadata. A custom title is
+ * marked absolute so the author owns the whole ~60 character budget instead of
+ * losing part of it to the root `| SiteName` template.
+ */
+export function withSeoOverrides(
+  base: BuildPageMetadataInput,
+  overrides: SeoOverrides | null | undefined,
+): BuildPageMetadataInput {
+  const seoTitle = overrides?.seoTitle?.trim();
+  const seoDescription = overrides?.seoDescription?.trim();
+
+  return {
+    ...base,
+    ...(seoTitle ? { title: seoTitle, absoluteTitle: true } : {}),
+    ...(seoDescription ? { description: seoDescription } : {}),
+  };
+}
+
 export type BreadcrumbJsonLdItem = {
   name: string;
   path: string;
@@ -103,11 +127,7 @@ export function jsonLdBreadcrumbList(items: BreadcrumbJsonLdItem[]) {
   };
 }
 
-export function jsonLdWebSiteAndOrganization(input: {
-  siteName: string;
-  description: string;
-  siteUrl: string;
-}) {
+export function jsonLdWebSiteAndOrganization(input: { siteName: string; description: string; siteUrl: string }) {
   return [
     {
       "@context": "https://schema.org",

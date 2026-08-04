@@ -5,14 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
-import {
-  BookOpen,
-  ChevronLeft,
-  ChevronRight,
-  Pencil,
-  Plus,
-  Trash2,
-} from "lucide-react";
+import { BookOpen, ChevronLeft, ChevronRight, Pencil, Plus, Search, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { usePermissions } from "@/app/(main)/dashboard/_components/sidebar/permission-guard";
@@ -20,19 +13,15 @@ import { DataBackupActions } from "@/components/data-backup-actions";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Spinner } from "@/components/ui/spinner";
 import { APP_CONFIG } from "@/config/app-config";
+import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { getClientCookie } from "@/lib/cookie.client";
-import { localize, type Course, type CourseStatus } from "@/types/quiz";
+import { type Course, type CourseStatus, localize } from "@/types/quiz";
 
-const PAGE_SIZE = 10;
+const ALL = "all";
 
 type PaginatedResponse = {
   items: Course[];
@@ -40,6 +29,16 @@ type PaginatedResponse = {
   page: number;
   pageSize: number;
   totalPages: number;
+};
+
+type Filters = {
+  search: string;
+  status: CourseStatus | "";
+};
+
+const EMPTY_FILTERS: Filters = {
+  search: "",
+  status: "",
 };
 
 function statusLabel(status: CourseStatus) {
@@ -61,9 +60,7 @@ export function ManageCoursesList() {
   const router = useRouter();
   const { hasPermission } = usePermissions();
   const canDelete =
-    hasPermission("MANAGE", "all") ||
-    hasPermission("DELETE", "QUIZZES") ||
-    hasPermission("MANAGE", "QUIZZES");
+    hasPermission("MANAGE", "all") || hasPermission("DELETE", "QUIZZES") || hasPermission("MANAGE", "QUIZZES");
   const [courses, setCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -75,36 +72,60 @@ export function ManageCoursesList() {
   const [totalPages, setTotalPages] = useState(1);
   const [bulkStatus, setBulkStatus] = useState<CourseStatus | "">("");
 
-  const load = useCallback(async (pageNum = page, currentSize = pageSize) => {
-    const token = getClientCookie("session_token");
-    if (!token) return;
-    setLoading(true);
-    try {
-      const res = await fetch(
-        `${APP_CONFIG.apiUrl}/courses?page=${pageNum}&pageSize=${currentSize}`,
-        { headers: { Authorization: `Bearer ${token}` } },
-      );
-      if (!res.ok) throw new Error("Failed to load courses");
-      const data = (await res.json()) as PaginatedResponse | Course[];
+  const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
+  const debouncedSearch = useDebouncedValue(filters.search, 300);
 
-      if (Array.isArray(data)) {
-        setCourses(data);
-        setTotal(data.length);
-        setTotalPages(1);
-        setPage(1);
-      } else {
-        setCourses(data.items ?? []);
-        setTotal(data.total ?? 0);
-        setTotalPages(data.totalPages ?? 1);
-        setPage(data.page ?? pageNum);
+  const filtersActive = Boolean(debouncedSearch.trim()) || Boolean(filters.status);
+
+  const patchFilters = (patch: Partial<Filters>) => {
+    setFilters((prev) => ({ ...prev, ...patch }));
+    setPage(1);
+  };
+
+  const buildQuery = useCallback(
+    (pageNum: number, size: number) => {
+      const params = new URLSearchParams();
+      params.set("page", String(pageNum));
+      params.set("pageSize", String(size));
+      if (debouncedSearch.trim()) params.set("search", debouncedSearch.trim());
+      if (filters.status) params.set("status", filters.status);
+      return params.toString();
+    },
+    [debouncedSearch, filters.status],
+  );
+
+  const load = useCallback(
+    async (pageNum = page, currentSize = pageSize) => {
+      const token = getClientCookie("session_token");
+      if (!token) return;
+      setLoading(true);
+      try {
+        const res = await fetch(`${APP_CONFIG.apiUrl}/courses?${buildQuery(pageNum, currentSize)}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!res.ok) throw new Error("Failed to load courses");
+        const data = (await res.json()) as PaginatedResponse | Course[];
+
+        if (Array.isArray(data)) {
+          setCourses(data);
+          setTotal(data.length);
+          setTotalPages(1);
+          setPage(1);
+        } else {
+          setCourses(data.items ?? []);
+          setTotal(data.total ?? 0);
+          setTotalPages(data.totalPages ?? 1);
+          setPage(data.page ?? pageNum);
+        }
+        setSelected(new Set());
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Failed to load courses");
+      } finally {
+        setLoading(false);
       }
-      setSelected(new Set());
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to load courses");
-    } finally {
-      setLoading(false);
-    }
-  }, [pageSize]);
+    },
+    [buildQuery, page, pageSize],
+  );
 
   useEffect(() => {
     void load(page, pageSize);
@@ -116,8 +137,7 @@ export function ManageCoursesList() {
   });
 
   const pageIds = useMemo(() => courses.map((c) => c.id), [courses]);
-  const allPageSelected =
-    pageIds.length > 0 && pageIds.every((id) => selected.has(id));
+  const allPageSelected = pageIds.length > 0 && pageIds.every((id) => selected.has(id));
   const somePageSelected = pageIds.some((id) => selected.has(id));
 
   const toggleAllPage = (checked: boolean) => {
@@ -197,9 +217,7 @@ export function ManageCoursesList() {
       });
       if (!res.ok) throw new Error("Bulk status update failed");
       const body = await res.json();
-      toast.success(
-        `Updated ${body.updated ?? selectedIds.length} to ${statusLabel(bulkStatus)}`,
-      );
+      toast.success(`Updated ${body.updated ?? selectedIds.length} to ${statusLabel(bulkStatus)}`);
       setBulkStatus("");
       await load(page);
     } catch (err) {
@@ -226,9 +244,7 @@ export function ManageCoursesList() {
       if (!res.ok) throw new Error("Bulk delete failed");
       const body = await res.json();
       toast.success(`Deleted ${body.deleted ?? selectedIds.length} course(s)`);
-      const remainingOnPage =
-        courses.length -
-        selectedIds.filter((id) => courses.some((c) => c.id === id)).length;
+      const remainingOnPage = courses.length - selectedIds.filter((id) => courses.some((c) => c.id === id)).length;
       const nextPage = remainingOnPage <= 0 && page > 1 ? page - 1 : page;
       if (nextPage !== page) setPage(nextPage);
       else await load(page);
@@ -258,10 +274,7 @@ export function ManageCoursesList() {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <DataBackupActions
-            resource="courses"
-            onImported={() => void load(1)}
-          />
+          <DataBackupActions resource="courses" onImported={() => void load(1)} />
           <Button asChild>
             <Link href="/admin/courses/new">
               <Plus className="size-4" />
@@ -269,6 +282,57 @@ export function ManageCoursesList() {
             </Link>
           </Button>
         </div>
+      </div>
+
+      <div className="flex flex-wrap items-end gap-3 rounded-lg border border-border bg-muted/20 px-4 py-3">
+        <div className="min-w-[220px] flex-1">
+          <label htmlFor="course-search" className="mb-1 block text-muted-foreground text-xs">
+            Search
+          </label>
+          <div className="relative">
+            <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              id="course-search"
+              className="h-9 pl-8"
+              placeholder="Course title…"
+              value={filters.search}
+              onChange={(e) => patchFilters({ search: e.target.value })}
+            />
+          </div>
+        </div>
+
+        <div>
+          <span className="mb-1 block text-muted-foreground text-xs">Status</span>
+          <Select
+            value={filters.status || ALL}
+            onValueChange={(val) => patchFilters({ status: val === ALL ? "" : (val as CourseStatus) })}
+          >
+            <SelectTrigger className="h-9 w-[130px]" aria-label="Filter by status">
+              <SelectValue placeholder="All statuses" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL}>All statuses</SelectItem>
+              <SelectItem value="Draft">Draft</SelectItem>
+              <SelectItem value="Published">Public</SelectItem>
+              <SelectItem value="Archived">Archived</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        {filtersActive ? (
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            className="h-9"
+            onClick={() => {
+              setFilters(EMPTY_FILTERS);
+              setPage(1);
+            }}
+          >
+            Clear filters
+          </Button>
+        ) : null}
       </div>
 
       {selectedIds.length > 0 && (
@@ -288,41 +352,26 @@ export function ManageCoursesList() {
               <SelectItem value="Archived">Archived</SelectItem>
             </SelectContent>
           </Select>
-          <Button
-            type="button"
-            size="sm"
-            disabled={bulkBusy || !bulkStatus}
-            onClick={() => void bulkChangeStatus()}
-          >
+          <Button type="button" size="sm" disabled={bulkBusy || !bulkStatus} onClick={() => void bulkChangeStatus()}>
             {bulkBusy ? <Spinner className="size-4" /> : null}
             Apply status
           </Button>
           {canDelete ? (
-            <Button
-              type="button"
-              size="sm"
-              variant="destructive"
-              disabled={bulkBusy}
-              onClick={() => void bulkDelete()}
-            >
+            <Button type="button" size="sm" variant="destructive" disabled={bulkBusy} onClick={() => void bulkDelete()}>
               <Trash2 className="size-3.5" />
               Delete selected
             </Button>
           ) : null}
-          <Button
-            type="button"
-            size="sm"
-            variant="ghost"
-            disabled={bulkBusy}
-            onClick={() => setSelected(new Set())}
-          >
+          <Button type="button" size="sm" variant="ghost" disabled={bulkBusy} onClick={() => setSelected(new Set())}>
             Clear
           </Button>
         </div>
       )}
 
       {total === 0 ? (
-        <p className="text-muted-foreground text-sm">No courses yet. Add your first course.</p>
+        <p className="text-muted-foreground text-sm">
+          {filtersActive ? "No courses match these filters." : "No courses yet. Add your first course."}
+        </p>
       ) : (
         <>
           <div className="relative overflow-x-auto rounded-lg border border-border">
@@ -336,13 +385,7 @@ export function ManageCoursesList() {
                 <tr>
                   <th className="w-10 px-3 py-3">
                     <Checkbox
-                      checked={
-                        allPageSelected
-                          ? true
-                          : somePageSelected
-                            ? "indeterminate"
-                            : false
-                      }
+                      checked={allPageSelected ? true : somePageSelected ? "indeterminate" : false}
                       onCheckedChange={(v) => toggleAllPage(v === true)}
                       aria-label="Select all on page"
                     />
@@ -388,9 +431,7 @@ export function ManageCoursesList() {
                           <Select
                             value={status}
                             disabled={busyId === course.id || bulkBusy}
-                            onValueChange={(val) =>
-                              updateStatus(course.id, val as CourseStatus)
-                            }
+                            onValueChange={(val) => updateStatus(course.id, val as CourseStatus)}
                           >
                             <SelectTrigger className="h-8 w-[120px]">
                               <SelectValue />
@@ -448,8 +489,7 @@ export function ManageCoursesList() {
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-4">
               <p className="text-muted-foreground text-sm">
-                Showing {total === 0 ? 0 : (page - 1) * pageSize + 1}–
-                {Math.min(page * pageSize, total)} of {total}
+                Showing {total === 0 ? 0 : (page - 1) * pageSize + 1}–{Math.min(page * pageSize, total)} of {total}
               </p>
               <div className="flex items-center gap-2">
                 <span className="text-slate-500 text-xs">Rows per page:</span>
