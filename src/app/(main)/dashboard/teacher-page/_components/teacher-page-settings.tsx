@@ -311,8 +311,8 @@ export function TeacherPageSettings() {
     setPageLayout(normalizePageLayout(data.pageLayout));
   };
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const load = useCallback(async (opts?: { silent?: boolean }) => {
+    if (!opts?.silent) setLoading(true);
     try {
       const res = await fetch(`${APP_CONFIG.apiUrl}/teachers/me/profile`, {
         headers: authHeaders(false),
@@ -323,7 +323,7 @@ export function TeacherPageSettings() {
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Load failed");
     } finally {
-      setLoading(false);
+      if (!opts?.silent) setLoading(false);
     }
   }, []);
 
@@ -388,6 +388,44 @@ export function TeacherPageSettings() {
     return data as Profile;
   };
 
+  const clearClassDraft = () => {
+    setClassTitle("");
+    setClassDescription("");
+    setClassStartTime("");
+    setClassEndTime("");
+    setClassLocation("");
+    setClassDate(undefined);
+    setClassFee("");
+    setClassWhatsapp("");
+  };
+
+  /** Persist the Classes-tab draft. Returns true when a class was created. */
+  const persistClassDraft = async (): Promise<boolean> => {
+    if (!classTitle.trim()) return false;
+    const res = await fetch(`${APP_CONFIG.apiUrl}/teachers/me/classes`, {
+      method: "POST",
+      headers: authHeaders(),
+      body: JSON.stringify({
+        title: classTitle.trim(),
+        description: classDescription.trim() || undefined,
+        scheduleTime: formatScheduleLabel(classStartTime, classEndTime) || undefined,
+        location: classLocation.trim() || undefined,
+        classDate: classDate ? format(classDate, "MMM d, yyyy") : undefined,
+        feeLabel: formatFeeLabel(classFee) || undefined,
+        whatsappGroupUrl: classWhatsapp.trim() || undefined,
+        sortOrder: profile?.classes.length ?? 0,
+      }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      throw new Error(
+        Array.isArray(data.message) ? data.message.join(", ") : data.message || "Could not add class",
+      );
+    }
+    clearClassDraft();
+    return true;
+  };
+
   const saveAll = async () => {
     if (!slug.trim() || !displayName.trim()) {
       toast.error("Slug and display name are required.");
@@ -401,6 +439,8 @@ export function TeacherPageSettings() {
     }
     setSaving(true);
     try {
+      // Classes live on a separate endpoint — include any filled draft before profile save.
+      const classAdded = await persistClassDraft();
       const data = await putProfile({
         slug,
         displayName,
@@ -416,11 +456,19 @@ export function TeacherPageSettings() {
         selectedQuizIds,
         pageLayout,
       });
-      toast.success(
-        data.isPublic
-          ? "All changes saved — your public page is live"
-          : "All changes saved (page not published yet)",
-      );
+      if (classAdded) {
+        toast.success(
+          data.isPublic
+            ? "Class added and page saved — your public page is live"
+            : "Class added and page saved (page not published yet)",
+        );
+      } else {
+        toast.success(
+          data.isPublic
+            ? "All changes saved — your public page is live"
+            : "All changes saved (page not published yet)",
+        );
+      }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Save failed");
     } finally {
@@ -516,34 +564,13 @@ export function TeacherPageSettings() {
       toast.error("Class title is required");
       return;
     }
-    const res = await fetch(`${APP_CONFIG.apiUrl}/teachers/me/classes`, {
-      method: "POST",
-      headers: authHeaders(),
-      body: JSON.stringify({
-        title: classTitle.trim(),
-        description: classDescription.trim() || null,
-        scheduleTime: formatScheduleLabel(classStartTime, classEndTime),
-        location: classLocation.trim() || null,
-        classDate: classDate ? format(classDate, "MMM d, yyyy") : null,
-        feeLabel: formatFeeLabel(classFee),
-        whatsappGroupUrl: classWhatsapp.trim() || null,
-        sortOrder: profile?.classes.length ?? 0,
-      }),
-    });
-    if (!res.ok) {
-      toast.error("Could not add class");
-      return;
+    try {
+      await persistClassDraft();
+      toast.success("Class added");
+      await load({ silent: true });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not add class");
     }
-    setClassTitle("");
-    setClassDescription("");
-    setClassStartTime("");
-    setClassEndTime("");
-    setClassLocation("");
-    setClassDate(undefined);
-    setClassFee("");
-    setClassWhatsapp("");
-    toast.success("Class added");
-    await load();
   };
 
   const deleteClass = async (id: string) => {
@@ -1012,7 +1039,8 @@ export function TeacherPageSettings() {
               <div>
                 <CardTitle className="text-base">Upcoming Class</CardTitle>
                 <CardDescription>
-                  Accordion items — time, venue, date, fee, and WhatsApp group.
+                  Fill the details below, then click Add class (or Save all changes). Classes appear
+                  as accordion items on your public page — time, venue, date, fee, and WhatsApp.
                 </CardDescription>
               </div>
               <Field className="gap-1.5">
@@ -1089,7 +1117,7 @@ export function TeacherPageSettings() {
                   <FieldDescription>Invite link shown on your public page.</FieldDescription>
                 </Field>
               </div>
-              <Button type="button" variant="outline" onClick={() => void addClass()}>
+              <Button type="button" onClick={() => void addClass()} disabled={saving || uploading}>
                 <Plus className="size-4" />
                 Add class
               </Button>

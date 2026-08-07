@@ -1,6 +1,9 @@
+import { Suspense } from "react";
+
 import type { Metadata } from "next";
 
 import { JsonLd } from "@/components/site/json-ld";
+import { PublicContentSkeleton } from "@/components/site/public-content-skeleton";
 import { APP_CONFIG } from "@/config/app-config";
 import { buildPageMetadata, jsonLdContactPage } from "@/lib/page-seo";
 
@@ -23,7 +26,9 @@ export default function ContactPage() {
           description,
         })}
       />
-      <ContactPageContent />
+      <Suspense fallback={<PublicContentSkeleton variant="form" className="flex-1 py-8" />}>
+        <ContactPageContent />
+      </Suspense>
     </>
   );
 }

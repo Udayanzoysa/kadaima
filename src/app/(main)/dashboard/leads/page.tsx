@@ -18,6 +18,8 @@ interface ChatLead {
   age: number | null;
   school: string | null;
   tag: string;
+  quizId?: string | null;
+  quizTitle?: string | null;
   createdAt: string;
 }
 
@@ -108,6 +110,7 @@ export default function LeadsPage() {
                     <tr className="bg-slate-50/30 border-b border-slate-100 text-slate-500 text-xs font-semibold uppercase tracking-wider">
                       <th className="px-6 py-3.5">Name</th>
                       <th className="px-6 py-3.5">Source Tag</th>
+                      <th className="px-6 py-3.5">Quiz</th>
                       <th className="px-6 py-3.5">Age / School</th>
                       <th className="px-6 py-3.5">Mobile Number</th>
                       <th className="px-6 py-3.5">Email Address</th>
@@ -130,6 +133,15 @@ export default function LeadsPage() {
                             )}>
                               {lead.tag || "Chatbot"}
                             </span>
+                          </td>
+                          <td className="max-w-[220px] px-6 py-4 text-slate-700">
+                            {lead.tag === "Quiz Attempt" && lead.quizTitle ? (
+                              <span className="line-clamp-2 text-sm font-medium text-slate-800" title={lead.quizTitle}>
+                                {lead.quizTitle}
+                              </span>
+                            ) : (
+                              <span className="text-muted-foreground text-xs">-</span>
+                            )}
                           </td>
                           <td className="whitespace-nowrap px-6 py-4 text-slate-700">
                             {lead.tag === "Quiz Attempt" && lead.school ? (

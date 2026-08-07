@@ -1,6 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+
+import { useSearchParams } from "next/navigation";
 
 import { GraduationCap, Headset, Send, WalletCards } from "lucide-react";
 import { toast } from "sonner";
@@ -26,6 +28,26 @@ const SUBJECTS = [
   { value: "billing", label: "Payments & billing" },
   { value: "other", label: "General inquiry" },
 ] as const;
+
+type SubjectValue = (typeof SUBJECTS)[number]["value"];
+
+function parseSubjectParam(raw: string | null): SubjectValue | "" {
+  if (!raw) return "";
+  const normalized = raw.trim().toLowerCase();
+  if (SUBJECTS.some((s) => s.value === normalized)) {
+    return normalized as SubjectValue;
+  }
+  // Friendly aliases from partner CTAs / marketing copy
+  if (
+    normalized === "teachers" ||
+    normalized === "schools" ||
+    normalized === "teachers-schools" ||
+    normalized === "partners"
+  ) {
+    return "teacher";
+  }
+  return "";
+}
 
 const SUPPORT_CARDS = [
   {
@@ -55,11 +77,17 @@ const fieldClass =
   "h-11 rounded-xl border-slate-200 bg-white shadow-none focus-visible:border-[#1563b8] focus-visible:ring-[#1563b8]/20";
 
 export function ContactPageContent() {
+  const searchParams = useSearchParams();
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [subject, setSubject] = useState<string>("");
   const [message, setMessage] = useState("");
   const [sending, setSending] = useState(false);
+
+  useEffect(() => {
+    const fromQuery = parseSubjectParam(searchParams.get("subject"));
+    if (fromQuery) setSubject(fromQuery);
+  }, [searchParams]);
 
   const onSubmit = (e: React.FormEvent) => {
     e.preventDefault();
