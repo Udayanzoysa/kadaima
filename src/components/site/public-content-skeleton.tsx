@@ -60,10 +60,7 @@ export function PublicContentSkeleton({
         className={cn("grid grid-cols-1 gap-4 md:grid-cols-2", className)}
       >
         {Array.from({ length: 4 }).map((_, i) => (
-          <div
-            key={i}
-            className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
-          >
+          <div key={i} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
             <Skeleton className="h-3 w-24 bg-slate-200/80" />
             <Skeleton className="mt-3 h-5 w-[80%] bg-slate-200/80" />
             <Skeleton className="mt-2 h-3 w-full bg-slate-200/70" />

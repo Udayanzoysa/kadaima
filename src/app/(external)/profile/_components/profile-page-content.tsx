@@ -120,9 +120,7 @@ function ProfilePageInner() {
       setNewPassword("");
       setConfirmPassword("");
     } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : t("public.profilePage.passwordUpdateError"),
-      );
+      toast.error(error instanceof Error ? error.message : t("public.profilePage.passwordUpdateError"));
     } finally {
       setChangingPassword(false);
     }

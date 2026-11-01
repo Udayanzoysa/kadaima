@@ -20,22 +20,16 @@ import { Spinner } from "@/components/ui/spinner";
 import { APP_CONFIG } from "@/config/app-config";
 import { useI18n } from "@/hooks/use-i18n";
 import { deleteClientCookie, getClientCookie } from "@/lib/cookie.client";
-import {
-  clearGuestLead,
-  ensureGuestSessionId,
-  getOrCreateGuestLead,
-  saveGuestLead,
-} from "@/lib/guest-session";
+import { clearGuestLead, ensureGuestSessionId, getOrCreateGuestLead, saveGuestLead } from "@/lib/guest-session";
 import { PUBLIC_HERO_GLOW_CLASS, PUBLIC_HERO_GRADIENT_CLASS } from "@/lib/public-brand";
 import { cn } from "@/lib/utils";
 import { localize, type LocalizedText } from "@/types/quiz";
 
 import { PublicQuizShell } from "../../_components/public-quiz-shell";
 
-const QuizUnlockModal = dynamic(
-  () => import("../../_components/quiz-unlock-modal").then((m) => m.QuizUnlockModal),
-  { ssr: false },
-);
+const QuizUnlockModal = dynamic(() => import("../../_components/quiz-unlock-modal").then((m) => m.QuizUnlockModal), {
+  ssr: false,
+});
 
 interface PublicQuizDetailData {
   id: string;
@@ -273,18 +267,13 @@ export function PublicQuizDetail() {
   if (error || !quiz) {
     return (
       <PublicQuizShell>
-        <PublicCenteredError
-          message={error ?? t("public.quizNotFound")}
-          backLabel={t("public.backToQuizzes")}
-        />
+        <PublicCenteredError message={error ?? t("public.quizNotFound")} backLabel={t("public.backToQuizzes")} />
       </PublicQuizShell>
     );
   }
 
   const courseTitle = localize(quiz.course.title as LocalizedText, locale);
-  const moduleTitle = quiz.module
-    ? localize(quiz.module.title as LocalizedText, locale)
-    : null;
+  const moduleTitle = quiz.module ? localize(quiz.module.title as LocalizedText, locale) : null;
 
   return (
     <PublicQuizShell>
@@ -300,10 +289,7 @@ export function PublicQuizDetail() {
         </p>
 
         <section
-          className={cn(
-            "relative overflow-hidden rounded-3xl p-6 text-white md:p-8",
-            PUBLIC_HERO_GRADIENT_CLASS,
-          )}
+          className={cn("relative overflow-hidden rounded-3xl p-6 text-white md:p-8", PUBLIC_HERO_GRADIENT_CLASS)}
         >
           <div aria-hidden className={PUBLIC_HERO_GLOW_CLASS} />
           {locked ? (
@@ -329,9 +315,7 @@ export function PublicQuizDetail() {
                 ? t("public.oneAttempt")
                 : t("public.upToAttempts").replace("{count}", String(quiz.maxAttempts))}
             </span>
-            <span>
-              {t("public.passPercent").replace("{percent}", String(quiz.passingScorePercentage))}
-            </span>
+            <span>{t("public.passPercent").replace("{percent}", String(quiz.passingScorePercentage))}</span>
           </div>
         </section>
 
@@ -374,8 +358,7 @@ export function PublicQuizDetail() {
                 {t("public.readyToStart")}
               </h2>
               <p className="mt-1 text-sm text-slate-500">
-                {t("public.signedInAs")}{" "}
-                <span className="font-semibold text-slate-800">{authUser.name}</span>
+                {t("public.signedInAs")} <span className="font-semibold text-slate-800">{authUser.name}</span>
                 {authUser.email ? (
                   <>
                     {" "}
@@ -464,13 +447,7 @@ export function PublicQuizDetail() {
                 />
               </div>
 
-              <Button
-                type="submit"
-                variant="brand"
-                size="lg"
-                disabled={starting}
-                className="mt-2 w-full font-bold"
-              >
+              <Button type="submit" variant="brand" size="lg" disabled={starting} className="mt-2 w-full font-bold">
                 {starting ? (
                   <>
                     <Spinner className="size-4" />

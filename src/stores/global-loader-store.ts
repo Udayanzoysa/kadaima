@@ -41,10 +41,7 @@ export function resetGlobalLoader() {
 }
 
 /** Run an async task under the admin shadcn overlay loader. */
-export async function withGlobalLoader<T>(
-  task: () => Promise<T>,
-  label?: string,
-): Promise<T> {
+export async function withGlobalLoader<T>(task: () => Promise<T>, label?: string): Promise<T> {
   showGlobalLoader(label);
   try {
     return await task();

@@ -161,8 +161,7 @@ export function SubscriptionBillingSettings() {
       <CardHeader>
         <CardTitle>Smart payment</CardTitle>
         <CardDescription>
-          Choose how locked quizzes are unlocked for students, then set the monthly fee when
-          subscription is enabled.
+          Choose how locked quizzes are unlocked for students, then set the monthly fee when subscription is enabled.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
@@ -178,9 +177,7 @@ export function SubscriptionBillingSettings() {
                   onClick={() => setPaymentMode(opt.value)}
                   className={cn(
                     "rounded-xl border px-3.5 py-3 text-left transition",
-                    selected
-                      ? "border-primary bg-primary/5 ring-1 ring-primary/30"
-                      : "border-border hover:bg-muted/40",
+                    selected ? "border-primary bg-primary/5 ring-1 ring-primary/30" : "border-border hover:bg-muted/40",
                   )}
                 >
                   <div className="flex items-start gap-2.5">
@@ -227,8 +224,8 @@ export function SubscriptionBillingSettings() {
         <Field className="gap-1.5">
           <FieldLabel>Teacher revenue split</FieldLabel>
           <FieldDescription>
-            Of monthly subscription revenue, this share goes to the teacher pool (split by
-            completed quiz attempts). Platform quizzes are excluded from the pool.
+            Of monthly subscription revenue, this share goes to the teacher pool (split by completed quiz attempts).
+            Platform quizzes are excluded from the pool.
           </FieldDescription>
           <div className="mt-2 grid gap-3 sm:grid-cols-2">
             <div className="space-y-1.5">

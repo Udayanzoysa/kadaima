@@ -20,12 +20,7 @@ export function PublicEmptyState({
   className?: string;
 }) {
   return (
-    <div
-      className={cn(
-        "rounded-2xl border border-dashed border-slate-200 bg-white px-6 py-14 text-center",
-        className,
-      )}
-    >
+    <div className={cn("rounded-2xl border border-dashed border-slate-200 bg-white px-6 py-14 text-center", className)}>
       <Icon className="mx-auto size-10 text-slate-300" aria-hidden />
       <p className="mt-3 text-slate-500">{message}</p>
       {ctaLabel ? (
@@ -52,10 +47,7 @@ export function PublicErrorBanner({
   return (
     <div
       role="alert"
-      className={cn(
-        "rounded-2xl border border-red-200 bg-red-50 px-5 py-4 text-sm text-red-700",
-        className,
-      )}
+      className={cn("rounded-2xl border border-red-200 bg-red-50 px-5 py-4 text-sm text-red-700", className)}
     >
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p>{message}</p>
@@ -94,10 +86,7 @@ export function PublicCenteredError({
   return (
     <div
       role="alert"
-      className={cn(
-        "flex flex-1 flex-col items-center justify-center gap-4 px-4 py-16 text-center",
-        className,
-      )}
+      className={cn("flex flex-1 flex-col items-center justify-center gap-4 px-4 py-16 text-center", className)}
     >
       <AlertTriangle className="size-10 text-[#1563b8]" aria-hidden />
       <p className="max-w-md text-sm text-slate-600">{message}</p>

@@ -91,6 +91,13 @@ export const sidebarItems: NavGroup[] = [
         icon: BookOpen,
       },
       {
+        id: "classes",
+        title: "Classes",
+        url: "/admin/classes",
+        icon: GraduationCap,
+        badge: "new",
+      },
+      {
         id: "questions",
         title: "Questions",
         url: "/admin/questions",

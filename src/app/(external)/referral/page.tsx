@@ -16,14 +16,10 @@ export const metadata: Metadata = buildPageMetadata({
 
 export default function ReferralPage() {
   return (
-    <SiteStaticPage
-      title="Referral"
-      subtitle="Invite classmates and colleagues to practise on Kadaima."
-    >
+    <SiteStaticPage title="Referral" subtitle="Invite classmates and colleagues to practise on Kadaima.">
       <p>
-        Sharing Kadaima helps more Sri Lankan students prepare for Scholarship, O/L, A/L, and other
-        exams. Send your friends to the homepage or your teacher’s public page so they can start
-        practising quickly.
+        Sharing Kadaima helps more Sri Lankan students prepare for Scholarship, O/L, A/L, and other exams. Send your
+        friends to the homepage or your teacher’s public page so they can start practising quickly.
       </p>
 
       <h2>For students</h2>
@@ -66,9 +62,8 @@ export default function ReferralPage() {
 
       <h2>Rewards programme</h2>
       <p>
-        Formal referral rewards (credits, unlocks, or partner incentives) may be announced for
-        selected campaigns. Until then, sharing your quiz links and teacher page is the best way to
-        grow your class on Kadaima. Questions?{" "}
+        Formal referral rewards (credits, unlocks, or partner incentives) may be announced for selected campaigns. Until
+        then, sharing your quiz links and teacher page is the best way to grow your class on Kadaima. Questions?{" "}
         <Link href="/contact" className="font-medium text-[#1563b8] hover:underline">
           Contact us
         </Link>

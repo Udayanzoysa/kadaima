@@ -185,25 +185,21 @@ export function TeacherEarningsPage() {
         <StatCard label="Lifetime earned" value={formatLkr(summary?.lifetimeEarnedLkr)} />
         <StatCard label="Pending payout" value={formatLkr(summary?.pendingPayoutLkr)} />
         <StatCard label="Paid out" value={formatLkr(summary?.paidOutLkr)} />
-        <StatCard
-          label="Completed attempts"
-          value={String(summary?.completedAttempts ?? 0)}
-        />
+        <StatCard label="Completed attempts" value={String(summary?.completedAttempts ?? 0)} />
       </div>
 
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-base">Monthly shares</CardTitle>
           <CardDescription>
-            Amounts appear after the platform calculates each month. Free months show 0 LKR with
-            attempt ratios for transparency.
+            Amounts appear after the platform calculates each month. Free months show 0 LKR with attempt ratios for
+            transparency.
           </CardDescription>
         </CardHeader>
         <CardContent className="overflow-x-auto">
           {periods.length === 0 ? (
             <p className="py-8 text-center text-sm text-muted-foreground">
-              No settled months yet. Keep publishing quizzes — shares appear after monthly
-              calculation.
+              No settled months yet. Keep publishing quizzes — shares appear after monthly calculation.
             </p>
           ) : (
             <table className="w-full min-w-[640px] text-left text-sm">
@@ -264,9 +260,7 @@ export function TeacherEarningsPage() {
                     </td>
                     <td className="px-2 py-2.5 text-muted-foreground">{p.reference || "—"}</td>
                     <td className="px-2 py-2.5 text-muted-foreground">
-                      {p.paidAt
-                        ? new Date(p.paidAt).toLocaleDateString("en-GB")
-                        : "—"}
+                      {p.paidAt ? new Date(p.paidAt).toLocaleDateString("en-GB") : "—"}
                     </td>
                   </tr>
                 ))}
@@ -279,9 +273,7 @@ export function TeacherEarningsPage() {
       <Card className="max-w-xl">
         <CardHeader className="pb-2">
           <CardTitle className="text-base">Bank payout profile</CardTitle>
-          <CardDescription>
-            Used when the platform transfers your monthly share. Keep details accurate.
-          </CardDescription>
+          <CardDescription>Used when the platform transfers your monthly share. Keep details accurate.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
           <div className="space-y-1.5">

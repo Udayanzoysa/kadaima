@@ -4,16 +4,7 @@ import { useEffect, useState } from "react";
 
 import Link from "next/link";
 
-import {
-  Building,
-  CheckCircle2,
-  Eye,
-  EyeOff,
-  FileText,
-  Upload,
-  User,
-  XCircle,
-} from "lucide-react";
+import { Building, CheckCircle2, Eye, EyeOff, FileText, Upload, User, XCircle } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -30,6 +21,7 @@ import { hideGlobalLoader, showGlobalLoader } from "@/stores/global-loader-store
 
 import { AiChatSettings } from "./_components/ai-chat-settings";
 import { BrandingSeoSettings } from "./_components/branding-seo-settings";
+import { HomepageSettings } from "./_components/homepage-settings";
 import { NotificationSettings } from "./_components/notification-settings";
 import { SubscriptionBillingSettings } from "./_components/subscription-billing-settings";
 
@@ -282,7 +274,7 @@ export default function SettingsPage() {
         <p className="text-muted-foreground text-sm">
           Manage your account, security
           {isSuperAdmin
-            ? ", branding/SEO, subscription pricing, AI chat, and platform mail/SMS gateways."
+            ? ", branding/SEO, homepage, subscription pricing, AI chat, and platform mail/SMS gateways."
             : "."}
         </p>
       </div>
@@ -292,6 +284,7 @@ export default function SettingsPage() {
           <TabsTrigger value="account">Account</TabsTrigger>
           <TabsTrigger value="security">Security & password</TabsTrigger>
           {isSuperAdmin ? <TabsTrigger value="branding">Branding & SEO</TabsTrigger> : null}
+          {isSuperAdmin ? <TabsTrigger value="homepage">Homepage</TabsTrigger> : null}
           {isSuperAdmin ? <TabsTrigger value="subscription">Payments</TabsTrigger> : null}
           {isSuperAdmin ? <TabsTrigger value="ai">AI Chat</TabsTrigger> : null}
           {isSuperAdmin ? <TabsTrigger value="platform">SMTP & SMS</TabsTrigger> : null}
@@ -427,7 +420,12 @@ export default function SettingsPage() {
                             Uploaded
                           </span>
                         </div>
-                        <Button variant="outline" size="sm" className="w-full text-xs font-semibold" onClick={() => setNicUrl("")}>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="w-full text-xs font-semibold"
+                          onClick={() => setNicUrl("")}
+                        >
                           Remove and Reupload
                         </Button>
                       </div>
@@ -465,7 +463,12 @@ export default function SettingsPage() {
                             Uploaded
                           </span>
                         </div>
-                        <Button variant="outline" size="sm" className="w-full text-xs font-semibold" onClick={() => setCompanyBrUrl("")}>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="w-full text-xs font-semibold"
+                          onClick={() => setCompanyBrUrl("")}
+                        >
                           Remove and Reupload
                         </Button>
                       </div>
@@ -580,27 +583,55 @@ export default function SettingsPage() {
                     <div className="font-semibold text-muted-foreground text-xs">Password Strength Requirements:</div>
                     <div className="grid grid-cols-1 gap-2 text-xs sm:grid-cols-2">
                       <div className="flex items-center gap-1.5">
-                        {hasMinLength ? <CheckCircle2 className="size-4 text-emerald-500" /> : <XCircle className="size-4 text-muted-foreground/50" />}
-                        <span className={hasMinLength ? "text-emerald-500" : "text-muted-foreground"}>At least 8 characters</span>
+                        {hasMinLength ? (
+                          <CheckCircle2 className="size-4 text-emerald-500" />
+                        ) : (
+                          <XCircle className="size-4 text-muted-foreground/50" />
+                        )}
+                        <span className={hasMinLength ? "text-emerald-500" : "text-muted-foreground"}>
+                          At least 8 characters
+                        </span>
                       </div>
                       <div className="flex items-center gap-1.5">
-                        {hasUppercase ? <CheckCircle2 className="size-4 text-emerald-500" /> : <XCircle className="size-4 text-muted-foreground/50" />}
-                        <span className={hasUppercase ? "text-emerald-500" : "text-muted-foreground"}>At least 1 uppercase letter</span>
+                        {hasUppercase ? (
+                          <CheckCircle2 className="size-4 text-emerald-500" />
+                        ) : (
+                          <XCircle className="size-4 text-muted-foreground/50" />
+                        )}
+                        <span className={hasUppercase ? "text-emerald-500" : "text-muted-foreground"}>
+                          At least 1 uppercase letter
+                        </span>
                       </div>
                       <div className="flex items-center gap-1.5">
-                        {hasLowercase ? <CheckCircle2 className="size-4 text-emerald-500" /> : <XCircle className="size-4 text-muted-foreground/50" />}
-                        <span className={hasLowercase ? "text-emerald-500" : "text-muted-foreground"}>At least 1 lowercase letter</span>
+                        {hasLowercase ? (
+                          <CheckCircle2 className="size-4 text-emerald-500" />
+                        ) : (
+                          <XCircle className="size-4 text-muted-foreground/50" />
+                        )}
+                        <span className={hasLowercase ? "text-emerald-500" : "text-muted-foreground"}>
+                          At least 1 lowercase letter
+                        </span>
                       </div>
                       <div className="flex items-center gap-1.5">
-                        {hasNumberOrSpecial ? <CheckCircle2 className="size-4 text-emerald-500" /> : <XCircle className="size-4 text-muted-foreground/50" />}
-                        <span className={hasNumberOrSpecial ? "text-emerald-500" : "text-muted-foreground"}>At least 1 number or special symbol</span>
+                        {hasNumberOrSpecial ? (
+                          <CheckCircle2 className="size-4 text-emerald-500" />
+                        ) : (
+                          <XCircle className="size-4 text-muted-foreground/50" />
+                        )}
+                        <span className={hasNumberOrSpecial ? "text-emerald-500" : "text-muted-foreground"}>
+                          At least 1 number or special symbol
+                        </span>
                       </div>
                     </div>
                   </div>
                 )}
 
                 <div className="flex justify-end pt-2">
-                  <Button className="font-semibold" onClick={handleUpdatePassword} disabled={updatingPassword || !canSubmitPassword}>
+                  <Button
+                    className="font-semibold"
+                    onClick={handleUpdatePassword}
+                    disabled={updatingPassword || !canSubmitPassword}
+                  >
                     {updatingPassword ? "Updating..." : "Update Password"}
                   </Button>
                 </div>
@@ -612,6 +643,12 @@ export default function SettingsPage() {
         {isSuperAdmin ? (
           <TabsContent value="branding" className="mt-0">
             <BrandingSeoSettings />
+          </TabsContent>
+        ) : null}
+
+        {isSuperAdmin ? (
+          <TabsContent value="homepage" className="mt-0">
+            <HomepageSettings />
           </TabsContent>
         ) : null}
 

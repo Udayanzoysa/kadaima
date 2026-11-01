@@ -30,12 +30,7 @@ interface GoogleButtonProps {
 const GOOGLE_BTN_MIN = 200;
 const GOOGLE_BTN_MAX = 400;
 
-function GoogleSignInControl({
-  className,
-  redirectTo,
-  accountType = "student",
-  onSuccess,
-}: GoogleButtonProps) {
+function GoogleSignInControl({ className, redirectTo, accountType = "student", onSuccess }: GoogleButtonProps) {
   const [busy, setBusy] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const [buttonWidth, setButtonWidth] = useState<number | null>(null);
@@ -69,9 +64,7 @@ function GoogleSignInControl({
       setBusy(false);
       return;
     }
-    const dest =
-      redirectTo ??
-      postLoginPath(accessToken, accountType === "teacher" ? "/admin/default" : "/");
+    const dest = redirectTo ?? postLoginPath(accessToken, accountType === "teacher" ? "/admin/default" : "/");
     // Full navigation so public shell reloads auth state (Welcome button).
     window.location.assign(dest);
   };
@@ -102,9 +95,7 @@ function GoogleSignInControl({
         toast.info("Two-Factor Authentication required", {
           description: "Enter the code from your authenticator app on the login form.",
         });
-        throw new Error(
-          "This account has 2FA enabled. Sign in with email and password, then enter your code.",
-        );
+        throw new Error("This account has 2FA enabled. Sign in with email and password, then enter your code.");
       }
 
       if (!result.accessToken) {
@@ -128,10 +119,7 @@ function GoogleSignInControl({
           Signing in with Google…
         </div>
       ) : buttonWidth == null ? (
-        <div
-          aria-hidden
-          className="h-11 w-full rounded-xl border border-slate-300 bg-white shadow-sm"
-        />
+        <div aria-hidden className="h-11 w-full rounded-xl border border-slate-300 bg-white shadow-sm" />
       ) : (
         <div className="flex w-full justify-center overflow-visible">
           <GoogleLogin

@@ -35,9 +35,7 @@ export function AuthShell({
       >
         <div className="mb-6 flex flex-col items-center text-center">
           <BrandLogo className="mb-5 h-10 w-auto sm:h-11" priority />
-          <h1 className="font-bold text-2xl tracking-tight text-slate-900 sm:text-[1.65rem]">
-            {title}
-          </h1>
+          <h1 className="font-bold text-2xl tracking-tight text-slate-900 sm:text-[1.65rem]">{title}</h1>
           <p className="mt-2 max-w-sm text-sm leading-relaxed text-slate-500">{description}</p>
         </div>
 
@@ -55,10 +53,7 @@ export function AuthShell({
           {showSupport ? (
             <p className="text-xs text-slate-500">
               Need more help?{" "}
-              <a
-                href="mailto:support@kadaima.com"
-                className="font-medium text-[#1563b8] hover:text-[#114f94]"
-              >
+              <a href="mailto:support@kadaima.com" className="font-medium text-[#1563b8] hover:text-[#114f94]">
                 Contact Support
               </a>
             </p>

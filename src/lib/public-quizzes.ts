@@ -25,6 +25,36 @@ export interface CatalogQuiz {
   _count: { questions: number; attempts?: number };
 }
 
+export type HomepageLocalized = {
+  en: string;
+  si: string;
+  ta: string;
+};
+
+export type PublicHomepagePayload = {
+  hero: {
+    badge: HomepageLocalized;
+    title: HomepageLocalized;
+    description: HomepageLocalized;
+    showSecondaryCta: boolean;
+  };
+  maxCategories: number;
+  promoSection: {
+    enabled: boolean;
+    badge: HomepageLocalized;
+    title: HomepageLocalized;
+    description: HomepageLocalized;
+    ctaLabel: HomepageLocalized;
+    ctaHref: string;
+  };
+  sections: Array<{
+    courseId: string;
+    course: CatalogQuiz["course"];
+    maxQuizzes: number;
+    quizzes: CatalogQuiz[];
+  }>;
+};
+
 /** Server-side catalog fetch for SSR — guest unlock state is refreshed client-side. */
 export async function fetchPublicQuizzes(): Promise<CatalogQuiz[]> {
   try {
@@ -35,6 +65,19 @@ export async function fetchPublicQuizzes(): Promise<CatalogQuiz[]> {
     return (await res.json()) as CatalogQuiz[];
   } catch {
     return [];
+  }
+}
+
+/** Resolved home layout + curated quiz sections. */
+export async function fetchPublicHomepage(): Promise<PublicHomepagePayload | null> {
+  try {
+    const res = await fetch(`${APP_CONFIG.apiUrl}/public/homepage`, {
+      next: { revalidate: 30 },
+    });
+    if (!res.ok) return null;
+    return (await res.json()) as PublicHomepagePayload;
+  } catch {
+    return null;
   }
 }
 

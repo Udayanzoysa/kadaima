@@ -354,6 +354,7 @@ export interface AttemptDetail extends QuizAttempt {
     durationMinutes: number;
     passingScorePercentage: number;
     course: Course;
+    moduleId?: string | null;
     questions: AttemptQuestion[];
     /** Present when the quiz was built with instruction blocks. */
     sections?: AttemptQuizSection[];

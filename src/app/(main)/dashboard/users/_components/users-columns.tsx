@@ -283,11 +283,7 @@ export const getUsersColumns = (
             disabled={!isPlatformOwner || locked}
             onCheckedChange={() => {
               if (locked || !row.original.id) return;
-              onTogglePermission(
-                row.original.id,
-                "canManagePermissions",
-                row.original.canManagePermissions || false,
-              );
+              onTogglePermission(row.original.id, "canManagePermissions", row.original.canManagePermissions || false);
             }}
             aria-label="Toggle can manage permissions"
           />

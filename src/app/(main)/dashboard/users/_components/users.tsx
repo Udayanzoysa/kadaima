@@ -158,9 +158,7 @@ export function Users({ users: initialUsers }: { users?: UserRow[] }) {
       setEditUserName(selectedUserForModal.name);
       setEditUserTeam(selectedUserForModal.team);
       setEditUserRoleId(selectedUserForModal.customRoleId || "None");
-      setEditSystemPrivilege(
-        selectedUserForModal.systemRole === "SUPER_ADMIN" ? "SUPER_ADMIN" : "USER",
-      );
+      setEditSystemPrivilege(selectedUserForModal.systemRole === "SUPER_ADMIN" ? "SUPER_ADMIN" : "USER");
       setEditCanViewOthers(!!selectedUserForModal.canViewOthers);
       setEditCanManagePermissions(!!selectedUserForModal.canManagePermissions);
     } else {
@@ -264,11 +262,7 @@ export function Users({ users: initialUsers }: { users?: UserRow[] }) {
     };
   }, [fetchData]);
 
-  const applyRoleSelection = (
-    roleId: string,
-    setRoleId: (id: string) => void,
-    setTeam: (team: UserTeam) => void,
-  ) => {
+  const applyRoleSelection = (roleId: string, setRoleId: (id: string) => void, setTeam: (team: UserTeam) => void) => {
     setRoleId(roleId);
     if (roleId === STUDENT_ROLE_VALUE) {
       setTeam("Student");
@@ -283,8 +277,7 @@ export function Users({ users: initialUsers }: { users?: UserRow[] }) {
     setIsAdding(true);
     const token = getClientCookie("session_token");
     try {
-      const customRoleId =
-        !newUserRoleId || newUserRoleId === STUDENT_ROLE_VALUE ? undefined : newUserRoleId;
+      const customRoleId = !newUserRoleId || newUserRoleId === STUDENT_ROLE_VALUE ? undefined : newUserRoleId;
       const response = await fetch(`${APP_CONFIG.apiUrl}/users`, {
         method: "POST",
         headers: {
@@ -415,13 +408,10 @@ export function Users({ users: initialUsers }: { users?: UserRow[] }) {
     const token = getClientCookie("session_token");
     setIsActivating(true);
     try {
-      const response = await fetch(
-        `${APP_CONFIG.apiUrl}/users/${activateTarget.id}/activate-teacher`,
-        {
-          method: "POST",
-          headers: { Authorization: `Bearer ${token}` },
-        },
-      );
+      const response = await fetch(`${APP_CONFIG.apiUrl}/users/${activateTarget.id}/activate-teacher`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
       const result = await response.json().catch(() => ({}));
       if (!response.ok) {
         const errMsg = Array.isArray(result.message)
@@ -715,8 +705,8 @@ export function Users({ users: initialUsers }: { users?: UserRow[] }) {
           <AlertDialogHeader>
             <AlertDialogTitle>Activate teacher profile?</AlertDialogTitle>
             <AlertDialogDescription>
-              Approve <strong>{activateTarget?.name}</strong> ({activateTarget?.email}) so they can
-              publish their public teacher page. They will receive a confirmation email.
+              Approve <strong>{activateTarget?.name}</strong> ({activateTarget?.email}) so they can publish their public
+              teacher page. They will receive a confirmation email.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -752,14 +742,13 @@ export function Users({ users: initialUsers }: { users?: UserRow[] }) {
             <AlertDialogDescription>
               {deleteMode === "hard" ? (
                 <>
-                  This will permanently remove <strong>{deleteTarget?.name}</strong> (
-                  {deleteTarget?.email}). Quizzes they created stay in the system and are reassigned to
-                  you. This cannot be undone.
+                  This will permanently remove <strong>{deleteTarget?.name}</strong> ({deleteTarget?.email}). Quizzes
+                  they created stay in the system and are reassigned to you. This cannot be undone.
                 </>
               ) : (
                 <>
-                  <strong>{deleteTarget?.name}</strong> ({deleteTarget?.email}) will be deactivated and
-                  cannot sign in. You can restore access later by setting status back to Active.
+                  <strong>{deleteTarget?.name}</strong> ({deleteTarget?.email}) will be deactivated and cannot sign in.
+                  You can restore access later by setting status back to Active.
                 </>
               )}
             </AlertDialogDescription>
@@ -842,11 +831,7 @@ export function Users({ users: initialUsers }: { users?: UserRow[] }) {
 
             <Field className="gap-1.5">
               <span className="font-semibold text-foreground text-xs">Team</span>
-              <Select
-                value={newUserTeam}
-                onValueChange={(v) => setNewUserTeam(v)}
-                disabled={isAdding}
-              >
+              <Select value={newUserTeam} onValueChange={(v) => setNewUserTeam(v)} disabled={isAdding}>
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder="Select team" />
                 </SelectTrigger>
@@ -859,8 +844,7 @@ export function Users({ users: initialUsers }: { users?: UserRow[] }) {
                 </SelectContent>
               </Select>
               <p className="text-muted-foreground text-[11px]">
-                Owner → Executive · Teacher → Teacher · Student → Student. You can override team
-                manually.
+                Owner → Executive · Teacher → Teacher · Student → Student. You can override team manually.
               </p>
             </Field>
 
@@ -897,10 +881,7 @@ export function Users({ users: initialUsers }: { users?: UserRow[] }) {
             <Button variant="outline" onClick={() => setIsAddOpen(false)} disabled={isAdding}>
               Cancel
             </Button>
-            <Button
-              onClick={handleAddUser}
-              disabled={isAdding || !newUserName || !newUserEmail || !newUserTeam}
-            >
+            <Button onClick={handleAddUser} disabled={isAdding || !newUserName || !newUserEmail || !newUserTeam}>
               {isAdding && <Spinner className="mr-2" />}
               Invite User
             </Button>
@@ -992,15 +973,14 @@ export function Users({ users: initialUsers }: { users?: UserRow[] }) {
                       {team}
                     </SelectItem>
                   ))}
-                  {editUserTeam &&
-                  !ACCOUNT_TEAMS.includes(editUserTeam as (typeof ACCOUNT_TEAMS)[number]) ? (
+                  {editUserTeam && !ACCOUNT_TEAMS.includes(editUserTeam as (typeof ACCOUNT_TEAMS)[number]) ? (
                     <SelectItem value={editUserTeam}>{editUserTeam}</SelectItem>
                   ) : null}
                 </SelectContent>
               </Select>
               <p className="text-muted-foreground text-[11px]">
-                Changing role auto-sets team (Owner → Executive, Teacher → Teacher, Student →
-                Student). Adjust team if needed before saving.
+                Changing role auto-sets team (Owner → Executive, Teacher → Teacher, Student → Student). Adjust team if
+                needed before saving.
               </p>
             </Field>
 
@@ -1021,8 +1001,8 @@ export function Users({ users: initialUsers }: { users?: UserRow[] }) {
                   </SelectContent>
                 </Select>
                 <p className="text-muted-foreground text-[11px]">
-                  Only the root owner ({PLATFORM_OWNER_EMAIL}) can grant or revoke Super Admin.
-                  Super Admin gets full platform access (Settings, Users, Backup, Logs).
+                  Only the root owner ({PLATFORM_OWNER_EMAIL}) can grant or revoke Super Admin. Super Admin gets full
+                  platform access (Settings, Users, Backup, Logs).
                 </p>
               </Field>
             ) : null}

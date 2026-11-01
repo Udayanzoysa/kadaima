@@ -128,11 +128,7 @@ export function QuizResult() {
         )}
       >
         <CardContent className="flex flex-col items-center gap-3 py-10">
-          {isPassed ? (
-            <Award className="size-14 text-emerald-500" />
-          ) : (
-            <XCircle className="size-14 text-destructive" />
-          )}
+          {isPassed ? <Award className="size-14 text-emerald-500" /> : <XCircle className="size-14 text-destructive" />}
           <div>
             <h1 className="font-semibold text-xl md:text-2xl">{localize(attempt.quiz.title, locale)}</h1>
             <p className="text-muted-foreground text-sm">{localize(attempt.quiz.course.title, locale)}</p>
@@ -186,9 +182,7 @@ export function QuizResult() {
 
           let yourAnswer = t("student.noAnswer");
           if (question.type === "MCQ") {
-            yourAnswer = selectedChoice
-              ? localize(selectedChoice.choiceText, locale)
-              : t("student.noAnswer");
+            yourAnswer = selectedChoice ? localize(selectedChoice.choiceText, locale) : t("student.noAnswer");
           } else if (question.type === "SEQUENCE" && response?.textResponse) {
             try {
               const order = JSON.parse(response.textResponse) as string[];
@@ -210,11 +204,7 @@ export function QuizResult() {
               key={question.id}
               className={cn(
                 "border-border",
-                needsReview
-                  ? "border-amber-500/40"
-                  : isCorrect
-                    ? "border-emerald-500/30"
-                    : "border-destructive/30",
+                needsReview ? "border-amber-500/40" : isCorrect ? "border-emerald-500/30" : "border-destructive/30",
               )}
             >
               <CardHeader className="pb-2">
@@ -258,9 +248,7 @@ export function QuizResult() {
                 {!needsReview && !isCorrect && question.type === "MCQ" && correctChoice && (
                   <p>
                     <span className="text-muted-foreground">{t("student.correctAnswer")}: </span>
-                    <span className="font-medium text-emerald-600">
-                      {localize(correctChoice.choiceText, locale)}
-                    </span>
+                    <span className="font-medium text-emerald-600">{localize(correctChoice.choiceText, locale)}</span>
                   </p>
                 )}
                 {!needsReview &&
@@ -269,9 +257,7 @@ export function QuizResult() {
                   question.config?.acceptedAnswers?.[0] && (
                     <p>
                       <span className="text-muted-foreground">{t("student.correctAnswer")}: </span>
-                      <span className="font-medium text-emerald-600">
-                        {question.config.acceptedAnswers[0]}
-                      </span>
+                      <span className="font-medium text-emerald-600">{question.config.acceptedAnswers[0]}</span>
                     </p>
                   )}
                 {!needsReview &&
@@ -280,9 +266,7 @@ export function QuizResult() {
                   question.config?.correctNumber !== undefined && (
                     <p>
                       <span className="text-muted-foreground">{t("student.correctAnswer")}: </span>
-                      <span className="font-medium text-emerald-600">
-                        {question.config.correctNumber}
-                      </span>
+                      <span className="font-medium text-emerald-600">{question.config.correctNumber}</span>
                     </p>
                   )}
               </CardContent>

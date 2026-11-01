@@ -18,11 +18,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { APP_CONFIG } from "@/config/app-config";
 import { cn } from "@/lib/utils";
 
-import {
-  authInputGroupClass,
-  authInputGroupControlClass,
-  authPrimaryButtonClass,
-} from "./auth-shell";
+import { authInputGroupClass, authInputGroupControlClass, authPrimaryButtonClass } from "./auth-shell";
 
 const formSchema = z
   .object({
@@ -90,8 +86,7 @@ export function ForgotPasswordForm() {
       if (data.channel === "EMAIL") {
         toast.success("Check your email", {
           description:
-            result.message ||
-            "Open the email and click “Reset My Password”. The link expires in 10 minutes.",
+            result.message || "Open the email and click “Reset My Password”. The link expires in 10 minutes.",
         });
         return;
       }
@@ -107,10 +102,9 @@ export function ForgotPasswordForm() {
       router.push(`/reset-password?${params.toString()}`);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Please try again.";
-      toast.error(
-        message.toLowerCase().includes("no user found") ? "No user found" : "Request failed",
-        { description: message },
-      );
+      toast.error(message.toLowerCase().includes("no user found") ? "No user found" : "Request failed", {
+        description: message,
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -127,9 +121,7 @@ export function ForgotPasswordForm() {
             onClick={() => form.setValue("channel", value, { shouldValidate: true })}
             className={cn(
               "rounded-lg px-3 py-2 text-sm font-medium transition",
-              channel === value
-                ? "bg-white text-slate-900 shadow-sm"
-                : "text-slate-500 hover:text-slate-800",
+              channel === value ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-800",
             )}
           >
             {value === "EMAIL" ? "Email" : "SMS"}

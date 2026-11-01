@@ -9,13 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Spinner } from "@/components/ui/spinner";
 import { APP_CONFIG } from "@/config/app-config";
 import { getClientCookie } from "@/lib/cookie.client";
@@ -189,9 +183,7 @@ export function AdminPaymentsPage() {
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        throw new Error(
-          Array.isArray(err.message) ? err.message.join(", ") : err.message || "Create failed",
-        );
+        throw new Error(Array.isArray(err.message) ? err.message.join(", ") : err.message || "Create failed");
       }
       toast.success("Voucher created");
       setVoucherCode("");
@@ -355,14 +347,10 @@ export function AdminPaymentsPage() {
                               {row.method === "Slip" ? "Bank slip" : row.method}
                             </span>
                           </td>
-                          <td className="px-4 py-3 font-mono text-xs">
-                            {row.reference || "—"}
-                          </td>
+                          <td className="px-4 py-3 font-mono text-xs">{row.reference || "—"}</td>
                           <td className="px-4 py-3">{row.status}</td>
                           <td className="px-4 py-3">
-                            <div className="font-medium">
-                              {row.user.name || row.user.email || "—"}
-                            </div>
+                            <div className="font-medium">{row.user.name || row.user.email || "—"}</div>
                             <div className="text-muted-foreground text-xs">
                               {[
                                 row.user.email && row.user.name ? row.user.email : null,
@@ -375,9 +363,7 @@ export function AdminPaymentsPage() {
                           </td>
                           <td className="px-4 py-3">{quizTitle(row.quiz.title)}</td>
                           <td className="px-4 py-3 whitespace-nowrap">
-                            {row.amountLkr != null
-                              ? `LKR ${Number(row.amountLkr).toFixed(0)}`
-                              : "—"}
+                            {row.amountLkr != null ? `LKR ${Number(row.amountLkr).toFixed(0)}` : "—"}
                           </td>
                           <td className="max-w-[220px] truncate px-4 py-3 text-muted-foreground text-xs">
                             {row.details.startsWith("/uploads/") ? (
@@ -473,11 +459,7 @@ export function AdminPaymentsPage() {
                   onChange={(e) => setVoucherMax(Number(e.target.value) || 1)}
                 />
               </div>
-              <Button
-                className="w-full"
-                disabled={creatingVoucher}
-                onClick={() => void createVoucher()}
-              >
+              <Button className="w-full" disabled={creatingVoucher} onClick={() => void createVoucher()}>
                 {creatingVoucher ? <Spinner className="size-4" /> : <Plus className="size-4" />}
                 Create voucher
               </Button>
@@ -508,9 +490,7 @@ export function AdminPaymentsPage() {
                       {vouchers.map((v) => (
                         <tr key={v.id} className="border-b border-border last:border-0">
                           <td className="px-4 py-3 font-mono font-medium">{v.code}</td>
-                          <td className="px-4 py-3">
-                            {v.quiz ? quizTitle(v.quiz.title) : "Any locked quiz"}
-                          </td>
+                          <td className="px-4 py-3">{v.quiz ? quizTitle(v.quiz.title) : "Any locked quiz"}</td>
                           <td className="px-4 py-3">
                             {v.redemptionCount}/{v.maxRedemptions}
                           </td>
@@ -565,9 +545,7 @@ export function AdminPaymentsPage() {
                           {new Date(s.createdAt).toLocaleString()}
                         </td>
                         <td className="px-4 py-3">
-                          <div className="font-medium">
-                            {s.user?.name || s.user?.email || "—"}
-                          </div>
+                          <div className="font-medium">{s.user?.name || s.user?.email || "—"}</div>
                           <div className="text-muted-foreground text-xs">
                             {[s.user?.email, s.user?.phoneNumber].filter(Boolean).join(" · ") ||
                               s.guestSessionId?.slice(0, 16)}
@@ -586,9 +564,7 @@ export function AdminPaymentsPage() {
                           {s.bankReference ? (
                             <div className="mt-1 font-mono text-xs">Ref: {s.bankReference}</div>
                           ) : null}
-                          {s.note ? (
-                            <div className="text-muted-foreground mt-1 text-xs">{s.note}</div>
-                          ) : null}
+                          {s.note ? <div className="text-muted-foreground mt-1 text-xs">{s.note}</div> : null}
                         </td>
                         <td className="px-4 py-3">{s.status}</td>
                         <td className="px-4 py-3">

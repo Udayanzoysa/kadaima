@@ -9,27 +9,13 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Spinner } from "@/components/ui/spinner";
 import { Switch } from "@/components/ui/switch";
 import { APP_CONFIG } from "@/config/app-config";
 import { getClientCookie } from "@/lib/cookie.client";
 
-const ACTIONS = [
-  "LOGIN",
-  "LOGIN_FAILED",
-  "SIGNUP",
-  "CREATE",
-  "UPDATE",
-  "DELETE",
-  "CHANGE_STATUS",
-] as const;
+const ACTIONS = ["LOGIN", "LOGIN_FAILED", "SIGNUP", "CREATE", "UPDATE", "DELETE", "CHANGE_STATUS"] as const;
 
 const SUBJECTS = [
   "AUTH",
@@ -184,8 +170,8 @@ export function AdminSystemLogsPage() {
       <div className="space-y-1">
         <h1 className="font-semibold text-2xl tracking-tight md:text-3xl">System Logs</h1>
         <p className="text-muted-foreground text-sm">
-          Audit trail of logins, sign-ups, and create/update/delete actions across the platform.
-          Visible to super admins only.
+          Audit trail of logins, sign-ups, and create/update/delete actions across the platform. Visible to super admins
+          only.
         </p>
       </div>
 
@@ -306,9 +292,7 @@ export function AdminSystemLogsPage() {
                           {new Date(row.createdAt).toLocaleString()}
                         </td>
                         <td className="px-4 py-3">
-                          <Badge variant={actionBadgeVariant(row.action)}>
-                            {row.action.replace("_", " ")}
-                          </Badge>
+                          <Badge variant={actionBadgeVariant(row.action)}>{row.action.replace("_", " ")}</Badge>
                         </td>
                         <td className="px-4 py-3">
                           <span className="rounded-full bg-muted px-2 py-0.5 font-medium text-xs">

@@ -74,9 +74,7 @@ export function MetricCards() {
 
   return (
     <div className="grid grid-cols-1 gap-4 *:data-[slot=card]:bg-linear-to-t *:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card *:data-[slot=card]:shadow-xs md:grid-cols-3 dark:*:data-[slot=card]:bg-card">
-      {error && (
-        <p className="text-destructive text-sm md:col-span-3">{error}</p>
-      )}
+      {error && <p className="text-destructive text-sm md:col-span-3">{error}</p>}
       <Card>
         <CardHeader>
           <CardTitle>

@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -84,7 +84,7 @@ export function NavMain({ items }: NavMainProps) {
       return item.subItems.some((sub) => path.startsWith(sub.url));
     }
 
-    if (item.id === "courses") {
+    if (item.id === "courses" || item.id === "classes") {
       return path === item.url || path.startsWith(`${item.url}/`);
     }
 

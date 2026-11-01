@@ -43,3 +43,6 @@ read.md
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Facebook bot persistent state
+data/

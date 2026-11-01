@@ -9,13 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Spinner } from "@/components/ui/spinner";
 import { Switch } from "@/components/ui/switch";
 import { APP_CONFIG } from "@/config/app-config";
@@ -49,9 +43,7 @@ export function AiChatSettings() {
   const [saving, setSaving] = useState(false);
   const [enabled, setEnabled] = useState(true);
   const [model, setModel] = useState("gemini-3-flash-preview");
-  const [fallbacks, setFallbacks] = useState(
-    "gemini-2.0-flash,gemini-2.0-flash-lite,gemini-2.5-flash",
-  );
+  const [fallbacks, setFallbacks] = useState("gemini-2.0-flash,gemini-2.0-flash-lite,gemini-2.5-flash");
   const [apiKey, setApiKey] = useState("");
   const [hasApiKey, setHasApiKey] = useState(false);
   const [note, setNote] = useState("");
@@ -71,12 +63,7 @@ export function AiChatSettings() {
         const data = await res.json();
         setEnabled(Boolean(data.enabled));
         setModel(String(data.model || "gemini-3-flash-preview"));
-        setFallbacks(
-          String(
-            data.fallbacks ||
-              "gemini-2.0-flash,gemini-2.0-flash-lite,gemini-2.5-flash",
-          ),
-        );
+        setFallbacks(String(data.fallbacks || "gemini-2.0-flash,gemini-2.0-flash-lite,gemini-2.5-flash"));
         setHasApiKey(Boolean(data.hasApiKey));
         setNote(String(data.note || ""));
       } catch (err) {
@@ -185,9 +172,7 @@ export function AiChatSettings() {
           <Field>
             <FieldLabel>Fallback models (comma-separated)</FieldLabel>
             <Input value={fallbacks} onChange={(e) => setFallbacks(e.target.value)} />
-            <FieldDescription>
-              Tried in order if the primary model fails (quota / unavailable).
-            </FieldDescription>
+            <FieldDescription>Tried in order if the primary model fails (quota / unavailable).</FieldDescription>
           </Field>
 
           <Field>
@@ -196,7 +181,9 @@ export function AiChatSettings() {
               type="password"
               value={apiKey}
               onChange={(e) => setApiKey(e.target.value)}
-              placeholder={hasApiKey ? "•••••••• (leave blank to keep current key)" : "Paste API key from Google AI Studio"}
+              placeholder={
+                hasApiKey ? "•••••••• (leave blank to keep current key)" : "Paste API key from Google AI Studio"
+              }
               autoComplete="off"
             />
             <FieldDescription className="flex flex-wrap items-center gap-x-2 gap-y-1">

@@ -17,13 +17,7 @@ export type PublicBreadcrumbItem = {
   href?: string;
 };
 
-export function PublicBreadcrumbs({
-  items,
-  className,
-}: {
-  items: PublicBreadcrumbItem[];
-  className?: string;
-}) {
+export function PublicBreadcrumbs({ items, className }: { items: PublicBreadcrumbItem[]; className?: string }) {
   if (items.length === 0) return null;
 
   return (
@@ -39,10 +33,7 @@ export function PublicBreadcrumbs({
                   <BreadcrumbPage className="font-medium text-[#123a6b]">{item.label}</BreadcrumbPage>
                 ) : (
                   <BreadcrumbLink asChild>
-                    <Link
-                      href={item.href}
-                      className="text-slate-500 transition-colors hover:text-[#1563b8]"
-                    >
+                    <Link href={item.href} className="text-slate-500 transition-colors hover:text-[#1563b8]">
                       {item.label}
                     </Link>
                   </BreadcrumbLink>

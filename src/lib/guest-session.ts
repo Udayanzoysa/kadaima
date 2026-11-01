@@ -36,9 +36,7 @@ export interface PendingSyncPayload {
   }>;
 }
 
-export function normalizeGuestAnswer(
-  value: string | GuestAnswerValue | undefined,
-): GuestAnswerValue {
+export function normalizeGuestAnswer(value: string | GuestAnswerValue | undefined): GuestAnswerValue {
   if (!value) return {};
   if (typeof value === "string") return { choiceId: value };
   return value;

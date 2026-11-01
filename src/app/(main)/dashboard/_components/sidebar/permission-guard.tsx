@@ -45,39 +45,27 @@ function hasPerm(permissions: UserPermission[], action: string, subject: string)
     return true;
   }
   return permissions.some(
-    (p) =>
-      p.subject.toLowerCase() === subject.toLowerCase() &&
-      p.action.toLowerCase() === action.toLowerCase(),
+    (p) => p.subject.toLowerCase() === subject.toLowerCase() && p.action.toLowerCase() === action.toLowerCase(),
   );
 }
 
 type PathDecision = { ok: true } | { ok: false; redirectTo: string };
 
-function decidePath(
-  pathname: string,
-  allowedMenu: MenuItem[],
-  allowedPermissions: UserPermission[],
-): PathDecision {
+function decidePath(pathname: string, allowedMenu: MenuItem[], allowedPermissions: UserPermission[]): PathDecision {
   const allowedPaths = allowedMenu.map((item) => item.path);
 
   const isSuperAdmin = hasPerm(allowedPermissions, "manage", "all");
   const canManageQuizzes =
-    isSuperAdmin ||
-    hasPerm(allowedPermissions, "manage", "quizzes") ||
-    hasPerm(allowedPermissions, "read", "quizzes");
+    isSuperAdmin || hasPerm(allowedPermissions, "manage", "quizzes") || hasPerm(allowedPermissions, "read", "quizzes");
 
-  const alwaysAllowed = [
-    "/admin",
-    "/admin/default",
-    "/admin/unauthorized",
-    "/admin/profile",
-    "/admin/coming-soon",
-  ];
+  const alwaysAllowed = ["/admin", "/admin/default", "/admin/unauthorized", "/admin/profile", "/admin/coming-soon"];
 
   const isQuizAdminRoute =
     pathname.startsWith("/admin/quizzes/manage") ||
     pathname.startsWith("/admin/quizzes/new") ||
     pathname.startsWith("/admin/courses") ||
+    pathname.startsWith("/admin/classes") ||
+    pathname.startsWith("/teacher/classes") ||
     pathname.startsWith("/admin/teacher-page") ||
     pathname.startsWith("/admin/earnings") ||
     pathname === "/admin/questions" ||
@@ -104,9 +92,7 @@ function decidePath(
   const isLeadsRoute = pathname.startsWith("/admin/leads");
   if (isLeadsRoute) {
     const hasLeadsPerm =
-      isSuperAdmin ||
-      hasPerm(allowedPermissions, "manage", "leads") ||
-      hasPerm(allowedPermissions, "read", "leads");
+      isSuperAdmin || hasPerm(allowedPermissions, "manage", "leads") || hasPerm(allowedPermissions, "read", "leads");
     return hasLeadsPerm ? { ok: true } : { ok: false, redirectTo: "/unauthorized" };
   }
 
@@ -139,9 +125,7 @@ export function PermissionGuard({ children }: { children: ReactNode }) {
   const router = useRouter();
   const [bootstrapping, setBootstrapping] = useState(() => !cachedAuth);
   const [allowed, setAllowed] = useState(false);
-  const [permissions, setPermissions] = useState<UserPermission[]>(
-    () => cachedAuth?.permissions ?? [],
-  );
+  const [permissions, setPermissions] = useState<UserPermission[]>(() => cachedAuth?.permissions ?? []);
 
   useEffect(() => {
     const onAuthChanged = () => {
@@ -213,8 +197,7 @@ export function PermissionGuard({ children }: { children: ReactNode }) {
     };
   }, [pathname, router]);
 
-  const hasPermission = (action: string, subject: string): boolean =>
-    hasPerm(permissions, action, subject);
+  const hasPermission = (action: string, subject: string): boolean => hasPerm(permissions, action, subject);
 
   if (bootstrapping) {
     return (
@@ -232,9 +215,5 @@ export function PermissionGuard({ children }: { children: ReactNode }) {
 
   if (!allowed) return null;
 
-  return (
-    <PermissionContext.Provider value={{ permissions, hasPermission }}>
-      {children}
-    </PermissionContext.Provider>
-  );
+  return <PermissionContext.Provider value={{ permissions, hasPermission }}>{children}</PermissionContext.Provider>;
 }

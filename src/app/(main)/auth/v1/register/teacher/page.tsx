@@ -20,11 +20,7 @@ export default function RegisterTeacherV1() {
         <GoogleButton accountType="teacher" />
         <p className="text-center text-xs text-slate-500">
           Learning instead?{" "}
-          <Link
-            prefetch={false}
-            href="/student/register"
-            className="font-medium text-[#1563b8] hover:text-[#114f94]"
-          >
+          <Link prefetch={false} href="/student/register" className="font-medium text-[#1563b8] hover:text-[#114f94]">
             Register as a student
           </Link>
         </p>

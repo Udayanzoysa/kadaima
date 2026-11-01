@@ -132,9 +132,7 @@ export function AdminDatabaseBackupPage() {
   }, [load]);
 
   useEffect(() => {
-    const needsPoll = rows.some(
-      (r) => r.status === "PENDING" || r.status === "RUNNING" || r.status === "RESTORING",
-    );
+    const needsPoll = rows.some((r) => r.status === "PENDING" || r.status === "RUNNING" || r.status === "RESTORING");
     if (pollRef.current) {
       clearInterval(pollRef.current);
       pollRef.current = null;
@@ -268,8 +266,7 @@ export function AdminDatabaseBackupPage() {
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Database Backup</h1>
         <p className="text-muted-foreground mt-1 text-sm">
-          Master copy of the PostgreSQL database for server moves and disaster recovery.
-          Super admin only.
+          Master copy of the PostgreSQL database for server moves and disaster recovery. Super admin only.
         </p>
       </div>
 
@@ -294,12 +291,8 @@ export function AdminDatabaseBackupPage() {
             <span className="text-muted-foreground">Tools</span>
             <p className="flex flex-wrap gap-2 pt-1">
               <Badge variant={status?.tools.pgDump ? "default" : "destructive"}>pg_dump</Badge>
-              <Badge variant={status?.tools.pgRestore ? "default" : "destructive"}>
-                pg_restore
-              </Badge>
-              <Badge variant={status?.busy ? "secondary" : "outline"}>
-                {status?.busy ? "Job running" : "Idle"}
-              </Badge>
+              <Badge variant={status?.tools.pgRestore ? "default" : "destructive"}>pg_restore</Badge>
+              <Badge variant={status?.busy ? "secondary" : "outline"}>{status?.busy ? "Job running" : "Idle"}</Badge>
               <Badge variant={status?.cronEnabled ? "default" : "outline"}>
                 Cron {status?.cronEnabled ? "on" : "off"}
               </Badge>
@@ -308,8 +301,8 @@ export function AdminDatabaseBackupPage() {
           <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-amber-950 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-100">
             <p className="flex items-start gap-2 text-xs leading-relaxed">
               <AlertTriangle className="mt-0.5 size-3.5 shrink-0" />
-              Quiz images and slips live in the <code>uploads</code> Docker volume — back that up
-              separately when migrating servers.
+              Quiz images and slips live in the <code>uploads</code> Docker volume — back that up separately when
+              migrating servers.
             </p>
           </div>
         </CardContent>
@@ -322,8 +315,7 @@ export function AdminDatabaseBackupPage() {
             <div>
               <p className="font-medium">PostgreSQL client tools missing</p>
               <p className="text-muted-foreground mt-1">
-                Rebuild the API image so the Dockerfile installs{" "}
-                <code>postgresql15-client</code>, then redeploy.
+                Rebuild the API image so the Dockerfile installs <code>postgresql15-client</code>, then redeploy.
               </p>
             </div>
           </CardContent>
@@ -336,9 +328,7 @@ export function AdminDatabaseBackupPage() {
             <Database className="size-4" />
             Create master backup
           </CardTitle>
-          <CardDescription>
-            Compressed PostgreSQL custom-format dump (scales as the database grows).
-          </CardDescription>
+          <CardDescription>Compressed PostgreSQL custom-format dump (scales as the database grows).</CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-3 sm:flex-row sm:items-end">
           <div className="flex-1 space-y-2">
@@ -386,9 +376,7 @@ export function AdminDatabaseBackupPage() {
                   <div className="flex flex-wrap items-center gap-2">
                     <p className="truncate font-medium">{row.label || row.fileName || row.id}</p>
                     <Badge variant={statusVariant(row.status)}>{row.status}</Badge>
-                    {row.status === "READY" && (
-                      <CheckCircle2 className="size-4 text-emerald-600" />
-                    )}
+                    {row.status === "READY" && <CheckCircle2 className="size-4 text-emerald-600" />}
                   </div>
                   <p className="text-muted-foreground text-xs">
                     {new Date(row.createdAt).toLocaleString()} · {formatBytes(row.sizeBytes)}
@@ -396,13 +384,9 @@ export function AdminDatabaseBackupPage() {
                     {row.createdBy?.email ? ` · ${row.createdBy.email}` : ""}
                   </p>
                   {row.checksumSha256 && (
-                    <p className="text-muted-foreground truncate font-mono text-[10px]">
-                      sha256:{row.checksumSha256}
-                    </p>
+                    <p className="text-muted-foreground truncate font-mono text-[10px]">sha256:{row.checksumSha256}</p>
                   )}
-                  {row.errorMessage && (
-                    <p className="text-destructive text-xs">{row.errorMessage}</p>
-                  )}
+                  {row.errorMessage && <p className="text-destructive text-xs">{row.errorMessage}</p>}
                 </div>
                 <div className="flex flex-wrap gap-2">
                   <Button
@@ -431,11 +415,7 @@ export function AdminDatabaseBackupPage() {
                     type="button"
                     size="sm"
                     variant="ghost"
-                    disabled={
-                      row.status === "RUNNING" ||
-                      row.status === "PENDING" ||
-                      row.status === "RESTORING"
-                    }
+                    disabled={row.status === "RUNNING" || row.status === "PENDING" || row.status === "RESTORING"}
                     onClick={() => void deleteBackup(row)}
                   >
                     <Trash2 className="size-3.5" />
@@ -460,9 +440,8 @@ export function AdminDatabaseBackupPage() {
           <DialogHeader>
             <DialogTitle>Restore database?</DialogTitle>
             <DialogDescription>
-              This replaces the live database with{" "}
-              <strong>{restoreTarget?.label || restoreTarget?.fileName}</strong>. A safety backup
-              is attempted first. Type <code>RESTORE</code> to confirm.
+              This replaces the live database with <strong>{restoreTarget?.label || restoreTarget?.fileName}</strong>. A
+              safety backup is attempted first. Type <code>RESTORE</code> to confirm.
             </DialogDescription>
           </DialogHeader>
           <Input
@@ -472,12 +451,7 @@ export function AdminDatabaseBackupPage() {
             autoComplete="off"
           />
           <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setRestoreTarget(null)}
-              disabled={restoring}
-            >
+            <Button type="button" variant="outline" onClick={() => setRestoreTarget(null)} disabled={restoring}>
               Cancel
             </Button>
             <Button
@@ -507,8 +481,7 @@ export function AdminDatabaseBackupPage() {
           <DialogHeader>
             <DialogTitle>Restore from uploaded dump</DialogTitle>
             <DialogDescription>
-              Use a <code>.dump</code> file from another server. Type <code>RESTORE</code> to
-              confirm.
+              Use a <code>.dump</code> file from another server. Type <code>RESTORE</code> to confirm.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3">

@@ -14,12 +14,7 @@ export function FooterPoweredBy({
   className?: string;
 }) {
   return (
-    <p
-      className={cn(
-        "flex flex-wrap items-center justify-center gap-1.5 text-[12px] text-slate-600",
-        className,
-      )}
-    >
+    <p className={cn("flex flex-wrap items-center justify-center gap-1.5 text-[12px] text-slate-600", className)}>
       <span>{labelBefore}</span>
       <Heart className="size-3.5 fill-rose-500 text-rose-500" aria-hidden />
       <a

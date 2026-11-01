@@ -61,10 +61,9 @@ async function downloadExport(apiPath: string, resource: Resource, format: "json
   const token = getClientCookie("session_token");
   if (!token) throw new Error("Not signed in");
 
-  const res = await fetch(
-    `${APP_CONFIG.apiUrl}/${apiPath}/export?format=${format}`,
-    { headers: { Authorization: `Bearer ${token}` } },
-  );
+  const res = await fetch(`${APP_CONFIG.apiUrl}/${apiPath}/export?format=${format}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error(err.message || `Export failed (${res.status})`);
@@ -72,10 +71,7 @@ async function downloadExport(apiPath: string, resource: Resource, format: "json
 
   const blob = await res.blob();
   const fallback = `${resource}-backup.${format === "xlsx" ? "xlsx" : "json"}`;
-  const filename = filenameFromDisposition(
-    res.headers.get("Content-Disposition"),
-    fallback,
-  );
+  const filename = filenameFromDisposition(res.headers.get("Content-Disposition"), fallback);
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
@@ -99,9 +95,7 @@ async function uploadImport(apiPath: string, file: File): Promise<ImportResult> 
 
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
-    const msg = Array.isArray(data.message)
-      ? data.message.join(", ")
-      : data.message || "Import failed";
+    const msg = Array.isArray(data.message) ? data.message.join(", ") : data.message || "Import failed";
     throw new Error(msg);
   }
   return data as ImportResult;
@@ -133,14 +127,9 @@ export function DataBackupActions({ resource, apiPath, onImported }: Props) {
     setImportBusy(true);
     try {
       const result = await uploadImport(path, file);
-      const modulesNote =
-        typeof result.modulesCreated === "number"
-          ? ` · ${result.modulesCreated} modules`
-          : "";
+      const modulesNote = typeof result.modulesCreated === "number" ? ` · ${result.modulesCreated} modules` : "";
       if (result.failed > 0) {
-        toast.warning(
-          `Imported ${result.created}/${result.total}${modulesNote}. ${result.failed} failed.`,
-        );
+        toast.warning(`Imported ${result.created}/${result.total}${modulesNote}. ${result.failed} failed.`);
         if (result.failures?.length) {
           console.warn("Import failures:", result.failures);
         }
@@ -167,12 +156,8 @@ export function DataBackupActions({ resource, apiPath, onImported }: Props) {
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
-          <DropdownMenuItem onClick={() => void handleExport("json")}>
-            Backup JSON
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => void handleExport("xlsx")}>
-            Excel (.xlsx)
-          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => void handleExport("json")}>Backup JSON</DropdownMenuItem>
+          <DropdownMenuItem onClick={() => void handleExport("xlsx")}>Excel (.xlsx)</DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
 
@@ -187,17 +172,15 @@ export function DataBackupActions({ resource, apiPath, onImported }: Props) {
           <DialogHeader>
             <DialogTitle>Import {label}</DialogTitle>
             <DialogDescription>
-              Restore from a backup JSON or Excel file. Items are created as new
-              records (existing data is not overwritten).
-              {resource === "quizzes"
-                ? " Quizzes must match an existing course (and module) by English title."
-                : null}
+              Restore from a backup JSON or Excel file. Items are created as new records (existing data is not
+              overwritten).
+              {resource === "quizzes" ? " Quizzes must match an existing course (and module) by English title." : null}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <p className="text-muted-foreground text-sm">
-              Accepts <code className="text-xs">.json</code> or{" "}
-              <code className="text-xs">.xlsx</code> exported from this page.
+              Accepts <code className="text-xs">.json</code> or <code className="text-xs">.xlsx</code> exported from
+              this page.
             </p>
             <input
               ref={inputRef}
@@ -206,16 +189,8 @@ export function DataBackupActions({ resource, apiPath, onImported }: Props) {
               className="hidden"
               onChange={(e) => void handleImport(e.target.files?.[0])}
             />
-            <Button
-              className="w-full"
-              disabled={importBusy}
-              onClick={() => inputRef.current?.click()}
-            >
-              {importBusy ? (
-                <Spinner className="size-4" />
-              ) : (
-                <FileUp className="size-4" />
-              )}
+            <Button className="w-full" disabled={importBusy} onClick={() => inputRef.current?.click()}>
+              {importBusy ? <Spinner className="size-4" /> : <FileUp className="size-4" />}
               Choose backup file
             </Button>
           </div>

@@ -183,14 +183,11 @@ export function TakeQuiz() {
       const headers = authHeaders();
       if (!headers) return null;
 
-      const res = await fetch(
-        `${APP_CONFIG.apiUrl}/quizzes/attempts/${attempt.id}/heartbeat`,
-        {
-          method: "POST",
-          headers,
-          body: JSON.stringify({ status, secondsRemaining, violationCount }),
-        },
-      );
+      const res = await fetch(`${APP_CONFIG.apiUrl}/quizzes/attempts/${attempt.id}/heartbeat`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ status, secondsRemaining, violationCount }),
+      });
       if (!res.ok) return null;
       return safeJson<HeartbeatResponse>(res);
     },
@@ -200,19 +197,16 @@ export function TakeQuiz() {
   const onViolation = useCallback(
     (count: number) => {
       if (count >= 3) return;
-      toast.warning(
-        t("student.tabSwitchWarning").replace("{count}", String(count)),
-        { description: t("student.timerPaused") },
-      );
+      toast.warning(t("student.tabSwitchWarning").replace("{count}", String(count)), {
+        description: t("student.timerPaused"),
+      });
     },
     [t],
   );
 
   const initialSeconds =
     attempt?.secondsRemaining ??
-    (attempt?.expiresAt
-      ? Math.max(0, Math.floor((+new Date(attempt.expiresAt) - Date.now()) / 1000))
-      : 0);
+    (attempt?.expiresAt ? Math.max(0, Math.floor((+new Date(attempt.expiresAt) - Date.now()) / 1000)) : 0);
 
   const { timeLeft, formatTime, isActive, violationCount } = useResilientTimer({
     attemptId: attempt?.id ?? null,
@@ -312,17 +306,11 @@ export function TakeQuiz() {
             <h1 className="font-semibold text-lg leading-tight md:text-xl">
               {localize(attempt.quiz.title, contentLocale)}
             </h1>
-            <p className="text-muted-foreground text-xs">
-              {localize(attempt.quiz.course.title, contentLocale)}
-            </p>
+            <p className="text-muted-foreground text-xs">{localize(attempt.quiz.course.title, contentLocale)}</p>
           </div>
           <div className="flex items-center gap-3">
             {quizLanguages.length > 1 ? (
-              <LanguageSwitcher
-                value={contentLocale}
-                onChange={handleContentLocaleChange}
-                languages={quizLanguages}
-              />
+              <LanguageSwitcher value={contentLocale} onChange={handleContentLocaleChange} languages={quizLanguages} />
             ) : (
               <Badge variant="outline" className="text-xs uppercase">
                 {contentLocale}
@@ -356,9 +344,7 @@ export function TakeQuiz() {
           const renderCard = (question: (typeof questions)[number], index: number) => {
             const selected = answers[question.id];
             const isAnswered =
-              question.type === "MCQ"
-                ? Boolean(selected?.choiceId)
-                : Boolean(selected?.textResponse?.trim());
+              question.type === "MCQ" ? Boolean(selected?.choiceId) : Boolean(selected?.textResponse?.trim());
             return (
               <Card key={question.id} className={cn("border-border", isAnswered && "border-primary/40")}>
                 <CardHeader className="pb-3">
@@ -397,9 +383,7 @@ export function TakeQuiz() {
           }
 
           const indexById = new Map(questions.map((q, i) => [q.id, i]));
-          const sectionedIds = new Set(
-            quizSections.flatMap((s) => (s.questions ?? []).map((q) => q.id)),
-          );
+          const sectionedIds = new Set(quizSections.flatMap((s) => (s.questions ?? []).map((q) => q.id)));
           const ungrouped = questions.filter((q) => !sectionedIds.has(q.id));
 
           return (
@@ -409,10 +393,7 @@ export function TakeQuiz() {
                 const sectionQuestions = section.questions ?? [];
                 if (sectionQuestions.length === 0) return null;
                 return (
-                  <div
-                    key={section.id}
-                    className="space-y-3 rounded-xl border border-primary/20 bg-primary/5 p-3"
-                  >
+                  <div key={section.id} className="space-y-3 rounded-xl border border-primary/20 bg-primary/5 p-3">
                     <div className="rounded-lg border bg-background px-4 py-3">
                       <p className="text-[11px] font-bold uppercase tracking-wide text-primary">
                         Section {sectionIndex + 1}
@@ -441,8 +422,7 @@ export function TakeQuiz() {
                   "flex size-7 items-center justify-center rounded-full border text-xs font-medium",
                   (() => {
                     const a = answers[q.id];
-                    const answered =
-                      q.type === "MCQ" ? Boolean(a?.choiceId) : Boolean(a?.textResponse?.trim());
+                    const answered = q.type === "MCQ" ? Boolean(a?.choiceId) : Boolean(a?.textResponse?.trim());
                     return answered
                       ? "border-primary bg-primary text-primary-foreground"
                       : "border-border text-muted-foreground";
@@ -452,8 +432,7 @@ export function TakeQuiz() {
               >
                 {(() => {
                   const a = answers[q.id];
-                  const answered =
-                    q.type === "MCQ" ? Boolean(a?.choiceId) : Boolean(a?.textResponse?.trim());
+                  const answered = q.type === "MCQ" ? Boolean(a?.choiceId) : Boolean(a?.textResponse?.trim());
                   return answered ? <CheckCircle2 className="size-3.5" /> : index + 1;
                 })()}
               </div>

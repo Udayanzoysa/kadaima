@@ -33,20 +33,11 @@ const QuizUnlockModal = dynamic(
   { ssr: false },
 );
 
-function sectionSubtitle(
-  kind: ReturnType<typeof courseKindFromTitle>,
-  t: (key: string) => string,
-): string {
+function sectionSubtitle(kind: ReturnType<typeof courseKindFromTitle>, t: (key: string) => string): string {
   return t(courseSectionSubtitleKey(kind));
 }
 
-export function CourseQuizzesView({
-  courseId,
-  initialQuizzes,
-}: {
-  courseId: string;
-  initialQuizzes: CatalogQuiz[];
-}) {
+export function CourseQuizzesView({ courseId, initialQuizzes }: { courseId: string; initialQuizzes: CatalogQuiz[] }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { locale, t } = useI18n();
@@ -84,10 +75,7 @@ export function CourseQuizzesView({
     return [...map.entries()].map(([id, title]) => ({ id, title }));
   }, [quizzes, locale]);
 
-  const visibleQuizzes = useMemo(
-    () => filterQuizzesByModule(quizzes, activeModuleId),
-    [quizzes, activeModuleId],
-  );
+  const visibleQuizzes = useMemo(() => filterQuizzesByModule(quizzes, activeModuleId), [quizzes, activeModuleId]);
 
   const reloadQuizzes = useCallback(async () => {
     const guestSessionId = ensureGuestSessionId();
@@ -175,8 +163,7 @@ export function CourseQuizzesView({
     router.replace(qs ? `${path}?${qs}` : path, { scroll: false });
   };
 
-  const needsUnlock = (quiz: CatalogQuiz) =>
-    Boolean(quiz.requiresUnlock) && quiz.unlocked !== true;
+  const needsUnlock = (quiz: CatalogQuiz) => Boolean(quiz.requiresUnlock) && quiz.unlocked !== true;
 
   const handlePrimary = (quiz: CatalogQuiz) => {
     if (needsUnlock(quiz)) {
@@ -287,9 +274,7 @@ export function CourseQuizzesView({
                   setLoading(true);
                   setError(null);
                   void reloadQuizzes()
-                    .catch((err) =>
-                      setError(err instanceof Error ? err.message : t("public.courseLoadError")),
-                    )
+                    .catch((err) => setError(err instanceof Error ? err.message : t("public.courseLoadError")))
                     .finally(() => setLoading(false));
                 }}
                 retryLabel={t("student.tryAgain")}
@@ -305,9 +290,7 @@ export function CourseQuizzesView({
                 {visibleQuizzes.map((quiz) => {
                   const desc =
                     plainFromHtml(localize(quiz.description, locale as "en" | "si" | "ta")) ||
-                    (quiz.module
-                      ? localize(quiz.module.title as LocalizedText, locale as "en" | "si" | "ta")
-                      : null) ||
+                    (quiz.module ? localize(quiz.module.title as LocalizedText, locale as "en" | "si" | "ta") : null) ||
                     t("public.cardFallbackDesc");
                   return (
                     <PublicQuizCard

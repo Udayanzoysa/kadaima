@@ -10,13 +10,7 @@ import { LoginForm } from "@/app/(main)/auth/_components/login-form";
 import { GoogleButton } from "@/app/(main)/auth/_components/social-auth/google-button";
 import { BrandLogo } from "@/components/brand/brand-logo";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { APP_CONFIG } from "@/config/app-config";
@@ -81,12 +75,7 @@ interface QuizUnlockModalProps {
   onUnlocked: (quizId: string) => void;
 }
 
-export function QuizUnlockModal({
-  open,
-  onOpenChange,
-  quiz,
-  onUnlocked,
-}: QuizUnlockModalProps) {
+export function QuizUnlockModal({ open, onOpenChange, quiz, onUnlocked }: QuizUnlockModalProps) {
   const [step, setStep] = useState<ModalStep>("account");
   const [accountMode, setAccountMode] = useState<AccountMode>("login");
   const [paying, setPaying] = useState(false);
@@ -100,10 +89,8 @@ export function QuizUnlockModal({
   const [slipNote, setSlipNote] = useState("");
   const slipInputRef = useRef<HTMLInputElement>(null);
 
-  const isSpecialPriced =
-    quiz?.priceLkr != null && Number.isFinite(Number(quiz.priceLkr)) && Number(quiz.priceLkr) > 0;
-  const useQuizPay =
-    paymentMode === "QUIZ_ONLY" || (paymentMode === "MIXED" && isSpecialPriced);
+  const isSpecialPriced = quiz?.priceLkr != null && Number.isFinite(Number(quiz.priceLkr)) && Number(quiz.priceLkr) > 0;
+  const useQuizPay = paymentMode === "QUIZ_ONLY" || (paymentMode === "MIXED" && isSpecialPriced);
   const useSubPay = !useQuizPay;
 
   const resetPayHereHandlers = useCallback(() => {
@@ -190,19 +177,12 @@ export function QuizUnlockModal({
             setMonthlyFee(sub.monthlyStudentFeeLkr);
           }
           const mode = String(sub.paymentMode || paymentMode).toUpperCase();
-          const resolvedMode =
-            mode === "MONTHLY_ONLY" || mode === "QUIZ_ONLY" || mode === "MIXED"
-              ? mode
-              : paymentMode;
+          const resolvedMode = mode === "MONTHLY_ONLY" || mode === "QUIZ_ONLY" || mode === "MIXED" ? mode : paymentMode;
           setPaymentMode(resolvedMode);
 
-          const special =
-            quiz?.priceLkr != null &&
-            Number.isFinite(Number(quiz.priceLkr)) &&
-            Number(quiz.priceLkr) > 0;
+          const special = quiz?.priceLkr != null && Number.isFinite(Number(quiz.priceLkr)) && Number(quiz.priceLkr) > 0;
           const coveredBySub =
-            sub.active &&
-            (resolvedMode === "MONTHLY_ONLY" || (resolvedMode === "MIXED" && !special));
+            sub.active && (resolvedMode === "MONTHLY_ONLY" || (resolvedMode === "MIXED" && !special));
 
           if (coveredBySub && quiz) {
             toast.success("Your subscription is active — this quiz is unlocked.");
@@ -277,9 +257,7 @@ export function QuizUnlockModal({
       if (!res.ok) {
         const body = await res.json().catch(() => null);
         throw new Error(
-          Array.isArray(body?.message)
-            ? body.message.join(", ")
-            : body?.message || "Could not redeem voucher.",
+          Array.isArray(body?.message) ? body.message.join(", ") : body?.message || "Could not redeem voucher.",
         );
       }
       toast.success("Voucher applied — quiz unlocked!");
@@ -324,9 +302,7 @@ export function QuizUnlockModal({
       if (!res.ok) {
         const body = await res.json().catch(() => null);
         throw new Error(
-          Array.isArray(body?.message)
-            ? body.message.join(", ")
-            : body?.message || "Could not submit bank slip.",
+          Array.isArray(body?.message) ? body.message.join(", ") : body?.message || "Could not submit bank slip.",
         );
       }
       toast.success("Bank slip submitted for admin review.");
@@ -394,14 +370,9 @@ export function QuizUnlockModal({
     const lead = getOrCreateGuestLead();
     const cookieLead = readUnlockLeadCookie();
     return {
-      firstName: (me?.name || cookieLead?.studentName || lead?.studentName || "Student").split(
-        " ",
-      )[0],
+      firstName: (me?.name || cookieLead?.studentName || lead?.studentName || "Student").split(" ")[0],
       lastName:
-        (me?.name || cookieLead?.studentName || lead?.studentName || "")
-          .split(" ")
-          .slice(1)
-          .join(" ") || "Student",
+        (me?.name || cookieLead?.studentName || lead?.studentName || "").split(" ").slice(1).join(" ") || "Student",
       email: me?.email || cookieLead?.email || lead?.email || undefined,
       phone: me?.phoneNumber || cookieLead?.mobileNumber || lead?.mobileNumber || undefined,
     };
@@ -467,9 +438,7 @@ export function QuizUnlockModal({
       if (!res.ok) {
         const body = await res.json().catch(() => null);
         throw new Error(
-          Array.isArray(body?.message)
-            ? body.message.join(", ")
-            : body?.message || "Could not start quiz payment.",
+          Array.isArray(body?.message) ? body.message.join(", ") : body?.message || "Could not start quiz payment.",
         );
       }
 
@@ -523,9 +492,7 @@ export function QuizUnlockModal({
                 type="button"
                 className={cn(
                   "rounded-lg px-3 py-2 text-sm font-semibold transition",
-                  accountMode === "login"
-                    ? "bg-white text-slate-900 shadow-sm"
-                    : "text-slate-500 hover:text-slate-700",
+                  accountMode === "login" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700",
                 )}
                 onClick={() => setAccountMode("login")}
               >
@@ -549,20 +516,14 @@ export function QuizUnlockModal({
               {accountMode === "login" ? (
                 <LoginForm onSuccess={() => void afterAuthSuccess()} />
               ) : (
-                <AccountRegisterForm
-                  accountType="student"
-                  onSuccess={() => void afterAuthSuccess()}
-                />
+                <AccountRegisterForm accountType="student" onSuccess={() => void afterAuthSuccess()} />
               )}
 
               <div className="relative text-center text-xs text-slate-400 after:absolute after:inset-0 after:top-1/2 after:border-t after:border-slate-200">
                 <span className="relative z-10 bg-white px-2">or</span>
               </div>
 
-              <GoogleButton
-                accountType="student"
-                onSuccess={() => void afterAuthSuccess()}
-              />
+              <GoogleButton accountType="student" onSuccess={() => void afterAuthSuccess()} />
             </div>
           </div>
         )}
@@ -590,9 +551,7 @@ export function QuizUnlockModal({
                       <span className="font-semibold text-slate-700">
                         {quiz?.title ? `'${quiz.title}'` : "this quiz"}
                       </span>
-                      {paymentMode === "MIXED"
-                        ? " (special price — not covered by monthly subscription)."
-                        : "."}
+                      {paymentMode === "MIXED" ? " (special price — not covered by monthly subscription)." : "."}
                     </>
                   ) : (
                     <>
@@ -627,11 +586,7 @@ export function QuizUnlockModal({
               <Button
                 variant="brand"
                 className="h-10 w-full text-sm font-bold"
-                disabled={
-                  paying ||
-                  !quiz ||
-                  (useQuizPay ? !isSpecialPriced : monthlyFee == null)
-                }
+                disabled={paying || !quiz || (useQuizPay ? !isSpecialPriced : monthlyFee == null)}
                 onClick={() => void (useQuizPay ? payQuiz() : paySubscription())}
               >
                 {paying ? (

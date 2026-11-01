@@ -203,9 +203,7 @@ export const fontRegistry = {
 const CORE_FONT_KEYS = ["geist", "geistMono", "outfit"] as const satisfies readonly FontKey[];
 
 /** Extra admin theme fonts — loaded only under dashboard to cut public CSS/font cost. */
-export const adminFontVars = (
-  Object.entries(fontRegistry) as Array<[FontKey, (typeof fontRegistry)[FontKey]]>
-)
+export const adminFontVars = (Object.entries(fontRegistry) as Array<[FontKey, (typeof fontRegistry)[FontKey]]>)
   .filter(([key]) => !(CORE_FONT_KEYS as readonly string[]).includes(key))
   .map(([, f]) => f.font.variable)
   .join(" ");

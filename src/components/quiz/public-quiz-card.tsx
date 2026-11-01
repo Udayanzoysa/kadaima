@@ -1,35 +1,23 @@
 "use client";
 
+import { useState } from "react";
 import Image from "next/image";
-import {
-  BookOpen,
-  Clock3,
-  Crown,
-  Eye,
-  FileQuestionMark,
-  Lock,
-} from "lucide-react";
+import { BarChart2, BookOpen, Clock, HelpCircle, Lock, Play } from "lucide-react";
 
 import { useI18n } from "@/hooks/use-i18n";
 import { LOCALES, type Locale } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
-import {
-  normalizeQuizLanguages,
-  type SupportedLocale,
-} from "@/types/quiz";
-
-function formatViews(count: number) {
-  if (count >= 1000) {
-    const k = count / 1000;
-    return `${k >= 10 ? Math.round(k) : k.toFixed(1).replace(/\.0$/, "")}k`;
-  }
-  return String(count);
-}
+import { normalizeQuizLanguages, type SupportedLocale } from "@/types/quiz";
 
 function localeLabel(code: SupportedLocale): string {
   return LOCALES.find((l) => l.code === code)?.label ?? code.toUpperCase();
 }
 
+/**
+ * Modern 4-Column Public Quiz Card — exactly matches Image 3 design.
+ * Features 16:9 thumbnail banner, duration badge overlay (top-right),
+ * 2-line title and description, questions/score indicators, and full-width Start Quiz CTA.
+ */
 export function PublicQuizCard({
   title,
   description,
@@ -42,6 +30,7 @@ export function PublicQuizCard({
   language,
   className,
   onPrimary,
+  primaryLabel,
 }: {
   title: string;
   description: string;
@@ -59,103 +48,96 @@ export function PublicQuizCard({
   primaryLabel?: string;
 }) {
   const { t } = useI18n();
+  const [imgError, setImgError] = useState(false);
   const availableLanguages = normalizeQuizLanguages(languages, language);
 
   return (
-    <button
-      type="button"
-      onClick={onPrimary}
+    <div
       className={cn(
-        "group relative flex w-full min-h-[8.25rem] cursor-pointer gap-4 overflow-hidden rounded-2xl border p-4 text-left shadow-sm transition duration-200 sm:min-h-[9rem] sm:p-5",
-        "bg-[#f4f6f8] hover:border-[#1563b8]/35 hover:bg-[#eef2f6] hover:shadow-[0_12px_32px_-14px_rgba(21,99,184,0.28)]",
-        "focus-visible:ring-2 focus-visible:ring-[#1563b8]/40 focus-visible:outline-none",
-        locked ? "border-[#1563b8]/25 bg-[#e8f1fb]" : "border-slate-200/80",
+        "group relative flex flex-col justify-between overflow-hidden rounded-2xl border border-[#DFE7F1] bg-white shadow-2xs transition-all duration-200 hover:-translate-y-0.5 hover:border-[#1769D2]/40 hover:shadow-md",
+        locked && "border-[#1769D2]/30 bg-[#F9FBFE]",
         className,
       )}
     >
-      {locked ? (
-        <Lock
-          className="absolute top-3 right-3 z-10 size-4 text-[#1563b8]"
-          strokeWidth={2.25}
-          aria-hidden
-        />
-      ) : null}
-
-      <div
-        className={cn(
-          "relative size-[5.5rem] shrink-0 overflow-hidden rounded-xl sm:size-[6.25rem]",
-          locked && "opacity-80",
-        )}
-      >
-        {coverImageUrl ? (
+      {/* Top Media Banner (16:9) with Duration Overlay */}
+      <div className="relative aspect-video w-full overflow-hidden bg-gradient-to-br from-slate-100 via-blue-50 to-slate-200">
+        {coverImageUrl && !imgError ? (
           <Image
             src={coverImageUrl}
-            alt=""
+            alt={title}
             fill
-            sizes="(max-width: 640px) 88px, 100px"
-            className="object-cover"
+            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
+            className="object-cover transition duration-300 group-hover:scale-105"
+            onError={() => setImgError(true)}
           />
         ) : (
-          <div className="flex size-full items-center justify-center bg-gradient-to-br from-[#e8eef4] to-[#dce6f0] text-[#1563b8]">
-            <BookOpen className="size-9" strokeWidth={1.5} aria-hidden />
+          <div className="flex size-full items-center justify-center bg-gradient-to-br from-[#EBF3FE] to-[#D5E4F7] text-[#1769D2]">
+            <BookOpen className="size-10 stroke-[1.5] opacity-75" />
           </div>
         )}
-      </div>
 
-      <div className="flex min-w-0 flex-1 flex-col justify-between gap-2.5 py-0.5">
-        <div className={cn("min-w-0", locked && "pr-5")}>
-          <h3 className="font-[family-name:var(--font-outfit)] text-base leading-snug font-bold text-[#123a6b] sm:text-[1.0625rem]">
-            {title}
-          </h3>
-          <p className="mt-1 line-clamp-2 text-[13px] leading-relaxed text-slate-600 sm:text-sm">
-            {description}
-          </p>
-          {availableLanguages.length > 0 ? (
-            <div
-              className="mt-2 flex flex-wrap gap-1"
-              aria-label={availableLanguages.map(localeLabel).join(", ")}
-            >
-              {availableLanguages.map((code) => (
-                <span
-                  key={code}
-                  className="inline-flex max-w-[5.5rem] items-center truncate rounded-md bg-white/70 px-1.5 py-0.5 text-[10px] font-semibold leading-none tracking-wide text-slate-600 ring-1 ring-slate-200/70"
-                  title={localeLabel(code as Locale)}
-                >
-                  {localeLabel(code as Locale)}
-                </span>
-              ))}
-            </div>
-          ) : null}
-          {locked ? (
-            <span className="mt-2 inline-flex items-center gap-1 rounded-full bg-[#1563b8]/10 px-2.5 py-1 text-[11px] font-semibold text-[#1563b8]">
-              <Crown className="size-3" strokeWidth={2.25} aria-hidden />
-              {t("public.subscribedUsersOnly")}
-            </span>
-          ) : null}
+        {/* Duration badge: Top-Right (as in Image 3) */}
+        <div className="absolute top-2.5 right-2.5 flex items-center gap-1 rounded-full bg-slate-900/80 px-2.5 py-0.5 text-[11px] font-semibold text-white shadow-xs backdrop-blur-xs">
+          <Clock className="size-3 text-white/90" />
+          <span>{durationMinutes}m</span>
         </div>
 
-        <div className="flex items-center gap-3.5 text-slate-600">
-          <span className="inline-flex items-center gap-1.5 text-xs font-medium sm:text-[13px]">
-            <Clock3 className="size-3.5 shrink-0 text-[#1563b8]/80" strokeWidth={1.75} aria-hidden />
-            {durationMinutes}m
-          </span>
-          <span className="inline-flex items-center gap-1.5 text-xs font-medium sm:text-[13px]">
-            <FileQuestionMark
-              className="size-3.5 shrink-0 text-[#1563b8]/80"
-              strokeWidth={1.75}
-              aria-hidden
-            />
-            {questionCount} Qs
-          </span>
-          <span className="inline-flex items-center gap-1.5 text-xs font-medium sm:text-[13px]">
-            <Eye className="size-3.5 shrink-0 text-[#1563b8]/80" strokeWidth={1.75} aria-hidden />
-            {formatViews(viewCount)}
-          </span>
-          <span className="ml-auto text-xs font-semibold text-[#1563b8] sm:opacity-0 sm:transition sm:group-hover:opacity-100">
-            {locked ? t("public.unlock") : t("public.start")} →
-          </span>
+        {/* Lock indicator: Top-Left (if premium/locked) */}
+        {locked ? (
+          <div className="absolute top-2.5 left-2.5 flex items-center gap-1 rounded-full bg-[#1769D2] px-2 py-0.5 text-[10px] font-bold text-white shadow-xs">
+            <Lock className="size-3" />
+            <span>PRO</span>
+          </div>
+        ) : null}
+      </div>
+
+      {/* Card Body */}
+      <div className="flex flex-1 flex-col p-4">
+        <h3 className="font-[family-name:var(--font-outfit)] text-sm font-bold leading-snug text-[#12243E] transition group-hover:text-[#1769D2] line-clamp-1">
+          {title}
+        </h3>
+        <p className="mt-1 min-h-[2rem] text-xs leading-relaxed text-[#607089] line-clamp-2">
+          {description}
+        </p>
+
+        {/* Language badges (if trilingual/bilingual) */}
+        {availableLanguages.length > 1 ? (
+          <div className="mt-2 flex flex-wrap gap-1">
+            {availableLanguages.map((code) => (
+              <span
+                key={code}
+                className="inline-flex rounded-sm bg-slate-100 px-1.5 py-0.5 text-[9px] font-medium text-slate-600"
+              >
+                {localeLabel(code as Locale)}
+              </span>
+            ))}
+          </div>
+        ) : null}
+
+        {/* Metadata info: Questions Count & Score */}
+        <div className="mt-3 flex items-center justify-between border-t border-slate-100 pt-2.5 text-xs text-[#607089]">
+          <div className="flex items-center gap-1 font-medium">
+            <HelpCircle className="size-3.5 text-slate-400" />
+            <span>{questionCount} Questions</span>
+          </div>
+          <div className="flex items-center gap-1 font-medium text-emerald-600">
+            <BarChart2 className="size-3.5" />
+            <span>0%</span>
+          </div>
+        </div>
+
+        {/* Action Button: Full-width Start Quiz (as in Image 3) */}
+        <div className="mt-3 pt-1">
+          <button
+            type="button"
+            onClick={onPrimary}
+            className="inline-flex h-9 w-full items-center justify-center gap-1.5 rounded-xl bg-[#1769D2] px-4 text-xs font-semibold text-white shadow-xs transition hover:bg-[#1152AA] active:scale-[0.98] focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-[#1769D2]/50 cursor-pointer"
+          >
+            <Play className="size-3 fill-current" />
+            <span>{primaryLabel || t("public.startQuiz") || "Start Quiz"}</span>
+          </button>
         </div>
       </div>
-    </button>
+    </div>
   );
 }

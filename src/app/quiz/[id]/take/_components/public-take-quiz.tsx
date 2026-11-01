@@ -57,12 +57,7 @@ import { type Locale } from "@/lib/i18n";
 import { PUBLIC_BRAND } from "@/lib/public-brand";
 import { safeJson } from "@/lib/safe-json";
 import { cn } from "@/lib/utils";
-import {
-  type AttemptDetail,
-  localize,
-  normalizeQuizLanguages,
-  type SupportedLocale,
-} from "@/types/quiz";
+import { type AttemptDetail, localize, normalizeQuizLanguages, type SupportedLocale } from "@/types/quiz";
 
 const PRIMARY = PUBLIC_BRAND.brand;
 const SOFT = PUBLIC_BRAND.soft;
@@ -94,61 +89,56 @@ export function PublicTakeQuiz() {
 
   const authHeaders = useCallback(() => {
     const token = getClientCookie("session_token");
-    return token
-      ? { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }
-      : null;
+    return token ? { Authorization: `Bearer ${token}`, "Content-Type": "application/json" } : null;
   }, []);
 
-  const syncProgressToServer = useCallback(
-    async (attemptId: string, nextAnswers: Record<string, AnswerValue>) => {
-      if (isAuthedRef.current) return true;
+  const syncProgressToServer = useCallback(async (attemptId: string, nextAnswers: Record<string, AnswerValue>) => {
+    if (isAuthedRef.current) return true;
 
-      const lead = getOrCreateGuestLead();
-      if (!lead) return false;
+    const lead = getOrCreateGuestLead();
+    if (!lead) return false;
 
-      const responses = Object.entries(nextAnswers).map(([questionId, ans]) => {
-        const answeredAt = answerTimestampsRef.current[questionId] ?? Date.now();
-        const timeSpent = Math.max(0, Math.round((answeredAt - pageLoadTimeRef.current) / 1000));
-        return {
-          questionId,
-          choiceId: ans.choiceId,
-          textResponse: ans.textResponse,
-          timeSpent,
-        };
-      });
-
-      const payload = {
-        guestSessionId: lead.guestSessionId,
-        responses,
+    const responses = Object.entries(nextAnswers).map(([questionId, ans]) => {
+      const answeredAt = answerTimestampsRef.current[questionId] ?? Date.now();
+      const timeSpent = Math.max(0, Math.round((answeredAt - pageLoadTimeRef.current) / 1000));
+      return {
+        questionId,
+        choiceId: ans.choiceId,
+        textResponse: ans.textResponse,
+        timeSpent,
       };
+    });
 
-      if (!navigator.onLine) {
+    const payload = {
+      guestSessionId: lead.guestSessionId,
+      responses,
+    };
+
+    if (!navigator.onLine) {
+      setPendingSync({ attemptId, guestSessionId: lead.guestSessionId, responses });
+      return false;
+    }
+
+    setSyncing(true);
+    try {
+      const res = await fetch(`${APP_CONFIG.apiUrl}/public/quizzes/attempts/${attemptId}/progress`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) {
         setPendingSync({ attemptId, guestSessionId: lead.guestSessionId, responses });
         return false;
       }
-
-      setSyncing(true);
-      try {
-        const res = await fetch(`${APP_CONFIG.apiUrl}/public/quizzes/attempts/${attemptId}/progress`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        });
-        if (!res.ok) {
-          setPendingSync({ attemptId, guestSessionId: lead.guestSessionId, responses });
-          return false;
-        }
-        clearPendingSync();
-        return true;
-      } catch {
-        setPendingSync({ attemptId, guestSessionId: lead.guestSessionId, responses });
-        return false;
-      } finally {
-        setSyncing(false);
-      }
-    },
-    [],
-  );
+      clearPendingSync();
+      return true;
+    } catch {
+      setPendingSync({ attemptId, guestSessionId: lead.guestSessionId, responses });
+      return false;
+    } finally {
+      setSyncing(false);
+    }
+  }, []);
 
   const flushPendingSync = useCallback(async () => {
     if (isAuthedRef.current) return;
@@ -211,17 +201,18 @@ export function PublicTakeQuiz() {
 
       try {
         const headers = authHeaders();
-        const res = isAuthedRef.current && headers
-          ? await fetch(`${APP_CONFIG.apiUrl}/grading/attempts/${attemptId}/submit`, {
-              method: "POST",
-              headers,
-              body: JSON.stringify({ responses }),
-            })
-          : await fetch(`${APP_CONFIG.apiUrl}/public/quizzes/attempts/${attemptId}/submit`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ responses }),
-            });
+        const res =
+          isAuthedRef.current && headers
+            ? await fetch(`${APP_CONFIG.apiUrl}/grading/attempts/${attemptId}/submit`, {
+                method: "POST",
+                headers,
+                body: JSON.stringify({ responses }),
+              })
+            : await fetch(`${APP_CONFIG.apiUrl}/public/quizzes/attempts/${attemptId}/submit`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ responses }),
+              });
 
         if (!res.ok) {
           const err = await safeJson<{ message?: string }>(res);
@@ -395,19 +386,16 @@ export function PublicTakeQuiz() {
       const lead = getOrCreateGuestLead();
       if (!lead) return null;
 
-      const res = await fetch(
-        `${APP_CONFIG.apiUrl}/public/quizzes/attempts/${attempt.id}/heartbeat`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            status,
-            secondsRemaining,
-            violationCount,
-            guestSessionId: lead.guestSessionId,
-          }),
-        },
-      );
+      const res = await fetch(`${APP_CONFIG.apiUrl}/public/quizzes/attempts/${attempt.id}/heartbeat`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          status,
+          secondsRemaining,
+          violationCount,
+          guestSessionId: lead.guestSessionId,
+        }),
+      });
       if (!res.ok) return null;
       return safeJson<HeartbeatResponse>(res);
     },
@@ -417,19 +405,16 @@ export function PublicTakeQuiz() {
   const onViolation = useCallback(
     (count: number) => {
       if (count >= 3) return;
-      toast.warning(
-        t("student.tabSwitchWarning").replace("{count}", String(count)),
-        { description: t("student.timerPaused") },
-      );
+      toast.warning(t("student.tabSwitchWarning").replace("{count}", String(count)), {
+        description: t("student.timerPaused"),
+      });
     },
     [t],
   );
 
   const initialSeconds =
     attempt?.secondsRemaining ??
-    (attempt?.expiresAt
-      ? Math.max(0, Math.floor((+new Date(attempt.expiresAt) - Date.now()) / 1000))
-      : 0);
+    (attempt?.expiresAt ? Math.max(0, Math.floor((+new Date(attempt.expiresAt) - Date.now()) / 1000)) : 0);
 
   const { timeLeft, formatTime, isActive, violationCount } = useResilientTimer({
     attemptId: attempt?.id ?? null,
@@ -598,11 +583,7 @@ export function PublicTakeQuiz() {
     </AlertDialog>
   );
 
-  const questionNavButtons = (opts: {
-    cols: string;
-    size?: string;
-    onPick?: (id: string) => void;
-  }) => (
+  const questionNavButtons = (opts: { cols: string; size?: string; onPick?: (id: string) => void }) => (
     <div className={cn("grid gap-2", opts.cols)}>
       {questions.map((q, index) => {
         const answered = isQuestionAnswered(q);
@@ -640,9 +621,7 @@ export function PublicTakeQuiz() {
               <h1 className="truncate text-base font-bold" style={{ color: PRIMARY }}>
                 {localize(attempt.quiz.title, contentLocale)}
               </h1>
-              <p className="truncate text-xs text-slate-500">
-                {localize(attempt.quiz.course.title, contentLocale)}
-              </p>
+              <p className="truncate text-xs text-slate-500">{localize(attempt.quiz.course.title, contentLocale)}</p>
             </div>
           </div>
 
@@ -658,11 +637,7 @@ export function PublicTakeQuiz() {
                     : t("student.synced")}
             </span>
             {quizLanguages.length > 1 ? (
-              <LanguageSwitcher
-                value={contentLocale}
-                onChange={handleContentLocaleChange}
-                languages={quizLanguages}
-              />
+              <LanguageSwitcher value={contentLocale} onChange={handleContentLocaleChange} languages={quizLanguages} />
             ) : (
               <span className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-semibold uppercase text-slate-600">
                 {contentLocale}
@@ -752,12 +727,7 @@ export function PublicTakeQuiz() {
       </header>
 
       <div className="mx-auto grid max-w-7xl gap-6 px-4 py-5 md:px-6 lg:grid-cols-[minmax(0,1fr)_280px] lg:py-8">
-        <main
-          className={cn(
-            "flex min-w-0 flex-col gap-4 lg:pb-6",
-            useExpandableMobileNav ? "pb-24" : "pb-28",
-          )}
-        >
+        <main className={cn("flex min-w-0 flex-col gap-4 lg:pb-6", useExpandableMobileNav ? "pb-24" : "pb-28")}>
           {/* Desktop progress card */}
           <div className="hidden rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm lg:block">
             <div className="mb-3 flex items-center gap-3">
@@ -830,16 +800,12 @@ export function PublicTakeQuiz() {
             }
 
             const indexById = new Map(questions.map((q, i) => [q.id, i]));
-            const sectionedIds = new Set(
-              quizSections.flatMap((s) => (s.questions ?? []).map((q) => q.id)),
-            );
+            const sectionedIds = new Set(quizSections.flatMap((s) => (s.questions ?? []).map((q) => q.id)));
             const ungrouped = questions.filter((q) => !sectionedIds.has(q.id));
 
             return (
               <>
-                {ungrouped.map((question) =>
-                  renderQuestionCard(question, indexById.get(question.id) ?? 0),
-                )}
+                {ungrouped.map((question) => renderQuestionCard(question, indexById.get(question.id) ?? 0))}
                 {quizSections.map((section, sectionIndex) => {
                   const sectionQuestions = section.questions ?? [];
                   if (sectionQuestions.length === 0) return null;
@@ -883,18 +849,11 @@ export function PublicTakeQuiz() {
                   ? t("student.questionsRemaining").replace("{count}", String(unansweredCount))
                   : t("student.allQuestionsAnswered")}
               </p>
-              <div className="min-h-0 flex-1 overflow-y-auto pr-1">
-                {questionNavButtons({ cols: "grid-cols-5" })}
-              </div>
+              <div className="min-h-0 flex-1 overflow-y-auto pr-1">{questionNavButtons({ cols: "grid-cols-5" })}</div>
 
               <div className="mt-4 shrink-0 border-t border-slate-100 pt-4">
                 {submitDialog(
-                  <Button
-                    variant="brand"
-                    size="lg"
-                    disabled={submitting}
-                    className="w-full gap-2 font-bold"
-                  >
+                  <Button variant="brand" size="lg" disabled={submitting} className="w-full gap-2 font-bold">
                     {submitting ? (
                       <>
                         <Spinner className="size-4" />
@@ -961,12 +920,7 @@ export function PublicTakeQuiz() {
                   })}
                   <div className="mt-5 pb-1">
                     {submitDialog(
-                      <Button
-                        variant="brand"
-                        size="lg"
-                        disabled={submitting}
-                        className="w-full font-bold"
-                      >
+                      <Button variant="brand" size="lg" disabled={submitting} className="w-full font-bold">
                         {submitting ? <Spinner className="size-4" /> : t("student.submitQuiz")}
                       </Button>,
                     )}
@@ -1001,12 +955,7 @@ export function PublicTakeQuiz() {
                     </span>
                   </button>
                   {submitDialog(
-                    <Button
-                      variant="brand"
-                      size="lg"
-                      disabled={submitting}
-                      className="shrink-0 font-bold"
-                    >
+                    <Button variant="brand" size="lg" disabled={submitting} className="shrink-0 font-bold">
                       {submitting ? <Spinner className="size-4" /> : t("student.submit")}
                     </Button>,
                   )}
@@ -1041,12 +990,7 @@ export function PublicTakeQuiz() {
                 </div>
               </div>
               {submitDialog(
-                <Button
-                  variant="brand"
-                  size="lg"
-                  disabled={submitting}
-                  className="shrink-0 font-bold"
-                >
+                <Button variant="brand" size="lg" disabled={submitting} className="shrink-0 font-bold">
                   {submitting ? <Spinner className="size-4" /> : t("student.submit")}
                 </Button>,
               )}

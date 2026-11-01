@@ -14,10 +14,7 @@ export const metadata: Metadata = buildPageMetadata({
 
 export default function ForgotPasswordPage() {
   return (
-    <AuthShell
-      title="Lost your way?"
-      description="Enter your email to receive a recovery link."
-    >
+    <AuthShell title="Lost your way?" description="Enter your email to receive a recovery link.">
       <ForgotPasswordForm />
     </AuthShell>
   );

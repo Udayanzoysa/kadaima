@@ -11,23 +11,12 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
 import { APP_CONFIG } from "@/config/app-config";
 import { getClientCookie } from "@/lib/cookie.client";
-import {
-  emptyLocalizedText,
-  type CourseModule,
-  type CourseStatus,
-  type LocalizedText,
-} from "@/types/quiz";
+import { emptyLocalizedText, type CourseModule, type CourseStatus, type LocalizedText } from "@/types/quiz";
 
 type ContentLang = "en" | "si" | "ta";
 
@@ -136,9 +125,7 @@ export function ModuleForm({ courseId, moduleId }: ModuleFormProps) {
   return (
     <div className="flex flex-col gap-6">
       <div className="space-y-1">
-        <h1 className="font-semibold text-2xl tracking-tight md:text-3xl">
-          {isEdit ? "Edit Module" : "Add Module"}
-        </h1>
+        <h1 className="font-semibold text-2xl tracking-tight md:text-3xl">{isEdit ? "Edit Module" : "Add Module"}</h1>
         <p className="text-muted-foreground text-sm">
           Enter module titles and descriptions in English, Sinhala, and Tamil.
         </p>
@@ -202,9 +189,7 @@ export function ModuleForm({ courseId, moduleId }: ModuleFormProps) {
             <FieldLabel>Description ({LANG_LABELS[activeLang]})</FieldLabel>
             <Textarea
               value={description[activeLang]}
-              onChange={(e) =>
-                setDescription((prev) => ({ ...prev, [activeLang]: e.target.value }))
-              }
+              onChange={(e) => setDescription((prev) => ({ ...prev, [activeLang]: e.target.value }))}
               placeholder="Optional description"
               rows={4}
             />

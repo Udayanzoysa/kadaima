@@ -24,7 +24,10 @@ interface QuizWithAttempt {
 
 function plainFromHtml(html: string | null | undefined) {
   if (!html) return "";
-  return html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+  return html
+    .replace(/<[^>]+>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 export function QuizList() {
@@ -111,9 +114,7 @@ export function QuizList() {
         {items.map(({ quiz, attempt }, i) => {
           const isCompleted = attempt && attempt.status !== "In_Progress";
           const isInProgress = attempt && attempt.status === "In_Progress";
-          const desc =
-            plainFromHtml(localize(quiz.description, locale)) ||
-            localize(quiz.course.title, locale);
+          const desc = plainFromHtml(localize(quiz.description, locale)) || localize(quiz.course.title, locale);
 
           let primaryLabel = t("student.startQuiz");
           if (isCompleted) primaryLabel = t("student.viewResult");

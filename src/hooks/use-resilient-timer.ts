@@ -40,13 +40,9 @@ export function useResilientTimer({
   onViolation,
   maxViolations = MAX_VIOLATIONS,
 }: UseResilientTimerOptions) {
-  const [secondsRemaining, setSecondsRemaining] = useState(
-    Math.max(0, initialSeconds),
-  );
+  const [secondsRemaining, setSecondsRemaining] = useState(Math.max(0, initialSeconds));
   const [isActive, setIsActive] = useState(true);
-  const [violationCount, setViolationCount] = useState(
-    Math.max(0, initialViolations),
-  );
+  const [violationCount, setViolationCount] = useState(Math.max(0, initialViolations));
 
   const secondsRef = useRef(Math.max(0, initialSeconds));
   const isActiveRef = useRef(true);
@@ -88,17 +84,10 @@ export function useResilientTimer({
       if (!attemptId || !enabled || autoSubmittedRef.current) return;
 
       try {
-        const data = await sendHeartbeatRef.current(
-          status,
-          secondsRef.current,
-          violationsRef.current,
-        );
+        const data = await sendHeartbeatRef.current(status, secondsRef.current, violationsRef.current);
         if (!data) return;
 
-        if (
-          typeof data.serverSecondsRemaining === "number" &&
-          data.serverSecondsRemaining >= 0
-        ) {
+        if (typeof data.serverSecondsRemaining === "number" && data.serverSecondsRemaining >= 0) {
           // Server is authoritative (including frozen pool after disconnect).
           const next = Math.max(0, data.serverSecondsRemaining);
           secondsRef.current = next;
@@ -111,9 +100,7 @@ export function useResilientTimer({
         }
 
         if (data.autoSubmit) {
-          triggerAutoSubmit(
-            data.reason === "violations" ? "violations" : "timeout",
-          );
+          triggerAutoSubmit(data.reason === "violations" ? "violations" : "timeout");
         }
       } catch {
         // Offline / network blip — pool stays frozen until next successful sync.

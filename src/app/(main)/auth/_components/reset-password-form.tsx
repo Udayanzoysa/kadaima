@@ -21,12 +21,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { APP_CONFIG } from "@/config/app-config";
 import { cn } from "@/lib/utils";
 
-import {
-  authInputClass,
-  authInputGroupClass,
-  authInputGroupControlClass,
-  authPrimaryButtonClass,
-} from "./auth-shell";
+import { authInputClass, authInputGroupClass, authInputGroupControlClass, authPrimaryButtonClass } from "./auth-shell";
 
 const formSchema = z
   .object({
@@ -68,15 +63,12 @@ export function ResetPasswordForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [linkStatus, setLinkStatus] = useState<"checking" | "valid" | "invalid" | "manual">(
-    "checking",
-  );
+  const [linkStatus, setLinkStatus] = useState<"checking" | "valid" | "invalid" | "manual">("checking");
   const [linkError, setLinkError] = useState("");
 
   const linkEmail = searchParams.get("email")?.trim() || "";
   const linkCode = (searchParams.get("code") || searchParams.get("token") || "").trim();
-  const linkChannel =
-    searchParams.get("channel") === "SMS" ? ("SMS" as const) : ("EMAIL" as const);
+  const linkChannel = searchParams.get("channel") === "SMS" ? ("SMS" as const) : ("EMAIL" as const);
 
   const isEmailMagicLink = useMemo(
     () => linkChannel === "EMAIL" && Boolean(linkEmail && linkCode),
@@ -198,9 +190,7 @@ export function ResetPasswordForm() {
     return (
       <div className="space-y-4 text-center">
         <p className="text-sm font-medium text-destructive">{linkError}</p>
-        <p className="text-sm text-slate-500">
-          Request a new password reset email and use the latest link.
-        </p>
+        <p className="text-sm text-slate-500">Request a new password reset email and use the latest link.</p>
         <Button asChild className={authPrimaryButtonClass}>
           <Link prefetch={false} href="/forgot-password">
             Request a new link
@@ -225,9 +215,7 @@ export function ResetPasswordForm() {
                 onClick={() => form.setValue("channel", value, { shouldValidate: true })}
                 className={cn(
                   "rounded-lg px-3 py-2 text-sm font-medium transition",
-                  channel === value
-                    ? "bg-white text-slate-900 shadow-sm"
-                    : "text-slate-500 hover:text-slate-800",
+                  channel === value ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-800",
                 )}
               >
                 {value === "EMAIL" ? "Email" : "SMS"}

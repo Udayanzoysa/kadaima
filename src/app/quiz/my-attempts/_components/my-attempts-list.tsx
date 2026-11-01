@@ -88,9 +88,7 @@ export function MyAttemptsList() {
           <h1 className="font-[family-name:var(--font-outfit)] text-2xl font-bold text-slate-900 md:text-3xl">
             My Attempts
           </h1>
-          <p className="mt-1 text-sm text-slate-500">
-            Finished quizzes — review your score and answers anytime.
-          </p>
+          <p className="mt-1 text-sm text-slate-500">Finished quizzes — review your score and answers anytime.</p>
         </div>
 
         {loading && <QuizListSkeleton />}
@@ -98,88 +96,69 @@ export function MyAttemptsList() {
         {error && <PublicErrorBanner message={error} onRetry={() => void load()} />}
 
         {!loading && !error && items.length === 0 && (
-          <PublicEmptyState
-            message="No completed attempts yet."
-            ctaLabel="Take a quiz"
-            icon={ClipboardList}
-          />
+          <PublicEmptyState message="No completed attempts yet." ctaLabel="Take a quiz" icon={ClipboardList} />
         )}
 
         {!loading && !error && items.length > 0 ? (
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          {items.map((item) => {
-            const submittedLabel = item.submittedAt
-              ? new Date(item.submittedAt).toLocaleString()
-              : "—";
-            return (
-              <article
-                key={item.id}
-                className="flex flex-col rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <p className="text-[11px] font-semibold uppercase tracking-wider text-[#1563b8]">
-                    {localize(item.quiz.course.title, locale)}
-                  </p>
-                  <span
-                    className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold ${
-                      item.isPassed
-                        ? "bg-emerald-50 text-emerald-700"
-                        : "bg-red-50 text-red-600"
-                    }`}
-                  >
-                    {item.isPassed ? (
-                      <CheckCircle2 className="size-3.5" />
-                    ) : (
-                      <XCircle className="size-3.5" />
-                    )}
-                    {item.status === "Timed_Out"
-                      ? "Timed out"
-                      : item.isPassed
-                        ? "Passed"
-                        : "Failed"}
-                  </span>
-                </div>
-
-                <h2 className="mt-2 font-[family-name:var(--font-outfit)] text-lg font-semibold text-slate-900">
-                  {localize(item.quiz.title, locale)}
-                </h2>
-
-                <div className="mt-4 flex items-end justify-between gap-4">
-                  <div>
-                    <p className="text-xs text-slate-400">Score</p>
-                    <p
-                      className={`font-[family-name:var(--font-outfit)] text-3xl font-bold ${
-                        item.isPassed ? "text-emerald-600" : "text-[#1563b8]"
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            {items.map((item) => {
+              const submittedLabel = item.submittedAt ? new Date(item.submittedAt).toLocaleString() : "—";
+              return (
+                <article
+                  key={item.id}
+                  className="flex flex-col rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <p className="text-[11px] font-semibold uppercase tracking-wider text-[#1563b8]">
+                      {localize(item.quiz.course.title, locale)}
+                    </p>
+                    <span
+                      className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+                        item.isPassed ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-600"
                       }`}
                     >
-                      {item.finalScore}%
-                    </p>
-                    <p className="mt-1 text-xs text-slate-500">
-                      {item.correctCount}/{item.totalQuestions} correct · Pass{" "}
-                      {item.quiz.passingScorePercentage}%
-                    </p>
+                      {item.isPassed ? <CheckCircle2 className="size-3.5" /> : <XCircle className="size-3.5" />}
+                      {item.status === "Timed_Out" ? "Timed out" : item.isPassed ? "Passed" : "Failed"}
+                    </span>
                   </div>
-                  <Award
-                    className={`size-10 shrink-0 ${item.isPassed ? "text-emerald-400" : "text-slate-200"}`}
-                  />
-                </div>
 
-                <p className="mt-3 text-xs text-slate-400">Submitted {submittedLabel}</p>
+                  <h2 className="mt-2 font-[family-name:var(--font-outfit)] text-lg font-semibold text-slate-900">
+                    {localize(item.quiz.title, locale)}
+                  </h2>
 
-                <Button
-                  variant="brand"
-                  className="mt-5 w-full font-bold"
-                  disabled={!item.resultToken}
-                  onClick={() => {
-                    if (item.resultToken) router.push(`/results/${item.resultToken}`);
-                  }}
-                >
-                  Review result ?
-                </Button>
-              </article>
-            );
-          })}
-        </div>
+                  <div className="mt-4 flex items-end justify-between gap-4">
+                    <div>
+                      <p className="text-xs text-slate-400">Score</p>
+                      <p
+                        className={`font-[family-name:var(--font-outfit)] text-3xl font-bold ${
+                          item.isPassed ? "text-emerald-600" : "text-[#1563b8]"
+                        }`}
+                      >
+                        {item.finalScore}%
+                      </p>
+                      <p className="mt-1 text-xs text-slate-500">
+                        {item.correctCount}/{item.totalQuestions} correct · Pass {item.quiz.passingScorePercentage}%
+                      </p>
+                    </div>
+                    <Award className={`size-10 shrink-0 ${item.isPassed ? "text-emerald-400" : "text-slate-200"}`} />
+                  </div>
+
+                  <p className="mt-3 text-xs text-slate-400">Submitted {submittedLabel}</p>
+
+                  <Button
+                    variant="brand"
+                    className="mt-5 w-full font-bold"
+                    disabled={!item.resultToken}
+                    onClick={() => {
+                      if (item.resultToken) router.push(`/results/${item.resultToken}`);
+                    }}
+                  >
+                    Review result ?
+                  </Button>
+                </article>
+              );
+            })}
+          </div>
         ) : null}
       </main>
     </PublicQuizShell>

@@ -8,12 +8,7 @@ import { Search } from "lucide-react";
 
 import { APP_CONFIG } from "@/config/app-config";
 import { useI18n } from "@/hooks/use-i18n";
-import {
-  labelForEntry,
-  searchCatalogIndex,
-  type CatalogIndex,
-  type CatalogIndexEntry,
-} from "@/lib/catalog-search";
+import { labelForEntry, searchCatalogIndex, type CatalogIndex, type CatalogIndexEntry } from "@/lib/catalog-search";
 import { coursePageHref } from "@/lib/public-catalog";
 import { cn } from "@/lib/utils";
 
@@ -74,12 +69,7 @@ export function PublicCatalogSearch({
       onSelect(entry);
       return;
     }
-    router.push(
-      coursePageHref(
-        entry.courseId,
-        entry.type === "module" ? entry.moduleId : undefined,
-      ),
-    );
+    router.push(coursePageHref(entry.courseId, entry.type === "module" ? entry.moduleId : undefined));
   };
 
   return (
@@ -121,17 +111,13 @@ export function PublicCatalogSearch({
                 <span
                   className={cn(
                     "mt-0.5 rounded-md px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide",
-                    hit.type === "course"
-                      ? "bg-[#1563b8]/10 text-[#1563b8]"
-                      : "bg-slate-100 text-slate-600",
+                    hit.type === "course" ? "bg-[#1563b8]/10 text-[#1563b8]" : "bg-slate-100 text-slate-600",
                   )}
                 >
                   {hit.type === "course" ? t("public.searchTypeCourse") : t("public.searchTypeModule")}
                 </span>
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate font-medium text-slate-900">
-                    {labelForEntry(hit, locale)}
-                  </span>
+                  <span className="block truncate font-medium text-slate-900">{labelForEntry(hit, locale)}</span>
                   <span className="text-xs text-slate-500">
                     {t("public.quizCountShort").replace("{count}", String(hit.quizCount))}
                   </span>

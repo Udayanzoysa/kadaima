@@ -107,11 +107,10 @@ process.on("unhandledRejection", (reason) => {
  * calls NestJS POST /support/chat so WhatsApp + web share one reply source.
  */
 async function getAIResponse(studentMessage) {
-  const apiUrl = (
-    process.env.SUPPORT_API_URL ||
-    process.env.NEXT_PUBLIC_API_URL ||
-    "http://localhost:5425"
-  ).replace(/\/$/, "");
+  const apiUrl = (process.env.SUPPORT_API_URL || process.env.NEXT_PUBLIC_API_URL || "http://localhost:5425").replace(
+    /\/$/,
+    "",
+  );
 
   try {
     const res = await fetch(`${apiUrl}/support/chat`, {

@@ -112,8 +112,7 @@ export function AiQuizReviewPanel({
     [quizLanguage, quizLanguages, quizTitle, sampleQuestionText, uiLocale],
   );
 
-  const reviewLocaleLabel =
-    LOCALES.find((l) => l.code === reviewLocale)?.label ?? reviewLocale.toUpperCase();
+  const reviewLocaleLabel = LOCALES.find((l) => l.code === reviewLocale)?.label ?? reviewLocale.toUpperCase();
 
   const loadReview = async () => {
     if (!canFetch) return;
@@ -228,13 +227,7 @@ export function AiQuizReviewPanel({
         {error && !loading ? (
           <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2.5 text-sm text-red-700">
             <p>{error}</p>
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              className="mt-2"
-              onClick={() => void loadReview()}
-            >
+            <Button type="button" size="sm" variant="outline" className="mt-2" onClick={() => void loadReview()}>
               {t("student.tryAgain")}
             </Button>
           </div>
@@ -261,16 +254,10 @@ export function AiQuizReviewPanel({
                         </span>
                       ) : null}
                     </div>
-                    <p className="mt-2 text-sm leading-relaxed text-slate-700">
-                      {item.explanation}
-                    </p>
+                    <p className="mt-2 text-sm leading-relaxed text-slate-700">{item.explanation}</p>
                     {item.tip ? (
                       <p className="mt-2.5 flex items-start gap-1.5 text-sm font-medium text-[#114f94]">
-                        <Lightbulb
-                          className="mt-0.5 size-3.5 shrink-0 text-amber-500"
-                          strokeWidth={2.25}
-                          aria-hidden
-                        />
+                        <Lightbulb className="mt-0.5 size-3.5 shrink-0 text-amber-500" strokeWidth={2.25} aria-hidden />
                         <span>
                           <span className="font-semibold">{t("student.aiReviewTipLabel")}: </span>
                           {item.tip}

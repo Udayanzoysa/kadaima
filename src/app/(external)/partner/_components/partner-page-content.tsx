@@ -42,18 +42,13 @@ const DS = {
   muted: "#3e4850",
 } as const;
 
-const HERO_IMG =
-  "https://images.unsplash.com/photo-1577896851231-70ef18881754?auto=format&fit=crop&w=1200&q=80";
-const FEATURE_IMG =
-  "https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?auto=format&fit=crop&w=1200&q=80";
+const HERO_IMG = "https://images.unsplash.com/photo-1577896851231-70ef18881754?auto=format&fit=crop&w=1200&q=80";
+const FEATURE_IMG = "https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?auto=format&fit=crop&w=1200&q=80";
 
 function LanguageMark({ className }: { className?: string }) {
   return (
     <span
-      className={cn(
-        "font-[family-name:var(--font-outfit)] text-sm font-bold leading-none tracking-tight",
-        className,
-      )}
+      className={cn("font-[family-name:var(--font-outfit)] text-sm font-bold leading-none tracking-tight", className)}
       aria-hidden
     >
       あA
@@ -89,10 +84,7 @@ function DashboardMockup({
           {["Home", "Quizzes", "Earn", "Profile"].map((item, i) => (
             <div
               key={item}
-              className={cn(
-                "mx-auto h-2 w-10 rounded-full sm:w-12",
-                i === 2 ? "bg-[#0ea5e9]" : "bg-[#d3e4fe]",
-              )}
+              className={cn("mx-auto h-2 w-10 rounded-full sm:w-12", i === 2 ? "bg-[#0ea5e9]" : "bg-[#d3e4fe]")}
             />
           ))}
         </aside>
@@ -104,15 +96,10 @@ function DashboardMockup({
               </p>
               <p className="text-xs text-[#3e4850]/80">Revenue · Engagement</p>
             </div>
-            <span className="rounded-full bg-[#e0f2fe] px-2.5 py-1 text-[10px] font-semibold text-[#006591]">
-              Live
-            </span>
+            <span className="rounded-full bg-[#e0f2fe] px-2.5 py-1 text-[10px] font-semibold text-[#006591]">Live</span>
           </div>
 
-          <div
-            className="mb-4 rounded-xl px-4 py-3"
-            style={{ background: "linear-gradient(135deg,#006591,#0ea5e9)" }}
-          >
+          <div className="mb-4 rounded-xl px-4 py-3" style={{ background: "linear-gradient(135deg,#006591,#0ea5e9)" }}>
             <p className="text-xs font-medium text-white/80">{earningsLabel}</p>
             <p className="font-[family-name:var(--font-outfit)] text-2xl font-bold tracking-tight text-white sm:text-3xl">
               {earningsValue}
@@ -125,9 +112,7 @@ function DashboardMockup({
               <p className="font-[family-name:var(--font-outfit)] text-lg font-bold text-[#006591]">1,248</p>
             </div>
             <div className="rounded-xl bg-[#f0f9ff] px-3 py-2.5">
-              <p className="text-[10px] font-medium uppercase tracking-wide text-[#3e4850]">
-                {attemptsLabel}
-              </p>
+              <p className="text-[10px] font-medium uppercase tracking-wide text-[#3e4850]">{attemptsLabel}</p>
               <p className="font-[family-name:var(--font-outfit)] text-lg font-bold text-[#006591]">486</p>
             </div>
           </div>
@@ -267,7 +252,10 @@ function PartnerInquiryForm() {
       </Button>
       <p className="mt-3 text-center text-sm text-[#3e4850]">
         {t("public.partnerPage.formOrDemo")}{" "}
-        <Link href="/contact?subject=teacher" className="font-semibold text-[#006591] underline-offset-2 hover:underline">
+        <Link
+          href="/contact?subject=teacher"
+          className="font-semibold text-[#006591] underline-offset-2 hover:underline"
+        >
           {t("public.partnerPage.formDemoLink")}
         </Link>
       </p>
@@ -412,9 +400,7 @@ export function PartnerPageContent() {
                 {t("public.partnerPage.heroEyebrow")}
               </p>
               <h1 className="font-[family-name:var(--font-outfit)] text-3xl font-bold leading-[1.15] tracking-tight sm:text-4xl lg:text-5xl">
-                <span style={{ color: DS.primaryBright }}>
-                  {t("public.partnerPage.heroTitleHighlight")}
-                </span>{" "}
+                <span style={{ color: DS.primaryBright }}>{t("public.partnerPage.heroTitleHighlight")}</span>{" "}
                 <span style={{ color: DS.ink }}>{t("public.partnerPage.heroTitleAfter")}</span>
               </h1>
               <p className="max-w-xl text-base leading-relaxed sm:text-lg" style={{ color: DS.muted }}>
@@ -605,9 +591,7 @@ export function PartnerPageContent() {
                   {t("public.partnerPage.earnFormulaTotalAttempts")}
                 </p>
               </div>
-              <p className="mt-3 text-sm font-semibold text-[#0b1c30]">
-                × {t("public.partnerPage.earnFormulaPool")}
-              </p>
+              <p className="mt-3 text-sm font-semibold text-[#0b1c30]">× {t("public.partnerPage.earnFormulaPool")}</p>
             </div>
           </div>
 
@@ -657,15 +641,11 @@ export function PartnerPageContent() {
                 <ul className="mt-3 space-y-2 text-sm">
                   <li className="flex flex-wrap justify-between gap-2">
                     <span className="text-[#3e4850]">{t("public.partnerPage.earnActivityTotalLabel")}</span>
-                    <span className="font-bold text-[#0b1c30]">
-                      {t("public.partnerPage.earnActivityTotalValue")}
-                    </span>
+                    <span className="font-bold text-[#0b1c30]">{t("public.partnerPage.earnActivityTotalValue")}</span>
                   </li>
                   <li className="flex flex-wrap justify-between gap-2">
                     <span className="text-[#3e4850]">{t("public.partnerPage.earnActivityYoursLabel")}</span>
-                    <span className="font-bold text-[#006591]">
-                      {t("public.partnerPage.earnActivityYoursValue")}
-                    </span>
+                    <span className="font-bold text-[#006591]">{t("public.partnerPage.earnActivityYoursValue")}</span>
                   </li>
                 </ul>
               </div>
@@ -674,9 +654,7 @@ export function PartnerPageContent() {
                 className="rounded-2xl px-5 py-4 text-white"
                 style={{ background: "linear-gradient(135deg, #006591 0%, #0ea5e9 100%)" }}
               >
-                <p className="text-xs font-medium text-white/80">
-                  {t("public.partnerPage.earnCalcTitle")}
-                </p>
+                <p className="text-xs font-medium text-white/80">{t("public.partnerPage.earnCalcTitle")}</p>
                 <p className="mt-1 font-[family-name:var(--font-outfit)] text-sm font-semibold sm:text-base">
                   {t("public.partnerPage.earnCalcEquation")}
                 </p>
@@ -735,17 +713,13 @@ export function PartnerPageContent() {
                 <h3 className="font-[family-name:var(--font-outfit)] text-sm font-bold text-[#0b1c30] sm:text-base">
                   {t("public.partnerPage.earnFairTitle")}
                 </h3>
-                <p className="mt-2 text-sm leading-relaxed text-[#3e4850]">
-                  {t("public.partnerPage.earnFairDesc")}
-                </p>
+                <p className="mt-2 text-sm leading-relaxed text-[#3e4850]">{t("public.partnerPage.earnFairDesc")}</p>
               </article>
               <article className="rounded-2xl border border-[#d3e4fe] bg-white p-5 shadow-[0_4px_12px_rgba(11,28,48,0.05)]">
                 <h3 className="font-[family-name:var(--font-outfit)] text-sm font-bold text-[#0b1c30] sm:text-base">
                   {t("public.partnerPage.earnGrowthTitle")}
                 </h3>
-                <p className="mt-2 text-sm leading-relaxed text-[#3e4850]">
-                  {t("public.partnerPage.earnGrowthDesc")}
-                </p>
+                <p className="mt-2 text-sm leading-relaxed text-[#3e4850]">{t("public.partnerPage.earnGrowthDesc")}</p>
               </article>
             </div>
           </div>
@@ -764,10 +738,7 @@ export function PartnerPageContent() {
               {t("public.partnerPage.bannerSubtitle")}
             </p>
             <div className="mt-7 flex flex-col items-center gap-3">
-              <Button
-                asChild
-                className="h-12 rounded-xl bg-white px-6 font-semibold text-[#006591] hover:bg-white/90"
-              >
+              <Button asChild className="h-12 rounded-xl bg-white px-6 font-semibold text-[#006591] hover:bg-white/90">
                 <Link href="/teacher/register">
                   {t("public.partnerPage.ctaTeacher")}
                   <ArrowRight className="size-4" />

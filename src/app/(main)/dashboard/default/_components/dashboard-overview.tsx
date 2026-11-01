@@ -2,15 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 
-import {
-  BookOpen,
-  CreditCard,
-  GraduationCap,
-  PiggyBank,
-  RefreshCw,
-  Users,
-  Wallet,
-} from "lucide-react";
+import { BookOpen, CreditCard, GraduationCap, PiggyBank, RefreshCw, Users, Wallet } from "lucide-react";
 import { Area, CartesianGrid, ComposedChart, Line, XAxis, YAxis } from "recharts";
 import { toast } from "sonner";
 
@@ -28,6 +20,8 @@ import {
 import { Spinner } from "@/components/ui/spinner";
 import { APP_CONFIG } from "@/config/app-config";
 import { getClientCookie } from "@/lib/cookie.client";
+
+import { ClassroomLmsOverviewPanel } from "./classroom-lms-overview";
 
 type UserType = "Admin" | "Teacher" | "Student";
 
@@ -322,12 +316,7 @@ export function DashboardOverview() {
                 : "Welcome to your learning dashboard."}
           </p>
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          disabled={refreshing}
-          onClick={() => void load({ soft: true })}
-        >
+        <Button variant="outline" size="sm" disabled={refreshing} onClick={() => void load({ soft: true })}>
           <RefreshCw className={`mr-1.5 size-3.5 ${refreshing ? "animate-spin" : ""}`} />
           Refresh
         </Button>
@@ -348,9 +337,7 @@ export function DashboardOverview() {
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-1">
-                  <div className="text-2xl font-semibold tabular-nums tracking-tight md:text-3xl">
-                    {card.value}
-                  </div>
+                  <div className="text-2xl font-semibold tabular-nums tracking-tight md:text-3xl">{card.value}</div>
                   <p className="text-xs text-muted-foreground">{card.hint}</p>
                 </CardContent>
               </Card>
@@ -359,23 +346,21 @@ export function DashboardOverview() {
         </div>
       )}
 
+      {(isAdmin || isTeacher) && <ClassroomLmsOverviewPanel />}
+
       {isAdmin && data.latestPeriod && (
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-base">Latest revenue period</CardTitle>
             <CardDescription>
-              {monthLabel(data.latestPeriod.periodStart)} ·{" "}
-              <Badge variant="outline">{data.latestPeriod.status}</Badge>
+              {monthLabel(data.latestPeriod.periodStart)} · <Badge variant="outline">{data.latestPeriod.status}</Badge>
             </CardDescription>
           </CardHeader>
           <CardContent className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <MiniStat label="Gross (R)" value={formatLkr(data.latestPeriod.grossRevenueLkr)} />
             <MiniStat label="Platform" value={formatLkr(data.latestPeriod.platformShareLkr)} />
             <MiniStat label="Teacher pool" value={formatLkr(data.latestPeriod.teacherPoolLkr)} />
-            <MiniStat
-              label="Billable attempts"
-              value={data.latestPeriod.totalBillableAttempts.toLocaleString()}
-            />
+            <MiniStat label="Billable attempts" value={data.latestPeriod.totalBillableAttempts.toLocaleString()} />
           </CardContent>
         </Card>
       )}
@@ -404,13 +389,7 @@ export function DashboardOverview() {
                   width={56}
                   tickFormatter={(v) => `${Number(v) >= 1000 ? `${Math.round(Number(v) / 1000)}k` : v}`}
                 />
-                <YAxis
-                  yAxisId="right"
-                  orientation="right"
-                  tickLine={false}
-                  axisLine={false}
-                  width={40}
-                />
+                <YAxis yAxisId="right" orientation="right" tickLine={false} axisLine={false} width={40} />
                 <ChartTooltip content={<ChartTooltipContent />} />
                 <ChartLegend content={<ChartLegendContent />} />
                 <Area
@@ -444,12 +423,7 @@ export function DashboardOverview() {
                 <CardTitle className="text-base">Recent payments</CardTitle>
                 <CardDescription>PayHere orders (subscription & quiz unlocks)</CardDescription>
               </div>
-              <Pager
-                page={paymentsPage}
-                pages={paymentsPages}
-                total={data.payments.total}
-                onChange={setPaymentsPage}
-              />
+              <Pager page={paymentsPage} pages={paymentsPages} total={data.payments.total} onChange={setPaymentsPage} />
             </div>
           </CardHeader>
           <CardContent className="overflow-x-auto">
@@ -487,20 +461,14 @@ export function DashboardOverview() {
                       <td className="px-2 py-2.5">
                         <div>{row.purpose}</div>
                         {row.purpose === "QUIZ" && (
-                          <div className="text-xs text-muted-foreground">
-                            {quizTitleText(row.quizTitle)}
-                          </div>
+                          <div className="text-xs text-muted-foreground">{quizTitleText(row.quizTitle)}</div>
                         )}
                       </td>
-                      <td className="px-2 py-2.5 font-medium tabular-nums">
-                        {formatLkr(row.amountLkr)}
-                      </td>
+                      <td className="px-2 py-2.5 font-medium tabular-nums">{formatLkr(row.amountLkr)}</td>
                       <td className="px-2 py-2.5">
                         <Badge variant={statusVariant(row.status)}>{row.status}</Badge>
                       </td>
-                      <td className="px-2 py-2.5 font-mono text-xs text-muted-foreground">
-                        {row.orderId}
-                      </td>
+                      <td className="px-2 py-2.5 font-mono text-xs text-muted-foreground">{row.orderId}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -547,9 +515,7 @@ export function DashboardOverview() {
                           <div className="text-xs text-muted-foreground">{t.email}</div>
                         </td>
                         <td className="px-2 py-2.5 tabular-nums">{t.attemptsMtd}</td>
-                        <td className="px-2 py-2.5 font-medium tabular-nums">
-                          {formatLkr(t.lifetimeEarnedLkr)}
-                        </td>
+                        <td className="px-2 py-2.5 font-medium tabular-nums">{formatLkr(t.lifetimeEarnedLkr)}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -563,17 +529,10 @@ export function DashboardOverview() {
           <CardHeader className="pb-2">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div>
-                <CardTitle className="text-base">
-                  {isTeacher ? "Your quiz performance" : "Top quizzes"}
-                </CardTitle>
+                <CardTitle className="text-base">{isTeacher ? "Your quiz performance" : "Top quizzes"}</CardTitle>
                 <CardDescription>Attempts, average score, pass rate</CardDescription>
               </div>
-              <Pager
-                page={quizzesPage}
-                pages={quizzesPages}
-                total={data.topQuizzes.total}
-                onChange={setQuizzesPage}
-              />
+              <Pager page={quizzesPage} pages={quizzesPages} total={data.topQuizzes.total} onChange={setQuizzesPage} />
             </div>
           </CardHeader>
           <CardContent className="overflow-x-auto">
@@ -641,13 +600,7 @@ function Pager({
       <span>
         {total} total · {page}/{pages}
       </span>
-      <Button
-        variant="outline"
-        size="sm"
-        className="h-7 px-2"
-        disabled={page <= 1}
-        onClick={() => onChange(page - 1)}
-      >
+      <Button variant="outline" size="sm" className="h-7 px-2" disabled={page <= 1} onClick={() => onChange(page - 1)}>
         Prev
       </Button>
       <Button

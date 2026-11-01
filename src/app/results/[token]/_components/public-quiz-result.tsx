@@ -147,9 +147,7 @@ export function PublicQuizResult() {
       <main className="mx-auto flex max-w-3xl flex-col gap-6 px-4 py-6 pb-16 md:px-6">
         {showRegisterCta && (
           <div className="rounded-2xl border border-[#bcd8ff] bg-[#eef6ff] px-5 py-4 text-sm">
-            <p className="font-bold text-slate-900">
-              Wow! You&apos;ve completed {quizCount} quizzes!
-            </p>
+            <p className="font-bold text-slate-900">Wow! You&apos;ve completed {quizCount} quizzes!</p>
             <p className="mt-1 text-slate-600">
               Create a free permanent account to save your badges and compete on the school leaderboard.
             </p>
@@ -219,9 +217,7 @@ export function PublicQuizResult() {
                     <Badge variant="outline" className="border-slate-300 text-slate-600">
                       Q{index + 1}
                     </Badge>
-                    <p className="text-sm font-medium text-slate-800">
-                      {localize(question.questionText, locale)}
-                    </p>
+                    <p className="text-sm font-medium text-slate-800">{localize(question.questionText, locale)}</p>
                   </div>
                   {isCorrect ? (
                     <CheckCircle2 className="size-5 shrink-0 text-emerald-500" />
@@ -236,9 +232,7 @@ export function PublicQuizResult() {
                 {!isCorrect && correct && (
                   <p className="text-sm">
                     <span className="text-slate-500">Correct: </span>
-                    <span className="font-medium text-emerald-700">
-                      {localize(correct.choiceText, locale)}
-                    </span>
+                    <span className="font-medium text-emerald-700">{localize(correct.choiceText, locale)}</span>
                   </p>
                 )}
               </article>
@@ -246,9 +240,20 @@ export function PublicQuizResult() {
           })}
         </section>
 
-        <Button asChild variant="brand" className="font-semibold">
-          <Link href="/">Try another quiz</Link>
-        </Button>
+        <div className="flex flex-col gap-3 sm:flex-row">
+          <Button asChild variant="brand" className="flex-1 font-semibold">
+            <Link href="/">Try another quiz</Link>
+          </Button>
+          <Button
+            asChild
+            variant="outline"
+            className="flex-1 border-[#1563b8] font-semibold text-[#1563b8] hover:bg-[#eef6ff]"
+          >
+            <Link href={`/leaderboard?module=${attempt.quiz.moduleId || ""}`}>
+              View Your Position on the Leaderboard
+            </Link>
+          </Button>
+        </div>
       </main>
     </div>
   );

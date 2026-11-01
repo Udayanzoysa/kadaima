@@ -24,14 +24,10 @@ export default function AboutPage() {
           description,
         })}
       />
-      <SiteStaticPage
-        title="About Kadaima"
-        subtitle="Sri Lanka’s online exam & quiz portal for students and teachers."
-      >
+      <SiteStaticPage title="About Kadaima" subtitle="Sri Lanka’s online exam & quiz portal for students and teachers.">
         <p>
-          Kadaima helps students practise for school and national exams with structured quizzes,
-          timed attempts, and clear results — while teachers publish courses, question banks, and
-          public practice papers.
+          Kadaima helps students practise for school and national exams with structured quizzes, timed attempts, and
+          clear results — while teachers publish courses, question banks, and public practice papers.
         </p>
 
         <h2>What we offer</h2>
@@ -44,8 +40,8 @@ export default function AboutPage() {
 
         <h2>Our focus</h2>
         <p>
-          We build for Sri Lankan learners — Scholarship, O/L, A/L, and other academic pathways —
-          with a simple experience that works on phone and desktop.
+          We build for Sri Lankan learners — Scholarship, O/L, A/L, and other academic pathways — with a simple
+          experience that works on phone and desktop.
         </p>
 
         <h2>Get in touch</h2>

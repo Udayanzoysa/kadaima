@@ -107,9 +107,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
 
           const isSuperAdmin = hasPermission("MANAGE", "all");
           const canManageQuizzes =
-            isSuperAdmin ||
-            hasPermission("READ", "QUIZZES") ||
-            hasPermission("MANAGE", "QUIZZES");
+            isSuperAdmin || hasPermission("READ", "QUIZZES") || hasPermission("MANAGE", "QUIZZES");
 
           // Students: My Quizzes only. Teachers: Quizzes + Questions. Super admin: all.
           if (item.id === "my-quizzes") {
@@ -119,6 +117,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             item.id === "quizzes" ||
             item.id === "questions" ||
             item.id === "courses" ||
+            item.id === "classes" ||
             item.id === "teacher-page" ||
             item.id === "earnings"
           ) {
@@ -155,11 +154,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             <SidebarMenuButton asChild size="lg" className="gap-2">
               <Link prefetch={false} href="/admin/default" className="flex items-center gap-2">
                 <BrandLogo variant="full" className="h-7 w-auto group-data-[collapsible=icon]:hidden" priority />
-                <BrandLogo
-                  variant="mark"
-                  className="hidden size-7 group-data-[collapsible=icon]:block"
-                  priority
-                />
+                <BrandLogo variant="mark" className="hidden size-7 group-data-[collapsible=icon]:block" priority />
               </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>

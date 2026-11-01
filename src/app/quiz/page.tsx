@@ -23,9 +23,7 @@ export default async function PublicQuizzesPage() {
   const courseMap = new Map<string, string>();
   for (const quiz of initialQuizzes) {
     if (!quiz.course?.id || courseMap.has(quiz.course.id)) continue;
-    const name = plainTextFromLocalized(
-      localize(quiz.course.title as LocalizedText, "en"),
-    ).trim();
+    const name = plainTextFromLocalized(localize(quiz.course.title as LocalizedText, "en")).trim();
     if (name) courseMap.set(quiz.course.id, name);
   }
 

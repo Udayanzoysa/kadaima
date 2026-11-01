@@ -65,9 +65,8 @@ export function BrandingSeoSettings() {
     })();
   }, []);
 
-  const set =
-    (key: keyof SeoForm) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
-      setForm((prev) => ({ ...prev, [key]: e.target.value }));
+  const set = (key: keyof SeoForm) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
+    setForm((prev) => ({ ...prev, [key]: e.target.value }));
 
   const save = async () => {
     const token = getClientCookie("session_token");
@@ -134,8 +133,8 @@ export function BrandingSeoSettings() {
       <CardHeader>
         <CardTitle>Site branding & SEO</CardTitle>
         <CardDescription>
-          Controls the public site title, meta description, Open Graph image, and Google Analytics
-          (gtag) measurement ID. Changes apply site-wide within about a minute.
+          Controls the public site title, meta description, Open Graph image, and Google Analytics (gtag) measurement
+          ID. Changes apply site-wide within about a minute.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-5">

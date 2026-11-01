@@ -24,33 +24,21 @@ export default function RegisterHubV1() {
       backLabel="Back to Login"
     >
       <div className="grid gap-3">
-        <Button
-          asChild
-          variant="brandOutline"
-          className="h-auto justify-start gap-4 p-4 text-left"
-        >
+        <Button asChild variant="brandOutline" className="h-auto justify-start gap-4 p-4 text-left">
           <Link prefetch={false} href="/student/register">
             <GraduationCap className="size-6 shrink-0 text-[#1563b8]" />
             <span>
               <span className="block font-medium text-slate-900">I&apos;m a student</span>
-              <span className="block text-xs font-normal text-slate-500">
-                Take quizzes and view My Quizzes
-              </span>
+              <span className="block text-xs font-normal text-slate-500">Take quizzes and view My Quizzes</span>
             </span>
           </Link>
         </Button>
-        <Button
-          asChild
-          variant="brandOutline"
-          className="h-auto justify-start gap-4 p-4 text-left"
-        >
+        <Button asChild variant="brandOutline" className="h-auto justify-start gap-4 p-4 text-left">
           <Link prefetch={false} href="/teacher/register">
             <Presentation className="size-6 shrink-0 text-[#1563b8]" />
             <span>
               <span className="block font-medium text-slate-900">I&apos;m a teacher</span>
-              <span className="block text-xs font-normal text-slate-500">
-                Manage quizzes and the question bank
-              </span>
+              <span className="block text-xs font-normal text-slate-500">Manage quizzes and the question bank</span>
             </span>
           </Link>
         </Button>

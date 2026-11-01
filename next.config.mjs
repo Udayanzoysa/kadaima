@@ -19,6 +19,8 @@ const nextConfig = {
       { protocol: "http", hostname: "localhost", port: "5425", pathname: "/uploads/**" },
       { protocol: "http", hostname: "127.0.0.1", port: "5425", pathname: "/uploads/**" },
       { protocol: "https", hostname: "api.kadaima.com", pathname: "/uploads/**" },
+      // New VPS (temporary HTTP until DNS/SSL for api.kadaima.com points here)
+      { protocol: "http", hostname: "84.247.138.71", port: "4000", pathname: "/uploads/**" },
     ],
   },
   async redirects() {

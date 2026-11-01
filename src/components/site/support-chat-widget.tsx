@@ -36,15 +36,7 @@ function randomId() {
 const FAB_SIZE = "h-14 w-14 min-h-14 min-w-14 md:h-16 md:w-16 md:min-h-16 md:min-w-16";
 const BOT_ICON_SRC = "/brand/kadaima-expert-bot.png";
 
-function ChatBotAvatar({
-  className,
-  size,
-  alt = "",
-}: {
-  className?: string;
-  size: number;
-  alt?: string;
-}) {
+function ChatBotAvatar({ className, size, alt = "" }: { className?: string; size: number; alt?: string }) {
   return (
     <Image
       src={BOT_ICON_SRC}
@@ -77,9 +69,7 @@ export function SupportChatWidget() {
   const [sending, setSending] = useState(false);
   const sessionId = useMemo(() => randomId(), []);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const whatsappUrl =
-    APP_CONFIG.whatsappUrl ??
-    "https://wa.me/94775075179?text=" + encodeURIComponent("Hi Kadaima!");
+  const whatsappUrl = APP_CONFIG.whatsappUrl ?? "https://wa.me/94775075179?text=" + encodeURIComponent("Hi Kadaima!");
 
   const [leadSubmitted, setLeadSubmitted] = useState(() => {
     try {
@@ -171,9 +161,7 @@ export function SupportChatWidget() {
     }
     setOpen(true);
     setMessages((prev) =>
-      prev.length > 0
-        ? prev
-        : [{ id: randomId(), role: "assistant", text: t("public.chat.greeting") }],
+      prev.length > 0 ? prev : [{ id: randomId(), role: "assistant", text: t("public.chat.greeting") }],
     );
   };
 
@@ -203,10 +191,7 @@ export function SupportChatWidget() {
       setLeadSubmitted(true);
 
       const introMsg = `Hi! My name is ${leadData.name}, and I am ${leadData.age} years old. Please provide personalized learning options tailored to what students are currently studying in Sri Lankan schools.`;
-      setMessages((prev) => [
-        ...prev,
-        { id: randomId(), role: "user", text: introMsg },
-      ]);
+      setMessages((prev) => [...prev, { id: randomId(), role: "user", text: introMsg }]);
 
       setSending(true);
       const chatRes = await fetch(`${APP_CONFIG.apiUrl}/support/chat`, {
@@ -276,7 +261,7 @@ export function SupportChatWidget() {
   };
 
   return (
-    <div className="pointer-events-none fixed right-0 bottom-[calc(4.75rem+env(safe-area-inset-bottom))] z-50 flex flex-col items-end gap-3 overflow-visible md:right-5 md:bottom-6">
+    <div className="pointer-events-none fixed right-0 bottom-[calc(1.25rem+env(safe-area-inset-bottom))] z-40 flex flex-col items-end gap-3 overflow-visible md:right-5 md:bottom-6">
       {open ? (
         <div className="pointer-events-auto mx-3 flex h-[min(28rem,calc(100dvh-8rem))] w-[calc(100vw-1.5rem)] max-w-sm flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl md:mx-0">
           <div className="flex items-center gap-3 border-slate-200 border-b bg-gradient-to-r from-[#0b2a4a] to-[#1563b8] px-4 py-3 text-white">
@@ -312,10 +297,7 @@ export function SupportChatWidget() {
 
           <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto bg-[#f4f7fb] px-3 py-4">
             {messages.map((message) => (
-              <div
-                key={message.id}
-                className={cn("flex", message.role === "user" ? "justify-end" : "justify-start")}
-              >
+              <div key={message.id} className={cn("flex", message.role === "user" ? "justify-end" : "justify-start")}>
                 <div
                   className={cn(
                     "max-w-[85%] rounded-2xl px-3.5 py-2 text-sm leading-relaxed",
@@ -458,9 +440,7 @@ export function SupportChatWidget() {
           <p className="font-semibold text-[#1563b8] text-[11px] uppercase tracking-wide">
             {t("public.chat.unreadLabel")}
           </p>
-          <p className="mt-0.5 line-clamp-2 text-[#123a6b] text-sm leading-snug">
-            {t("public.chat.teaserMessage")}
-          </p>
+          <p className="mt-0.5 line-clamp-2 text-[#123a6b] text-sm leading-snug">{t("public.chat.teaserMessage")}</p>
         </button>
       ) : null}
 

@@ -2,20 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 
-import {
-  DndContext,
-  PointerSensor,
-  closestCenter,
-  useSensor,
-  useSensors,
-  type DragEndEvent,
-} from "@dnd-kit/core";
-import {
-  SortableContext,
-  arrayMove,
-  useSortable,
-  verticalListSortingStrategy,
-} from "@dnd-kit/sortable";
+import { DndContext, PointerSensor, closestCenter, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
+import { SortableContext, arrayMove, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { GripVertical } from "lucide-react";
 
@@ -24,13 +12,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Textarea } from "@/components/ui/textarea";
 import { APP_CONFIG } from "@/config/app-config";
 import { cn } from "@/lib/utils";
-import {
-  localize,
-  mediaUrl,
-  sanitizeQuestionHtml,
-  type AttemptQuestion,
-  type SupportedLocale,
-} from "@/types/quiz";
+import { localize, mediaUrl, sanitizeQuestionHtml, type AttemptQuestion, type SupportedLocale } from "@/types/quiz";
 
 function seededShuffle<T>(items: T[], seed: string): T[] {
   const arr = [...items];
@@ -44,15 +26,7 @@ function seededShuffle<T>(items: T[], seed: string): T[] {
   return arr;
 }
 
-function SortableItem({
-  id,
-  label,
-  imageSrc,
-}: {
-  id: string;
-  label: string;
-  imageSrc?: string | null;
-}) {
+function SortableItem({ id, label, imageSrc }: { id: string; label: string; imageSrc?: string | null }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id,
   });
@@ -65,22 +39,13 @@ function SortableItem({
         isDragging && "z-10 opacity-90 shadow-md",
       )}
     >
-      <button
-        type="button"
-        className="cursor-grab text-muted-foreground"
-        {...attributes}
-        {...listeners}
-      >
+      <button type="button" className="cursor-grab text-muted-foreground" {...attributes} {...listeners}>
         <GripVertical className="size-4" />
       </button>
       <div className="flex min-w-0 flex-1 items-center gap-3">
         {imageSrc && (
           // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={imageSrc}
-            alt=""
-            className="max-h-16 max-w-[7rem] shrink-0 rounded border object-contain"
-          />
+          <img src={imageSrc} alt="" className="max-h-16 max-w-[7rem] shrink-0 rounded border object-contain" />
         )}
         {label ? <span className="min-w-0 flex-1">{label}</span> : null}
       </div>
@@ -109,9 +74,7 @@ export function QuestionPrompt({
           dangerouslySetInnerHTML={{ __html: sanitizeQuestionHtml(text) }}
         />
       ) : (
-        <p className="whitespace-pre-wrap font-medium text-sm leading-relaxed md:text-base">
-          {text}
-        </p>
+        <p className="whitespace-pre-wrap font-medium text-sm leading-relaxed md:text-base">{text}</p>
       )}
       {img && (
         // eslint-disable-next-line @next/next/no-img-element
@@ -226,9 +189,7 @@ export function QuestionAnswerInput({
                     )}
                   />
                 )}
-                {label ? (
-                  <span className={cn(exam && "font-medium")}>{label}</span>
-                ) : null}
+                {label ? <span className={cn(exam && "font-medium")}>{label}</span> : null}
               </div>
             </label>
           );
@@ -316,9 +277,7 @@ export function QuestionAnswerInput({
       {(question.config?.minWords || question.config?.minSentences) && (
         <p className="text-muted-foreground text-xs">
           {question.config.minWords ? `Aim for at least ${question.config.minWords} words. ` : null}
-          {question.config.minSentences
-            ? `At least ${question.config.minSentences} sentence(s). `
-            : null}
+          {question.config.minSentences ? `At least ${question.config.minSentences} sentence(s). ` : null}
           This answer is graded manually.
         </p>
       )}

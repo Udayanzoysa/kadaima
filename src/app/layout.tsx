@@ -47,7 +47,12 @@ export async function generateMetadata(): Promise<Metadata> {
       template: `%s | ${seo.siteName || APP_CONFIG.name}`,
     },
     description,
-    keywords: seo.keywords ? seo.keywords.split(",").map((k) => k.trim()).filter(Boolean) : undefined,
+    keywords: seo.keywords
+      ? seo.keywords
+          .split(",")
+          .map((k) => k.trim())
+          .filter(Boolean)
+      : undefined,
     alternates: {
       canonical: "/",
     },
@@ -62,9 +67,7 @@ export async function generateMetadata(): Promise<Metadata> {
         "max-video-preview": -1,
       },
     },
-    ...(googleVerification
-      ? { verification: { google: googleVerification } }
-      : {}),
+    ...(googleVerification ? { verification: { google: googleVerification } } : {}),
     icons: {
       icon: [
         { url: "/favicon.ico?v=3", sizes: "any" },

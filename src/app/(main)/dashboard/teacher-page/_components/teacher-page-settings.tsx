@@ -118,13 +118,7 @@ function normalizePageLayout(raw: PageLayout | null | undefined): PageLayout {
   return { sections };
 }
 
-function ClassDatePicker({
-  value,
-  onChange,
-}: {
-  value: Date | undefined;
-  onChange: (date: Date | undefined) => void;
-}) {
+function ClassDatePicker({ value, onChange }: { value: Date | undefined; onChange: (date: Date | undefined) => void }) {
   const [open, setOpen] = useState(false);
 
   return (
@@ -367,9 +361,7 @@ export function TeacherPageSettings() {
   };
 
   const toggleQuiz = (quizId: string, checked: boolean) => {
-    setSelectedQuizIds((prev) =>
-      checked ? [...new Set([...prev, quizId])] : prev.filter((id) => id !== quizId),
-    );
+    setSelectedQuizIds((prev) => (checked ? [...new Set([...prev, quizId])] : prev.filter((id) => id !== quizId)));
   };
 
   const putProfile = async (body: Record<string, unknown>) => {
@@ -380,9 +372,7 @@ export function TeacherPageSettings() {
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
-      throw new Error(
-        Array.isArray(data.message) ? data.message.join(", ") : data.message || "Save failed",
-      );
+      throw new Error(Array.isArray(data.message) ? data.message.join(", ") : data.message || "Save failed");
     }
     applyProfile(data);
     return data as Profile;
@@ -418,9 +408,7 @@ export function TeacherPageSettings() {
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
-      throw new Error(
-        Array.isArray(data.message) ? data.message.join(", ") : data.message || "Could not add class",
-      );
+      throw new Error(Array.isArray(data.message) ? data.message.join(", ") : data.message || "Could not add class");
     }
     clearClassDraft();
     return true;
@@ -464,9 +452,7 @@ export function TeacherPageSettings() {
         );
       } else {
         toast.success(
-          data.isPublic
-            ? "All changes saved — your public page is live"
-            : "All changes saved (page not published yet)",
+          data.isPublic ? "All changes saved — your public page is live" : "All changes saved (page not published yet)",
         );
       }
     } catch (err) {
@@ -726,9 +712,7 @@ export function TeacherPageSettings() {
         id: "quizzes",
         label: "Quizzes ready",
         tab: "quizzes" as SettingsTabId,
-        done:
-          quizVisibility === "ALL" ||
-          (quizVisibility === "SELECTED" && selectedQuizIds.length > 0),
+        done: quizVisibility === "ALL" || (quizVisibility === "SELECTED" && selectedQuizIds.length > 0),
       },
       {
         id: "about",
@@ -740,12 +724,7 @@ export function TeacherPageSettings() {
         id: "contact",
         label: "Contact section",
         tab: "contact" as SettingsTabId,
-        done: Boolean(
-          contactPhone.trim() ||
-            contactWhatsappUrl.trim() ||
-            contactAddress.trim() ||
-            contactText.trim(),
-        ),
+        done: Boolean(contactPhone.trim() || contactWhatsappUrl.trim() || contactAddress.trim() || contactText.trim()),
       },
       {
         id: "posters",
@@ -835,9 +814,9 @@ export function TeacherPageSettings() {
         <div className="space-y-1 text-sm leading-relaxed">
           <p className="font-medium">Make your public page stand out</p>
           <p className="text-sky-900/80">
-            Complete every section below — branding, carousel, classes, quizzes, About, and Contact —
-            so your page looks more attractive to students and parents. A complete, published page
-            also helps Google find and list your name when people search for you online.
+            Complete every section below — branding, carousel, classes, quizzes, About, and Contact — so your page looks
+            more attractive to students and parents. A complete, published page also helps Google find and list your
+            name when people search for you online.
           </p>
         </div>
       </div>
@@ -880,11 +859,7 @@ export function TeacherPageSettings() {
         </CardContent>
       </Card>
 
-      <Tabs
-        value={activeTab}
-        onValueChange={(v) => setActiveTab(v as SettingsTabId)}
-        className="gap-4"
-      >
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as SettingsTabId)} className="gap-4">
         <div className="overflow-x-auto pb-1">
           <TabsList variant="line" className="h-auto w-max min-w-full justify-start gap-0">
             {SETTINGS_TABS.map((tab) => (
@@ -900,9 +875,7 @@ export function TeacherPageSettings() {
             <TabsContent value="branding" className="mt-0 space-y-4">
               <div>
                 <CardTitle className="text-base">Branding</CardTitle>
-                <CardDescription>
-                  Public URL, display name, and publish status.
-                </CardDescription>
+                <CardDescription>Public URL, display name, and publish status.</CardDescription>
               </div>
               <Field className="gap-1.5">
                 <FieldLabel>Public URL slug</FieldLabel>
@@ -917,11 +890,7 @@ export function TeacherPageSettings() {
                 <Input value={displayName} onChange={(e) => setDisplayName(e.target.value)} />
               </Field>
               <div className="flex items-start gap-3 rounded-lg border border-border p-3">
-                <Checkbox
-                  id="is-public"
-                  checked={isPublic}
-                  onCheckedChange={(v) => setIsPublic(Boolean(v))}
-                />
+                <Checkbox id="is-public" checked={isPublic} onCheckedChange={(v) => setIsPublic(Boolean(v))} />
                 <div>
                   <label htmlFor="is-public" className="cursor-pointer font-medium text-sm">
                     Publish public page
@@ -936,9 +905,7 @@ export function TeacherPageSettings() {
             <TabsContent value="carousel" className="mt-0 space-y-4">
               <div>
                 <CardTitle className="text-base">Carousel banner</CardTitle>
-                <CardDescription>
-                  Hero title, supporting text, CTA, and carousel images.
-                </CardDescription>
+                <CardDescription>Hero title, supporting text, CTA, and carousel images.</CardDescription>
               </div>
               <Field className="gap-1.5">
                 <FieldLabel>Hero title</FieldLabel>
@@ -984,10 +951,7 @@ export function TeacherPageSettings() {
                 ) : null}
                 <div className="space-y-2">
                   {(profile?.banners ?? []).map((b, i) => (
-                    <div
-                      key={b.id}
-                      className="flex items-center gap-2 rounded-lg border border-border p-2"
-                    >
+                    <div key={b.id} className="flex items-center gap-2 rounded-lg border border-border p-2">
                       <GripVertical className="size-4 shrink-0 text-muted-foreground" />
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
@@ -996,9 +960,7 @@ export function TeacherPageSettings() {
                         className="size-14 rounded object-cover"
                       />
                       <div className="min-w-0 flex-1">
-                        <div className="truncate font-medium text-sm">
-                          {b.ctaLabel || "Banner image"}
-                        </div>
+                        <div className="truncate font-medium text-sm">{b.ctaLabel || "Banner image"}</div>
                         <p className="truncate text-muted-foreground text-xs">{b.imageUrl}</p>
                       </div>
                       <div className="flex shrink-0 flex-col gap-0.5">
@@ -1021,12 +983,7 @@ export function TeacherPageSettings() {
                           <ChevronDown className="size-3.5" />
                         </Button>
                       </div>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        onClick={() => void deleteBanner(b.id)}
-                      >
+                      <Button type="button" size="sm" variant="outline" onClick={() => void deleteBanner(b.id)}>
                         <Trash2 className="size-3.5" />
                       </Button>
                     </div>
@@ -1039,8 +996,8 @@ export function TeacherPageSettings() {
               <div>
                 <CardTitle className="text-base">Upcoming Class</CardTitle>
                 <CardDescription>
-                  Fill the details below, then click Add class (or Save all changes). Classes appear
-                  as accordion items on your public page — time, venue, date, fee, and WhatsApp.
+                  Fill the details below, then click Add class (or Save all changes). Classes appear as accordion items
+                  on your public page — time, venue, date, fee, and WhatsApp.
                 </CardDescription>
               </div>
               <Field className="gap-1.5">
@@ -1097,11 +1054,7 @@ export function TeacherPageSettings() {
                     <InputGroupInput
                       inputMode="decimal"
                       value={classFee}
-                      onChange={(e) =>
-                        setClassFee(
-                          e.target.value.replace(/[^\d.]/g, "").replace(/(\..*)\./g, "$1"),
-                        )
-                      }
+                      onChange={(e) => setClassFee(e.target.value.replace(/[^\d.]/g, "").replace(/(\..*)\./g, "$1"))}
                       placeholder="5,000"
                     />
                   </InputGroup>
@@ -1123,25 +1076,16 @@ export function TeacherPageSettings() {
               </Button>
               <ul className="space-y-2">
                 {(profile?.classes ?? []).map((c, i) => (
-                  <li
-                    key={c.id}
-                    className="flex items-start gap-2 rounded-lg border border-border px-3 py-2"
-                  >
+                  <li key={c.id} className="flex items-start gap-2 rounded-lg border border-border px-3 py-2">
                     <GripVertical className="mt-1 size-4 shrink-0 text-muted-foreground" />
                     <div className="min-w-0 flex-1">
                       <div className="font-medium text-sm">{c.title}</div>
-                      {c.description ? (
-                        <p className="text-muted-foreground text-xs">{c.description}</p>
-                      ) : null}
+                      {c.description ? <p className="text-muted-foreground text-xs">{c.description}</p> : null}
                       <p className="mt-1 text-muted-foreground text-[11px]">
-                        {[c.scheduleTime, c.location, c.classDate, c.feeLabel]
-                          .filter(Boolean)
-                          .join(" · ")}
+                        {[c.scheduleTime, c.location, c.classDate, c.feeLabel].filter(Boolean).join(" · ")}
                       </p>
                       {c.whatsappGroupUrl ? (
-                        <p className="mt-0.5 truncate text-[11px] text-emerald-600">
-                          WhatsApp: {c.whatsappGroupUrl}
-                        </p>
+                        <p className="mt-0.5 truncate text-[11px] text-emerald-600">WhatsApp: {c.whatsappGroupUrl}</p>
                       ) : null}
                     </div>
                     <div className="flex shrink-0 flex-col gap-0.5">
@@ -1164,12 +1108,7 @@ export function TeacherPageSettings() {
                         <ChevronDown className="size-3.5" />
                       </Button>
                     </div>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => void deleteClass(c.id)}
-                    >
+                    <Button type="button" size="sm" variant="ghost" onClick={() => void deleteClass(c.id)}>
                       <Trash2 className="size-3.5" />
                     </Button>
                   </li>
@@ -1180,9 +1119,7 @@ export function TeacherPageSettings() {
             <TabsContent value="quizzes" className="mt-0 space-y-4">
               <div>
                 <CardTitle className="text-base">Quizzes</CardTitle>
-                <CardDescription>
-                  Choose whether visitors see all your quizzes, or only selected ones.
-                </CardDescription>
+                <CardDescription>Choose whether visitors see all your quizzes, or only selected ones.</CardDescription>
               </div>
               <RadioGroup
                 value={quizVisibility}
@@ -1231,9 +1168,7 @@ export function TeacherPageSettings() {
             <TabsContent value="about" className="mt-0 space-y-4">
               <div>
                 <CardTitle className="text-base">About</CardTitle>
-                <CardDescription>
-                  Text shown in the About section on your public page.
-                </CardDescription>
+                <CardDescription>Text shown in the About section on your public page.</CardDescription>
               </div>
               <Field className="gap-1.5">
                 <FieldLabel>About text</FieldLabel>
@@ -1250,9 +1185,7 @@ export function TeacherPageSettings() {
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
                   <CardTitle className="text-base">Student asks</CardTitle>
-                  <CardDescription>
-                    Inquiries students send from your public Contact form.
-                  </CardDescription>
+                  <CardDescription>Inquiries students send from your public Contact form.</CardDescription>
                 </div>
                 <Button
                   type="button"
@@ -1272,8 +1205,7 @@ export function TeacherPageSettings() {
                 </div>
               ) : inquiries.length === 0 ? (
                 <p className="rounded-lg border border-dashed border-border px-4 py-8 text-center text-muted-foreground text-sm">
-                  No student asks yet. When someone submits the Contact form on your public page,
-                  it will show up here.
+                  No student asks yet. When someone submits the Contact form on your public page, it will show up here.
                 </p>
               ) : (
                 <ul className="space-y-3">
@@ -1282,9 +1214,7 @@ export function TeacherPageSettings() {
                       key={item.id}
                       className={cn(
                         "rounded-xl border px-4 py-3",
-                        item.status === "NEW"
-                          ? "border-sky-200 bg-sky-50/60"
-                          : "border-border bg-background",
+                        item.status === "NEW" ? "border-sky-200 bg-sky-50/60" : "border-border bg-background",
                       )}
                     >
                       <div className="flex flex-wrap items-start justify-between gap-2">
@@ -1305,16 +1235,10 @@ export function TeacherPageSettings() {
                             item.status === "ARCHIVED" && "bg-amber-50 text-amber-800",
                           )}
                         >
-                          {item.status === "NEW"
-                            ? "New ask"
-                            : item.status === "READ"
-                              ? "Read"
-                              : "Archived"}
+                          {item.status === "NEW" ? "New ask" : item.status === "READ" ? "Read" : "Archived"}
                         </span>
                       </div>
-                      <p className="mt-2 whitespace-pre-wrap text-sm text-foreground/90">
-                        {item.message}
-                      </p>
+                      <p className="mt-2 whitespace-pre-wrap text-sm text-foreground/90">{item.message}</p>
                       <div className="mt-3 flex flex-wrap gap-2">
                         {item.status === "NEW" ? (
                           <Button
@@ -1358,9 +1282,7 @@ export function TeacherPageSettings() {
             <TabsContent value="contact" className="mt-0 space-y-4">
               <div>
                 <CardTitle className="text-base">Contact</CardTitle>
-                <CardDescription>
-                  Phone, WhatsApp, class location, and a short message for students.
-                </CardDescription>
+                <CardDescription>Phone, WhatsApp, class location, and a short message for students.</CardDescription>
               </div>
               <Field className="gap-1.5">
                 <FieldLabel>Mobile number</FieldLabel>
@@ -1406,28 +1328,20 @@ export function TeacherPageSettings() {
             <TabsContent value="layout" className="mt-0 space-y-5">
               <div>
                 <CardTitle className="text-base">Layout & posters</CardTitle>
-                <CardDescription>
-                  Section order, visibility, and dynamic poster banners.
-                </CardDescription>
+                <CardDescription>Section order, visibility, and dynamic poster banners.</CardDescription>
               </div>
               <div className="space-y-2">
                 <p className="font-medium text-sm">Page sections</p>
                 <ul className="space-y-2">
                   {pageLayout.sections.map((s, i) => (
-                    <li
-                      key={s.id}
-                      className="flex items-center gap-2 rounded-lg border border-border px-2.5 py-2"
-                    >
+                    <li key={s.id} className="flex items-center gap-2 rounded-lg border border-border px-2.5 py-2">
                       <GripVertical className="size-3.5 shrink-0 text-muted-foreground" />
                       <Checkbox
                         id={`section-${s.id}`}
                         checked={s.visible}
                         onCheckedChange={(v) => toggleSectionVisible(s.id, Boolean(v))}
                       />
-                      <label
-                        htmlFor={`section-${s.id}`}
-                        className="min-w-0 flex-1 cursor-pointer font-medium text-xs"
-                      >
+                      <label htmlFor={`section-${s.id}`} className="min-w-0 flex-1 cursor-pointer font-medium text-xs">
                         {SECTION_LABELS[s.id]}
                       </label>
                       <div className="flex shrink-0 flex-col gap-0.5">
@@ -1480,14 +1394,9 @@ export function TeacherPageSettings() {
                     {(["TOP", "MIDDLE", "FOOTER", "SIDE", "RIGHT"] as const).map((p) => (
                       <div key={p} className="flex items-start gap-2">
                         <RadioGroupItem value={p} id={`place-${p}`} className="mt-0.5" />
-                        <Label
-                          htmlFor={`place-${p}`}
-                          className="cursor-pointer font-normal text-xs leading-snug"
-                        >
+                        <Label htmlFor={`place-${p}`} className="cursor-pointer font-normal text-xs leading-snug">
                           <span className="font-medium">{PLACEMENT_LABELS[p]}</span>
-                          <span className="mt-0.5 block text-muted-foreground">
-                            {PLACEMENT_RESOLUTION[p]}
-                          </span>
+                          <span className="mt-0.5 block text-muted-foreground">{PLACEMENT_RESOLUTION[p]}</span>
                         </Label>
                       </div>
                     ))}
@@ -1497,12 +1406,11 @@ export function TeacherPageSettings() {
                   <p className="font-medium text-foreground text-xs">Recommended resolutions</p>
                   <ul className="mt-1.5 list-disc space-y-1 pl-4">
                     <li>
-                      <span className="font-medium text-foreground">Left / Right:</span> 480×720
-                      (3:4) — JPG/PNG/WebP, under 1.5 MB
+                      <span className="font-medium text-foreground">Left / Right:</span> 480×720 (3:4) — JPG/PNG/WebP,
+                      under 1.5 MB
                     </li>
                     <li>
-                      <span className="font-medium text-foreground">Top / Middle / Footer:</span>{" "}
-                      1200×320–400
+                      <span className="font-medium text-foreground">Top / Middle / Footer:</span> 1200×320–400
                     </li>
                   </ul>
                 </div>
@@ -1539,8 +1447,8 @@ export function TeacherPageSettings() {
                   <div className="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-amber-950 text-xs">
                     <Spinner className="size-3.5 shrink-0 text-amber-700" />
                     <span>
-                      Uploading{uploadingName ? ` “${uploadingName}”` : ""}… don’t close this page
-                      while the file updates.
+                      Uploading{uploadingName ? ` “${uploadingName}”` : ""}… don’t close this page while the file
+                      updates.
                     </span>
                   </div>
                 ) : null}
@@ -1549,10 +1457,7 @@ export function TeacherPageSettings() {
                     <li className="text-muted-foreground text-xs">No poster banners yet.</li>
                   ) : (
                     posters.map((p, i) => (
-                      <li
-                        key={p.id}
-                        className="flex items-start gap-2 rounded-lg border border-border p-2"
-                      >
+                      <li key={p.id} className="flex items-start gap-2 rounded-lg border border-border p-2">
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
                           src={mediaUrl(p.imageUrl, APP_CONFIG.apiUrl) || ""}
@@ -1560,9 +1465,7 @@ export function TeacherPageSettings() {
                           className="size-12 shrink-0 rounded object-cover"
                         />
                         <div className="min-w-0 flex-1">
-                          <p className="truncate font-medium text-xs">
-                            {p.title || "Poster banner"}
-                          </p>
+                          <p className="truncate font-medium text-xs">{p.title || "Poster banner"}</p>
                           <p className="text-[11px] text-muted-foreground">
                             {PLACEMENT_LABELS[p.placement] || p.placement}
                           </p>
@@ -1587,12 +1490,7 @@ export function TeacherPageSettings() {
                             <ChevronDown className="size-3.5" />
                           </Button>
                         </div>
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => void deletePoster(p.id)}
-                        >
+                        <Button type="button" size="sm" variant="ghost" onClick={() => void deletePoster(p.id)}>
                           <Trash2 className="size-3.5" />
                         </Button>
                       </li>

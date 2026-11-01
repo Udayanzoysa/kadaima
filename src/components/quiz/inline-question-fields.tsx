@@ -9,13 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { APP_CONFIG } from "@/config/app-config";
 import { getClientCookie } from "@/lib/cookie.client";
@@ -63,9 +57,7 @@ export function buildQuestionConfig(q: QuestionForm): QuestionConfig {
   const config: QuestionConfig = { contentFormat };
 
   if (q.type === "SHORT_TEXT") {
-    config.acceptedAnswers = (q.config?.acceptedAnswers ?? [])
-      .map((s) => s.trim())
-      .filter(Boolean);
+    config.acceptedAnswers = (q.config?.acceptedAnswers ?? []).map((s) => s.trim()).filter(Boolean);
     config.matchMode = q.config?.matchMode ?? "case_insensitive";
   }
   if (q.type === "NUMERIC") {
@@ -101,7 +93,7 @@ export function validateInlineQuestion(
     for (const c of q.choices) {
       if (c.imageUrl) continue;
       for (const language of langs) {
-        if (!(c.choiceText[language]?.trim())) {
+        if (!c.choiceText[language]?.trim()) {
           return `Each choice needs text in ${language.toUpperCase()} or an image.`;
         }
       }
@@ -114,7 +106,7 @@ export function validateInlineQuestion(
     for (const c of q.choices) {
       if (c.imageUrl) continue;
       for (const language of langs) {
-        if (!(c.choiceText[language]?.trim())) {
+        if (!c.choiceText[language]?.trim()) {
           return `Each sequencing item needs text in ${language.toUpperCase()} or an image.`;
         }
       }
@@ -168,13 +160,7 @@ type Props = {
   onUploadImage: (file: File) => void;
 };
 
-export function InlineQuestionFields({
-  question,
-  activeLang,
-  uploading,
-  onChange,
-  onUploadImage,
-}: Props) {
+export function InlineQuestionFields({ question, activeLang, uploading, onChange, onUploadImage }: Props) {
   const [uploadingChoiceId, setUploadingChoiceId] = useState<string | null>(null);
   const type = question.type;
   const contentFormat = question.config?.contentFormat === "html" ? "html" : "plain";
@@ -197,9 +183,7 @@ export function InlineQuestionFields({
       if (!data.url) throw new Error("No image URL returned");
       onChange({
         ...question,
-        choices: question.choices.map((c) =>
-          c.id === choiceId ? { ...c, imageUrl: data.url! } : c,
-        ),
+        choices: question.choices.map((c) => (c.id === choiceId ? { ...c, imageUrl: data.url! } : c)),
       });
       toast.success("Choice image uploaded");
     } catch (err) {
@@ -244,10 +228,7 @@ export function InlineQuestionFields({
 
       <Field>
         <FieldLabel>Prompt format</FieldLabel>
-        <Select
-          value={contentFormat}
-          onValueChange={(v: "plain" | "html") => patchConfig({ contentFormat: v })}
-        >
+        <Select value={contentFormat} onValueChange={(v: "plain" | "html") => patchConfig({ contentFormat: v })}>
           <SelectTrigger>
             <SelectValue />
           </SelectTrigger>
@@ -268,11 +249,7 @@ export function InlineQuestionFields({
               questionText: { ...question.questionText, [activeLang]: e.target.value },
             })
           }
-          placeholder={
-            contentFormat === "html"
-              ? "<p>Question…</p><table>…</table>"
-              : "Enter question text"
-          }
+          placeholder={contentFormat === "html" ? "<p>Question…</p><table>…</table>" : "Enter question text"}
           className={contentFormat === "html" ? "font-mono text-xs" : undefined}
         />
       </Field>
@@ -302,11 +279,7 @@ export function InlineQuestionFields({
         </div>
         {previewImg && (
           // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={previewImg}
-            alt="Prompt preview"
-            className="mt-2 max-h-48 rounded-md border object-contain"
-          />
+          <img src={previewImg} alt="Prompt preview" className="mt-2 max-h-48 rounded-md border object-contain" />
         )}
       </Field>
 
@@ -384,9 +357,7 @@ export function InlineQuestionFields({
             <Input
               type="number"
               value={question.config?.min ?? ""}
-              onChange={(e) =>
-                patchConfig({ min: e.target.value === "" ? undefined : Number(e.target.value) })
-              }
+              onChange={(e) => patchConfig({ min: e.target.value === "" ? undefined : Number(e.target.value) })}
             />
           </Field>
           <Field>
@@ -394,9 +365,7 @@ export function InlineQuestionFields({
             <Input
               type="number"
               value={question.config?.max ?? ""}
-              onChange={(e) =>
-                patchConfig({ max: e.target.value === "" ? undefined : Number(e.target.value) })
-              }
+              onChange={(e) => patchConfig({ max: e.target.value === "" ? undefined : Number(e.target.value) })}
             />
           </Field>
         </div>
@@ -439,104 +408,92 @@ export function InlineQuestionFields({
       {(type === "MCQ" || type === "SEQUENCE") && (
         <div className="space-y-2">
           <span className="font-medium text-sm">
-            {type === "SEQUENCE"
-              ? "Items in the correct order (students will reorder them)"
-              : "Answer choices"}
+            {type === "SEQUENCE" ? "Items in the correct order (students will reorder them)" : "Answer choices"}
           </span>
           {question.choices.map((choice) => {
             const choiceImg = mediaUrl(choice.imageUrl, APP_CONFIG.apiUrl);
             return (
-            <div key={choice.id} className="space-y-2 rounded-lg border p-3">
-              <div className="flex items-center gap-2">
-              {type === "MCQ" && (
-                <Checkbox
-                  checked={choice.isCorrect}
-                  onCheckedChange={() =>
-                    patch({
-                      choices: question.choices.map((c) => ({
-                        ...c,
-                        isCorrect: c.id === choice.id,
-                      })),
-                    })
-                  }
-                />
-              )}
-              <Input
-                className="flex-1"
-                value={choice.choiceText[activeLang]}
-                onChange={(e) =>
-                  patch({
-                    choices: question.choices.map((c) =>
-                      c.id === choice.id
-                        ? {
+              <div key={choice.id} className="space-y-2 rounded-lg border p-3">
+                <div className="flex items-center gap-2">
+                  {type === "MCQ" && (
+                    <Checkbox
+                      checked={choice.isCorrect}
+                      onCheckedChange={() =>
+                        patch({
+                          choices: question.choices.map((c) => ({
                             ...c,
-                            choiceText: { ...c.choiceText, [activeLang]: e.target.value },
-                          }
-                        : c,
-                    ),
-                  })
-                }
-                placeholder={
-                  type === "SEQUENCE"
-                    ? "Label (optional if image)"
-                    : "Choice text (optional if image)"
-                }
-              />
-              <label className="inline-flex cursor-pointer items-center gap-1 rounded-md border px-2 py-1.5 text-xs hover:bg-muted/40">
-                <ImagePlus className="size-3.5" />
-                {uploadingChoiceId === choice.id ? "…" : "Image"}
-                <input
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  disabled={uploadingChoiceId === choice.id}
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) void uploadChoiceImage(choice.id, file);
-                    e.target.value = "";
-                  }}
-                />
-              </label>
-              {question.choices.length > 2 && (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  onClick={() =>
-                    patch({
-                      choices: question.choices.filter((c) => c.id !== choice.id),
-                    })
-                  }
-                >
-                  <Trash2 className="size-4" />
-                </Button>
-              )}
-              </div>
-              {choiceImg && (
-                <div className="flex items-start gap-2 pl-7">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={choiceImg}
-                    alt="Choice"
-                    className="max-h-28 rounded-md border object-contain"
-                  />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() =>
+                            isCorrect: c.id === choice.id,
+                          })),
+                        })
+                      }
+                    />
+                  )}
+                  <Input
+                    className="flex-1"
+                    value={choice.choiceText[activeLang]}
+                    onChange={(e) =>
                       patch({
                         choices: question.choices.map((c) =>
-                          c.id === choice.id ? { ...c, imageUrl: null } : c,
+                          c.id === choice.id
+                            ? {
+                                ...c,
+                                choiceText: { ...c.choiceText, [activeLang]: e.target.value },
+                              }
+                            : c,
                         ),
                       })
                     }
-                  >
-                    Remove image
-                  </Button>
+                    placeholder={type === "SEQUENCE" ? "Label (optional if image)" : "Choice text (optional if image)"}
+                  />
+                  <label className="inline-flex cursor-pointer items-center gap-1 rounded-md border px-2 py-1.5 text-xs hover:bg-muted/40">
+                    <ImagePlus className="size-3.5" />
+                    {uploadingChoiceId === choice.id ? "…" : "Image"}
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      disabled={uploadingChoiceId === choice.id}
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) void uploadChoiceImage(choice.id, file);
+                        e.target.value = "";
+                      }}
+                    />
+                  </label>
+                  {question.choices.length > 2 && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      onClick={() =>
+                        patch({
+                          choices: question.choices.filter((c) => c.id !== choice.id),
+                        })
+                      }
+                    >
+                      <Trash2 className="size-4" />
+                    </Button>
+                  )}
                 </div>
-              )}
-            </div>
+                {choiceImg && (
+                  <div className="flex items-start gap-2 pl-7">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={choiceImg} alt="Choice" className="max-h-28 rounded-md border object-contain" />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() =>
+                        patch({
+                          choices: question.choices.map((c) => (c.id === choice.id ? { ...c, imageUrl: null } : c)),
+                        })
+                      }
+                    >
+                      Remove image
+                    </Button>
+                  </div>
+                )}
+              </div>
             );
           })}
           <Button

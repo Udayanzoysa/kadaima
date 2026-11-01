@@ -36,9 +36,7 @@ function isPublicPath(pathname: string) {
   if (pathname === "/teacher/register" || pathname.startsWith("/teacher/register/")) {
     return true;
   }
-  return PUBLIC_PREFIXES.some(
-    (p) => pathname === p || pathname.startsWith(`${p}/`),
-  );
+  return PUBLIC_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`));
 }
 
 function isAuthPage(pathname: string) {
@@ -70,8 +68,16 @@ function isTeacherAppPath(pathname: string) {
 
 /** Personal account pages — any logged-in user, but not part of the /admin dashboard. */
 function isAccountPath(pathname: string) {
-  return pathname === "/profile" || pathname.startsWith("/profile/") ||
-    pathname === "/payments" || pathname.startsWith("/payments/");
+  return (
+    pathname === "/profile" ||
+    pathname.startsWith("/profile/") ||
+    pathname === "/payments" ||
+    pathname.startsWith("/payments/") ||
+    pathname === "/classes" ||
+    pathname.startsWith("/classes/") ||
+    pathname === "/timetable" ||
+    pathname.startsWith("/timetable/")
+  );
 }
 
 export function middleware(req: NextRequest) {

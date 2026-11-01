@@ -32,11 +32,7 @@ export type CatalogIndex = {
 };
 
 /** Fast substring match against pre-normalized searchText (en/si/ta). */
-export function searchCatalogIndex(
-  entries: CatalogIndexEntry[],
-  query: string,
-  limit = 12,
-): CatalogIndexEntry[] {
+export function searchCatalogIndex(entries: CatalogIndexEntry[], query: string, limit = 12): CatalogIndexEntry[] {
   const q = query.trim().toLowerCase();
   if (!q) return [];
   const scored: Array<{ entry: CatalogIndexEntry; score: number }> = [];

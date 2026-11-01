@@ -5,14 +5,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
-import {
-  BadgeCheck,
-  CalendarClock,
-  CreditCard,
-  FileText,
-  Ticket,
-  Wallet,
-} from "lucide-react";
+import { ArrowRight, BadgeCheck, CalendarClock, CreditCard, FileText, GraduationCap, Ticket, Wallet } from "lucide-react";
 
 import { PublicQuizShell } from "@/app/quiz/_components/public-quiz-shell";
 import { PublicContentSkeleton } from "@/components/site/public-content-skeleton";
@@ -55,14 +48,16 @@ const WARN_STATUSES = new Set(["Pending"]);
 
 function StatusBadge({ status }: { status: string }) {
   if (SUCCESS_STATUSES.has(status)) {
-    return (
-      <Badge className="border-emerald-200 bg-emerald-50 text-emerald-700">{status}</Badge>
-    );
+    return <Badge className="border-emerald-200 bg-emerald-50 text-emerald-700">{status}</Badge>;
   }
   if (WARN_STATUSES.has(status)) {
     return <Badge className="border-amber-200 bg-amber-50 text-amber-700">{status}</Badge>;
   }
-  return <Badge variant="outline" className="border-slate-300 text-slate-600">{status}</Badge>;
+  return (
+    <Badge variant="outline" className="border-slate-300 text-slate-600">
+      {status}
+    </Badge>
+  );
 }
 
 function PaymentsPageInner() {
@@ -140,6 +135,24 @@ function PaymentsPageInner() {
           )}
         </div>
 
+        <div className="mt-4 flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-start gap-3">
+            <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700">
+              <GraduationCap className="size-5" />
+            </div>
+            <div>
+              <h2 className="text-sm font-semibold text-slate-900">{t("classes.payments.studentTitle")}</h2>
+              <p className="mt-0.5 text-xs text-slate-500">{t("classes.payments.studentSubtitle")}</p>
+            </div>
+          </div>
+          <Button asChild size="sm" variant="outline" className="shrink-0">
+            <Link href="/classes?tab=tuition">
+              {t("classes.dashboard.student.tabTuition")}
+              <ArrowRight className="ml-1.5 size-3.5" />
+            </Link>
+          </Button>
+        </div>
+
         <section className="mt-5">
           <h2 className="mb-2 text-sm font-semibold uppercase tracking-wider text-slate-500">
             {t("public.paymentsPage.lastPayment")}
@@ -196,9 +209,7 @@ function PaymentCard({
           <Icon className="size-4.5" />
         </div>
         <div>
-          <p className="text-sm font-semibold text-slate-900">
-            {row.title ? localize(row.title, locale) : row.method}
-          </p>
+          <p className="text-sm font-semibold text-slate-900">{row.title ? localize(row.title, locale) : row.method}</p>
           <p className="mt-0.5 text-xs text-slate-500">
             {new Date(row.createdAt).toLocaleString()}
             {row.reference ? ` · ${row.reference}` : ""}

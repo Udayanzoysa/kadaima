@@ -1,9 +1,4 @@
-import {
-  type LocalizedText,
-  type QuestionConfig,
-  type QuestionStatus,
-  type QuestionType,
-} from "@/types/quiz";
+import { type LocalizedText, type QuestionConfig, type QuestionStatus, type QuestionType } from "@/types/quiz";
 
 /** Payload shape matching POST /questions */
 export type ImportQuestionPayload = {
@@ -24,13 +19,7 @@ export type ParseResult = {
   issues: ParseIssue[];
 };
 
-const QUESTION_TYPES = new Set<QuestionType>([
-  "MCQ",
-  "SHORT_TEXT",
-  "NUMERIC",
-  "SEQUENCE",
-  "ESSAY",
-]);
+const QUESTION_TYPES = new Set<QuestionType>(["MCQ", "SHORT_TEXT", "NUMERIC", "SEQUENCE", "ESSAY"]);
 
 const STATUSES = new Set<QuestionStatus>(["Draft", "Published", "Archived"]);
 
@@ -259,12 +248,8 @@ function letterIndex(letter: string): number {
   return -1;
 }
 
-function readOption(
-  get: (key: string) => string,
-  letter: (typeof OPTION_LETTERS)[number],
-): LocalizedText | null {
-  const en =
-    get(`option_${letter}_en`) || get(`option_${letter}`) || get(letter);
+function readOption(get: (key: string) => string, letter: (typeof OPTION_LETTERS)[number]): LocalizedText | null {
+  const en = get(`option_${letter}_en`) || get(`option_${letter}`) || get(letter);
   const si = get(`option_${letter}_si`);
   const ta = get(`option_${letter}_ta`);
   if (!en.trim() && !si.trim() && !ta.trim()) return null;
@@ -291,13 +276,9 @@ function buildFromRow(
   const pointsRaw = Number(get("points") || "1");
   const points = Number.isFinite(pointsRaw) && pointsRaw >= 1 ? Math.floor(pointsRaw) : 1;
   const statusRaw = (get("status") || "Draft").trim();
-  const status: QuestionStatus = STATUSES.has(statusRaw as QuestionStatus)
-    ? (statusRaw as QuestionStatus)
-     : "Draft";
+  const status: QuestionStatus = STATUSES.has(statusRaw as QuestionStatus) ? (statusRaw as QuestionStatus) : "Draft";
 
-  const options = OPTION_LETTERS.map((letter) => readOption(get, letter)).filter(
-    (o): o is LocalizedText => Boolean(o),
-  );
+  const options = OPTION_LETTERS.map((letter) => readOption(get, letter)).filter((o): o is LocalizedText => Boolean(o));
 
   const correct = get("correct") || get("answer") || get("correct_answer");
   const config: QuestionConfig = { contentFormat: "plain" };
@@ -355,8 +336,7 @@ function buildFromRow(
     }
     config.acceptedAnswers = accepted;
     const mode = (get("match_mode") || "case_insensitive").trim().toLowerCase();
-    config.matchMode =
-      mode === "exact" || mode === "regex" ? mode : "case_insensitive";
+    config.matchMode = mode === "exact" || mode === "regex" ? mode : "case_insensitive";
   } else if (type === "NUMERIC") {
     const num = Number(correct);
     if (!Number.isFinite(num)) {
@@ -374,7 +354,10 @@ function buildFromRow(
 
   const tagsRaw = get("tags") || get("labels") || "";
   const tags = tagsRaw
-    ? tagsRaw.split(",").map((t) => t.trim()).filter(Boolean)
+    ? tagsRaw
+        .split(",")
+        .map((t) => t.trim())
+        .filter(Boolean)
     : [];
 
   return {
@@ -464,14 +447,20 @@ export function parseAiken(text: string): ParseResult {
   const issues: ParseIssue[] = [];
 
   blocks.forEach((block, bi) => {
-    const lines = block.split("\n").map((l) => l.trim()).filter(Boolean);
+    const lines = block
+      .split("\n")
+      .map((l) => l.trim())
+      .filter(Boolean);
     if (lines.length === 0) return;
 
     // Detect type
     let questionType: QuestionType = "MCQ";
     const typeLine = lines.find((l) => /^TYPE\s*:/i.test(l));
     if (typeLine) {
-      const typeStr = typeLine.replace(/^TYPE\s*:/i, "").trim().toUpperCase();
+      const typeStr = typeLine
+        .replace(/^TYPE\s*:/i, "")
+        .trim()
+        .toUpperCase();
       if (typeStr === "FILL_IN_THE_BLANK" || typeStr === "FILL_IN" || typeStr === "SHORT_TEXT" || typeStr === "SHORT") {
         questionType = "SHORT_TEXT";
       } else if (typeStr === "NUMERIC" || typeStr === "NUMBER") {
@@ -507,7 +496,10 @@ export function parseAiken(text: string): ParseResult {
     const tagsLine = lines.find((l) => /^(TAGS|LABELS)\s*:/i.test(l));
     if (tagsLine) {
       const tgRaw = tagsLine.replace(/^(TAGS|LABELS)\s*:/i, "").trim();
-      tags = tgRaw.split(",").map((t) => t.trim()).filter(Boolean);
+      tags = tgRaw
+        .split(",")
+        .map((t) => t.trim())
+        .filter(Boolean);
     }
 
     // Question prompt lines (lines that do not start with metadata/options keywords)
@@ -516,7 +508,11 @@ export function parseAiken(text: string): ParseResult {
 
     const bodyLines = lines.filter((l) => {
       // Exclude metadata/answer lines
-      if (/^(TYPE|POINTS|STATUS|TAGS|LABELS|ANSWER|ANSWER-SI|ANSWER-TA|MATCH_MODE|TOLERANCE|MIN_WORDS|MIN_SENTENCES)\s*:/i.test(l)) {
+      if (
+        /^(TYPE|POINTS|STATUS|TAGS|LABELS|ANSWER|ANSWER-SI|ANSWER-TA|MATCH_MODE|TOLERANCE|MIN_WORDS|MIN_SENTENCES)\s*:/i.test(
+          l,
+        )
+      ) {
         return false;
       }
       return true;
@@ -584,7 +580,10 @@ export function parseAiken(text: string): ParseResult {
         issues.push({ row: bi + 1, message: "Missing ANSWER: line (e.g. ANSWER: A)" });
         return;
       }
-      const answerLetter = answerLine.replace(/^ANSWER\s*:/i, "").trim().toUpperCase();
+      const answerLetter = answerLine
+        .replace(/^ANSWER\s*:/i, "")
+        .trim()
+        .toUpperCase();
       const correctIdx = orderedLetters.indexOf(answerLetter);
       if (correctIdx < 0) {
         issues.push({
@@ -615,9 +614,27 @@ export function parseAiken(text: string): ParseResult {
       const answerSiLine = lines.find((l) => /^ANSWER-SI\s*:/i.test(l));
       const answerTaLine = lines.find((l) => /^ANSWER-TA\s*:/i.test(l));
 
-      const acceptedEn = answerLine ? answerLine.replace(/^ANSWER\s*:/i, "").split(/[|;]/).map((s) => s.trim()).filter(Boolean) : [];
-      const acceptedSi = answerSiLine ? answerSiLine.replace(/^ANSWER-SI\s*:/i, "").split(/[|;]/).map((s) => s.trim()).filter(Boolean) : [];
-      const acceptedTa = answerTaLine ? answerTaLine.replace(/^ANSWER-TA\s*:/i, "").split(/[|;]/).map((s) => s.trim()).filter(Boolean) : [];
+      const acceptedEn = answerLine
+        ? answerLine
+            .replace(/^ANSWER\s*:/i, "")
+            .split(/[|;]/)
+            .map((s) => s.trim())
+            .filter(Boolean)
+        : [];
+      const acceptedSi = answerSiLine
+        ? answerSiLine
+            .replace(/^ANSWER-SI\s*:/i, "")
+            .split(/[|;]/)
+            .map((s) => s.trim())
+            .filter(Boolean)
+        : [];
+      const acceptedTa = answerTaLine
+        ? answerTaLine
+            .replace(/^ANSWER-TA\s*:/i, "")
+            .split(/[|;]/)
+            .map((s) => s.trim())
+            .filter(Boolean)
+        : [];
 
       const accepted = [...acceptedEn, ...acceptedSi, ...acceptedTa];
       if (!accepted.length) {
@@ -630,8 +647,13 @@ export function parseAiken(text: string): ParseResult {
       config.acceptedAnswers = accepted;
 
       const mmLine = lines.find((l) => /^MATCH_MODE\s*:/i.test(l));
-      const mode = mmLine ? mmLine.replace(/^MATCH_MODE\s*:/i, "").trim().toLowerCase() : "case_insensitive";
-      config.matchMode = (mode === "exact" || mode === "regex") ? mode : "case_insensitive";
+      const mode = mmLine
+        ? mmLine
+            .replace(/^MATCH_MODE\s*:/i, "")
+            .trim()
+            .toLowerCase()
+        : "case_insensitive";
+      config.matchMode = mode === "exact" || mode === "regex" ? mode : "case_insensitive";
     } else if (questionType === "NUMERIC") {
       const answerLine = lines.find((l) => /^ANSWER\s*:/i.test(l));
       if (!answerLine) {

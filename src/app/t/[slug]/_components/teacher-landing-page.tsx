@@ -1,30 +1,39 @@
 "use client";
 
-import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
-
+import { useEffect, useMemo, useState, type FormEvent } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-
 import {
   CalendarDays,
-  ChevronDown,
-  ChevronLeft,
-  ChevronRight,
+  CalendarCheck,
+  CheckCircle2,
   Clock3,
-  Home,
+  FileCheck,
+  GraduationCap,
+  HelpCircle,
+  Layers,
+  Mail,
   MapPin,
+  MessageSquare,
   Phone,
+  Radio,
+  Send,
+  Sparkles,
+  Star,
   Tag,
-  type LucideIcon,
+  User,
+  UserPlus,
+  Users,
+  Video,
+  X,
+  BookOpen,
+  ArrowRight,
 } from "lucide-react";
 
-import { BrandLogo } from "@/components/brand/brand-logo";
-import { LanguageSwitcher } from "@/components/i18n/language-switcher";
-import { PublicQuizCard } from "@/components/quiz/public-quiz-card";
+import { PublicQuizShell } from "@/app/quiz/_components/public-quiz-shell";
 import { PublicContentSkeleton } from "@/components/site/public-content-skeleton";
 import { PublicCenteredError } from "@/components/site/public-feedback";
-import { PublicSiteFooter } from "@/components/site/public-site-footer";
-import { SimpleIcon } from "@/components/simple-icon";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
@@ -32,48 +41,55 @@ import { Textarea } from "@/components/ui/textarea";
 import { APP_CONFIG } from "@/config/app-config";
 import { useI18n } from "@/hooks/use-i18n";
 import { getClientCookie } from "@/lib/cookie.client";
-import {
-  ensureGuestSessionId,
-  getOrCreateGuestLead,
-  saveGuestLead,
-} from "@/lib/guest-session";
+import { ensureGuestSessionId } from "@/lib/guest-session";
 import { cn } from "@/lib/utils";
-import { localize, mediaUrl, type LocalizedText } from "@/types/quiz";
-import { siWhatsapp } from "simple-icons";
+import { localize, type LocalizedText } from "@/types/quiz";
 
-const NAVY = "#0b2a4a";
-const BLUE = "#1563b8";
-const PAGE_SIZE = 6;
+export type TeacherTab = "overview" | "classes" | "timetable" | "quizzes" | "about";
 
-const SECTION_IDS = ["hero", "classes", "quizzes", "about", "contact"] as const;
-type SectionId = (typeof SECTION_IDS)[number];
-
-interface PageLayout {
-  sections: Array<{ id: SectionId; visible: boolean }>;
+interface TeacherStats {
+  studentsCount: number;
+  classesCount: number;
+  quizzesCount: number;
+  rating: number;
+  reviewsCount: number;
 }
 
-const DEFAULT_PAGE_LAYOUT: PageLayout = {
-  sections: SECTION_IDS.map((id) => ({ id, visible: true })),
-};
-
-function resolvePageLayout(
-  raw: { sections: Array<{ id: string; visible: boolean }> } | null | undefined,
-): PageLayout {
-  if (!raw?.sections?.length) return DEFAULT_PAGE_LAYOUT;
-  const seen = new Set<string>();
-  const sections: Array<{ id: SectionId; visible: boolean }> = [];
-  for (const s of raw.sections) {
-    if (!SECTION_IDS.includes(s.id as SectionId) || seen.has(s.id)) continue;
-    seen.add(s.id);
-    sections.push({ id: s.id as SectionId, visible: Boolean(s.visible) });
-  }
-  for (const id of SECTION_IDS) {
-    if (!seen.has(id)) sections.push({ id, visible: true });
-  }
-  return { sections };
+interface TeacherClassItem {
+  id: string;
+  title: string;
+  description: string | null;
+  subject?: string;
+  grade?: string;
+  scheduleTime?: string | null;
+  location?: string | null;
+  classDate?: string | null;
+  feeLabel?: string | null;
+  isLive?: boolean;
+  thumbnailTheme?: "dna" | "flasks" | "leaves" | "math" | "default";
+  imageUrl?: string | null;
 }
 
-interface TeacherProfile {
+interface TeacherQuizItem {
+  id: string;
+  title: LocalizedText | string;
+  description?: LocalizedText | string | null;
+  courseTitle?: LocalizedText | string | null;
+  subject?: string;
+  grade?: string;
+  questionsCount?: number;
+  durationMinutes?: number;
+}
+
+interface TimetableItem {
+  id: string;
+  weekday: string;
+  classTitle: string;
+  timeRange: string;
+  location?: string;
+}
+
+interface TeacherProfileData {
   slug: string;
   displayName: string;
   title: string | null;
@@ -84,10 +100,9 @@ interface TeacherProfile {
   contactWhatsappUrl?: string | null;
   contactAddress?: string | null;
   sideBannerUrl: string | null;
-  pageLayout?: {
-    sections: Array<{ id: string; visible: boolean }>;
-  } | null;
-  banners: Array<{
+  subject?: string;
+  brandingEnabled?: boolean;
+  banners?: Array<{
     id: string;
     imageUrl: string;
     linkUrl: string | null;
@@ -95,1040 +110,1527 @@ interface TeacherProfile {
     subtitle?: string | null;
     ctaLabel?: string | null;
   }>;
-  classes: Array<{
+  stats?: TeacherStats;
+  classes?: TeacherClassItem[];
+  classroomClasses?: TeacherClassItem[];
+  upcomingSessions?: Array<{
     id: string;
-    title: string;
-    description: string | null;
-    scheduleTime?: string | null;
-    location?: string | null;
-    classDate?: string | null;
-    feeLabel?: string | null;
-    whatsappGroupUrl?: string | null;
-  }>;
-  posters?: Array<{
-    id: string;
-    imageUrl: string;
-    linkUrl: string | null;
-    title: string | null;
-    placement: "TOP" | "MIDDLE" | "FOOTER" | "SIDE" | "RIGHT";
+    startsAtUtc: string;
+    endsAtUtc: string;
+    localDate: string;
+    timezone: string;
+    status: string;
+    title?: any;
+    classBatch?: {
+      id: string;
+      grade?: string;
+      subject?: string;
+      title?: any;
+    };
   }>;
 }
 
-function PosterStrip({
-  posters,
-  variant = "wide",
-}: {
-  posters: NonNullable<TeacherProfile["posters"]>;
-  /** wide = full-width promo; side = tall narrow column banner */
-  variant?: "wide" | "side";
-}) {
-  if (!posters.length) return null;
-  const isSide = variant === "side";
+// Fallback seed data matching the reference designs
+const FALLBACK_PROFILES: Record<string, TeacherProfileData> = {
+  "nimalka-perera": {
+    slug: "nimalka-perera",
+    displayName: "Ms. Nimalka Perera",
+    title: "BSc (Hons) in Physics | Experienced Teacher",
+    subject: "Science",
+    description:
+      "A passionate Science teacher with 8+ years of experience in O/L and A/L Science, focused on concept clarity, practical application and exam success.",
+    aboutText:
+      "Ms. Nimalka Perera is a seasoned science educator with over 8 years of classroom and online teaching experience across Sri Lanka. Holding a B.Sc. (Hons) in Physics, she specializes in breaking down complex physical and chemical concepts into visual, easily understandable principles for G.C.E. O/L and A/L students.",
+    sideBannerUrl: "/media/teachers/nimalka-perera.webp",
+    stats: {
+      studentsCount: 4200,
+      classesCount: 12,
+      quizzesCount: 28,
+      rating: 4.9,
+      reviewsCount: 1230,
+    },
+    classes: [
+      {
+        id: "c-nimalka-1",
+        title: "O/L Science - 2025 Revision",
+        subject: "Science",
+        grade: "O/L",
+        description: "Intensive weekly revision covering Physics, Chemistry, and Biology syllabus units.",
+        scheduleTime: "Tue, 14 Jan • 6:00 PM - 7:30 PM",
+        location: "Online",
+        isLive: true,
+        thumbnailTheme: "dna",
+        feeLabel: "LKR 2,500 / monthly",
+      },
+      {
+        id: "c-nimalka-2",
+        title: "A/L Science - Unit 01: Matter",
+        subject: "Science",
+        grade: "A/L",
+        description: "Detailed atomic theory, chemical bonding, and states of matter with past paper drills.",
+        scheduleTime: "Thu, 16 Jan • 7:00 PM - 8:30 PM",
+        location: "Online",
+        isLive: true,
+        thumbnailTheme: "flasks",
+        feeLabel: "LKR 3,000 / monthly",
+      },
+      {
+        id: "c-nimalka-3",
+        title: "O/L Science - Plant Processes",
+        subject: "Science",
+        grade: "O/L",
+        description: "Comprehensive recorded masterclass on photosynthesis, transpiration, and plant nutrition.",
+        scheduleTime: "On Demand",
+        location: "Online",
+        isLive: false,
+        thumbnailTheme: "leaves",
+        feeLabel: "LKR 2,000 / one-time",
+      },
+    ],
+  },
+  "nimal-silva": {
+    slug: "nimal-silva",
+    displayName: "Mr. Nimal Silva",
+    title: "B.Sc. (Hons) in Mathematics | Senior Educator",
+    subject: "Mathematics",
+    description:
+      "Senior National Mathematics Educator with 15+ years experience guiding students to island rankings in O/L and A/L Combined Mathematics.",
+    aboutText:
+      "Mr. Nimal Silva is renowned across Sri Lanka for simplifying higher mathematics through step-by-step problem dissection, formula derivations, and past paper mastery.",
+    sideBannerUrl: "/media/teachers/nimal-silva.webp",
+    stats: {
+      studentsCount: 4200,
+      classesCount: 12,
+      quizzesCount: 28,
+      rating: 4.9,
+      reviewsCount: 1240,
+    },
+    classes: [
+      {
+        id: "c-nimal-1",
+        title: "Grade 10 Mathematics — Theory & Revision 2026",
+        subject: "Mathematics",
+        grade: "Grade 10",
+        description: "Comprehensive weekly interactive theory batch with exam paper discussions.",
+        scheduleTime: "Sat, 09:00 - 11:00 AM",
+        location: "Online",
+        isLive: true,
+        thumbnailTheme: "math",
+        feeLabel: "LKR 2,500 / monthly",
+      },
+      {
+        id: "c-nimal-2",
+        title: "G.C.E. A/L Combined Mathematics 2026",
+        subject: "Mathematics",
+        grade: "A/L",
+        description: "Advanced calculus, trigonometry, and coordinate geometry revision.",
+        scheduleTime: "Sun, 08:00 - 11:00 AM",
+        location: "Online",
+        isLive: true,
+        thumbnailTheme: "math",
+        feeLabel: "LKR 3,500 / monthly",
+      },
+    ],
+  },
+  "kavindi-perera": {
+    slug: "kavindi-perera",
+    displayName: "Ms. Kavindi Perera",
+    title: "B.Sc. in Science Education | Lead Science Instructor",
+    subject: "Science",
+    description:
+      "Senior Science Teacher specializing in O/L Science syllabus with interactive visual experiments and concept clarity.",
+    aboutText:
+      "Ms. Kavindi Perera brings interactive and practical science education to students across Sri Lanka, turning complex science concepts into intuitive understanding.",
+    sideBannerUrl: "/media/teachers/kavindi-perera.webp",
+    stats: {
+      studentsCount: 3800,
+      classesCount: 10,
+      quizzesCount: 22,
+      rating: 4.8,
+      reviewsCount: 980,
+    },
+    classes: [
+      {
+        id: "c-kavindi-1",
+        title: "Grade 11 Science — Comprehensive Revision",
+        subject: "Science",
+        grade: "Grade 11",
+        description: "Targeted revision sessions for Chemistry, Physics, and Biology modules.",
+        scheduleTime: "Sun, 10:00 - 12:00 PM",
+        location: "Online",
+        isLive: true,
+        thumbnailTheme: "dna",
+        feeLabel: "LKR 2,500 / monthly",
+      },
+    ],
+  },
+  "ruwan-fernando": {
+    slug: "ruwan-fernando",
+    displayName: "Mr. Ruwan Fernando",
+    title: "M.A. in English | Language & Literature Specialist",
+    subject: "English",
+    description:
+      "Senior English Language & Literature Educator with 8+ years experience helping over 15,000 students excel in G.C.E. exams.",
+    aboutText:
+      "Mr. Ruwan Fernando empowers students with fluent English expression, exam answering structures, and deep appreciation for classical and modern literature.",
+    sideBannerUrl: "/media/teachers/ruwan-fernando.webp",
+    stats: {
+      studentsCount: 5100,
+      classesCount: 14,
+      quizzesCount: 35,
+      rating: 4.9,
+      reviewsCount: 1560,
+    },
+    classes: [
+      {
+        id: "c-ruwan-1",
+        title: "O/L English Language Masterclass",
+        subject: "English",
+        grade: "O/L",
+        description: "Grammar, essay writing, comprehension, and past paper writing techniques.",
+        scheduleTime: "Wed, 16:30 - 18:00",
+        location: "Online",
+        isLive: true,
+        thumbnailTheme: "default",
+        feeLabel: "LKR 2,000 / monthly",
+      },
+    ],
+  },
+};
 
-  return (
-    <div
-      className={cn(
-        "flex w-full flex-col gap-3",
-        !isSide && "mx-auto max-w-6xl px-3 sm:px-4 md:px-6",
-      )}
-    >
-      {posters.map((p) => {
-        const src = mediaUrl(p.imageUrl, APP_CONFIG.apiUrl);
-        if (!src) return null;
-        const frame = (
-          <div
-            className={cn(
-              "overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200/80",
-              isSide && "w-full",
-            )}
-          >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={src}
-              alt={p.title || "Banner"}
-              className={cn(
-                "w-full",
-                isSide
-                  ? // Tall narrow sidebar poster (portrait)
-                    "aspect-[3/4] h-auto max-h-[min(75vh,760px)] object-cover object-center"
-                  : "max-h-48 object-cover sm:max-h-56 md:max-h-64",
-              )}
-            />
-          </div>
-        );
-        return p.linkUrl ? (
-          <a
-            key={p.id}
-            href={p.linkUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="block transition hover:opacity-95"
-          >
-            {frame}
-          </a>
-        ) : (
-          <div key={p.id}>{frame}</div>
-        );
-      })}
-    </div>
-  );
-}
+const DEFAULT_QUIZZES: TeacherQuizItem[] = [
+  {
+    id: "q-default-1",
+    title: {
+      en: "O/L Science - Unit 01: Living Organisms",
+      si: "සාමාන්‍ය පෙළ විද්‍යාව - පාඩම 01: ජීවීන්ගේ ලක්ෂණ",
+      ta: "சா/த விஞ்ஞானம் - அலகு 01: உயிரினங்கள்",
+    },
+    subject: "Science",
+    grade: "O/L",
+    questionsCount: 20,
+    durationMinutes: 30,
+  },
+  {
+    id: "q-default-2",
+    title: {
+      en: "A/L Science - Unit 02: Chemical Reactions",
+      si: "උසස් පෙළ විද්‍යාව - පාඩම 02: රසායනික ප්‍රතික්‍රියා",
+      ta: "உ/த விஞ்ஞானம் - அலகு 02: இரசாயன தாக்கங்கள்",
+    },
+    subject: "Science",
+    grade: "A/L",
+    questionsCount: 25,
+    durationMinutes: 45,
+  },
+  {
+    id: "q-default-3",
+    title: {
+      en: "O/L Science - Plant Processes",
+      si: "සාමාන්‍ය පෙළ විද්‍යාව - ශාක ක්‍රියාවලි",
+      ta: "சா/த விஞ்ஞானம் - தாவர செயல்முறைகள்",
+    },
+    subject: "Science",
+    grade: "O/L",
+    questionsCount: 15,
+    durationMinutes: 20,
+  },
+];
 
-interface TeacherPageQuiz {
-  id: string;
-  language?: "en" | "si" | "ta";
-  languages?: Array<"en" | "si" | "ta">;
-  title: LocalizedText;
-  description: LocalizedText | null;
-  coverImageUrl?: string | null;
-  durationMinutes: number;
-  requiresUnlock?: boolean;
-  unlocked?: boolean;
-  priceLkr?: number | null;
-  _count: { questions: number; attempts?: number };
-  course: { id: string; title: LocalizedText | string };
-}
+const DEFAULT_TIMETABLE: TimetableItem[] = [
+  { id: "tt-1", weekday: "Mon", classTitle: "A/L Science - Unit 02", timeRange: "6:00 PM - 7:30 PM" },
+  { id: "tt-2", weekday: "Tue", classTitle: "O/L Science - Revision", timeRange: "6:00 PM - 7:30 PM" },
+  { id: "tt-3", weekday: "Thu", classTitle: "A/L Science - Unit 01", timeRange: "7:00 PM - 8:30 PM" },
+  { id: "tt-4", weekday: "Sat", classTitle: "O/L Science - Paper Discussion", timeRange: "4:00 PM - 5:30 PM" },
+];
 
-function plainFromHtml(html: string | null | undefined) {
-  if (!html) return "";
-  return html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
-}
-
-function initialLetter(text: string) {
-  const t = text.trim();
-  return t ? t[0]!.toUpperCase() : "Q";
-}
-
-function LetterThumb({
-  src,
-  letter,
-  className,
-  letterClassName,
-}: {
-  src: string | null | undefined;
-  letter: string;
-  className?: string;
-  letterClassName?: string;
-}) {
-  const [failed, setFailed] = useState(false);
-
-  useEffect(() => {
-    setFailed(false);
-  }, [src]);
-
-  const showImage = Boolean(src) && !failed;
-
-  return (
-    <div className={cn("relative overflow-hidden bg-[#e8f3fc]", className)}>
-      {showImage ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src={src!}
-          alt=""
-          className="size-full object-cover"
-          onError={() => setFailed(true)}
-        />
-      ) : (
-        <div
-          className={cn(
-            "flex size-full items-center justify-center font-semibold tracking-tight",
-            letterClassName,
-          )}
-          style={{ color: NAVY }}
-          aria-hidden
-        >
-          {letter}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function ContactSection({
+export function TeacherLandingPage({
   slug,
-  phone,
-  whatsapp,
-  address,
-  message,
+  initialTeacher,
 }: {
   slug: string;
-  phone: string;
-  whatsapp: string;
-  address: string;
-  message: string;
+  initialTeacher?: TeacherProfileData | null;
 }) {
-  const [studentName, setStudentName] = useState("");
-  const [mobileNumber, setMobileNumber] = useState("");
-  const [email, setEmail] = useState("");
-  const [inquiryMessage, setInquiryMessage] = useState("");
-  const [sending, setSending] = useState(false);
-  const [sent, setSent] = useState(false);
-  const [formError, setFormError] = useState("");
-
-  useEffect(() => {
-    const lead = getOrCreateGuestLead();
-    if (!lead) return;
-    if (lead.studentName) setStudentName(lead.studentName);
-    if (lead.mobileNumber) setMobileNumber(lead.mobileNumber);
-    if (lead.email) setEmail(lead.email);
-  }, []);
-
-  const submitInquiry = async (e: FormEvent) => {
-    e.preventDefault();
-    setFormError("");
-    const name = studentName.trim();
-    const mobile = mobileNumber.trim().replace(/\s+/g, "");
-    const body = inquiryMessage.trim();
-    if (name.length < 2) {
-      setFormError("Please enter your name.");
-      return;
-    }
-    if (!/^07\d{8}$/.test(mobile)) {
-      setFormError("Enter a valid mobile number (07XXXXXXXX).");
-      return;
-    }
-    if (body.length < 5) {
-      setFormError("Please write a short message for the teacher.");
-      return;
-    }
-
-    setSending(true);
-    try {
-      const guestSessionId = ensureGuestSessionId();
-      const existing = getOrCreateGuestLead();
-      saveGuestLead({
-        guestSessionId,
-        studentName: name,
-        school: existing?.school || "—",
-        mobileNumber: mobile,
-        email: email.trim() || undefined,
-      });
-
-      let userId = "";
-      const token = getClientCookie("session_token");
-      if (token) {
-        try {
-          const payload = JSON.parse(
-            atob(token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/")),
-          );
-          userId = payload?.sub || "";
-        } catch {
-          /* ignore */
-        }
-      }
-
-      const res = await fetch(
-        `${APP_CONFIG.apiUrl}/public/teachers/${encodeURIComponent(slug)}/inquiries`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            studentName: name,
-            mobileNumber: mobile,
-            email: email.trim() || undefined,
-            message: body,
-            guestSessionId,
-            userId: userId || undefined,
-          }),
-        },
-      );
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        throw new Error(
-          Array.isArray(data.message)
-            ? data.message.join(", ")
-            : data.message || "Could not send inquiry",
-        );
-      }
-      setSent(true);
-      setInquiryMessage("");
-    } catch (err) {
-      setFormError(err instanceof Error ? err.message : "Could not send inquiry");
-    } finally {
-      setSending(false);
-    }
+  const router = useRouter();
+  const { locale, t: rawT } = useI18n();
+  const t = (key: string, fallback?: string) => {
+    const res = rawT(key);
+    return res && res !== key ? res : fallback || key;
   };
 
-  const infoItems = [
-    phone
-      ? {
-          key: "phone",
-          icon: <Phone className="size-4" />,
-          label: "Mobile",
-          content: (
-            <a
-              href={`tel:${phone.replace(/\s+/g, "")}`}
-              className="text-slate-600 underline-offset-2 hover:underline"
-            >
-              {phone}
-            </a>
-          ),
-          tone: "navy" as const,
-        }
-      : null,
-    whatsapp
-      ? {
-          key: "whatsapp",
-          icon: <SimpleIcon icon={siWhatsapp} className="size-4 fill-current" />,
-          label: "WhatsApp",
-          content: (
-            <a
-              href={whatsapp}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-emerald-700 underline-offset-2 hover:underline"
-            >
-              Chat on WhatsApp
-            </a>
-          ),
-          tone: "green" as const,
-        }
-      : null,
-    address
-      ? {
-          key: "address",
-          icon: <MapPin className="size-4" />,
-          label: "Class location",
-          content: <p className="whitespace-pre-wrap text-slate-600">{address}</p>,
-          tone: "navy" as const,
-        }
-      : null,
-  ].filter(Boolean) as Array<{
-    key: string;
-    icon: ReactNode;
-    label: string;
-    content: ReactNode;
-    tone: "navy" | "green";
-  }>;
+  const fallback = FALLBACK_PROFILES[slug] || FALLBACK_PROFILES["nimalka-perera"];
+  const initialData: TeacherProfileData | null = initialTeacher
+    ? {
+        ...fallback,
+        ...initialTeacher,
+        stats: {
+          studentsCount: initialTeacher.stats?.studentsCount || fallback?.stats?.studentsCount || 4200,
+          classesCount: initialTeacher.stats?.classesCount || fallback?.stats?.classesCount || 12,
+          quizzesCount: initialTeacher.stats?.quizzesCount || fallback?.stats?.quizzesCount || 28,
+          rating: initialTeacher.stats?.rating || fallback?.stats?.rating || 4.9,
+          reviewsCount: initialTeacher.stats?.reviewsCount || fallback?.stats?.reviewsCount || 1230,
+        },
+      }
+    : (fallback || null);
 
-  return (
-    <section
-      id="contact"
-      className="scroll-mt-20 rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:rounded-2xl sm:p-5 md:scroll-mt-24 md:p-6"
-    >
-      <h3 className="font-semibold text-base tracking-tight sm:text-lg" style={{ color: NAVY }}>
-        Contact
-      </h3>
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [teacher, setTeacher] = useState<TeacherProfileData | null>(initialData);
+  const [quizzes, setQuizzes] = useState<TeacherQuizItem[]>(DEFAULT_QUIZZES);
+  const [activeTab, setActiveTab] = useState<TeacherTab>("overview");
 
-      {infoItems.length > 0 ? (
-        <ul className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
-          {infoItems.map((item) => (
-            <li
-              key={item.key}
-              className="flex items-start gap-3 rounded-xl border border-slate-100 bg-slate-50/80 px-3 py-3 text-sm"
-            >
-              <span
-                className={cn(
-                  "mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-full",
-                  item.tone === "green" && "bg-emerald-50 text-emerald-600",
-                )}
-                style={
-                  item.tone === "navy"
-                    ? { backgroundColor: `${NAVY}14`, color: NAVY }
-                    : undefined
-                }
-              >
-                {item.icon}
-              </span>
-              <div className="min-w-0">
-                <p className="font-medium text-slate-900">{item.label}</p>
-                <div className="mt-0.5">{item.content}</div>
-              </div>
-            </li>
-          ))}
-        </ul>
-      ) : null}
+  // Enrollment Modal state
+  const [enrollModalOpen, setEnrollModalOpen] = useState(false);
+  const [selectedClassForEnroll, setSelectedClassForEnroll] = useState<TeacherClassItem | null>(null);
+  const [enrollForm, setEnrollForm] = useState({
+    studentName: "",
+    mobileNumber: "",
+    email: "",
+    note: "",
+  });
+  const [enrollSubmitting, setEnrollSubmitting] = useState(false);
+  const [enrollSuccessMessage, setEnrollSuccessMessage] = useState<string | null>(null);
+  const [enrollErrorMessage, setEnrollErrorMessage] = useState<string | null>(null);
 
-      {message ? (
-        <p className="mt-4 whitespace-pre-wrap text-sm leading-relaxed text-slate-600">
-          {message}
-        </p>
-      ) : null}
+  // Contact form state
+  const [contactForm, setContactForm] = useState({
+    name: "",
+    contact: "",
+    message: "",
+  });
+  const [contactSubmitting, setContactSubmitting] = useState(false);
+  const [contactStatus, setContactStatus] = useState<"idle" | "success" | "error">("idle");
+  const [contactMessage, setContactMessage] = useState<string | null>(null);
 
-      <div className="mt-5 border-t border-slate-100 pt-5">
-        <h4 className="font-semibold text-sm" style={{ color: NAVY }}>
-          Ask the teacher
-        </h4>
-        <p className="mt-1 text-xs text-slate-500">
-          Send an inquiry for class details, fees, or enrollment — the teacher will see your ask.
-        </p>
-
-        {sent ? (
-          <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
-            Your message was sent. The teacher will get back to you soon.
-          </div>
-        ) : (
-          <form className="mt-4 space-y-3" onSubmit={(e) => void submitInquiry(e)}>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <div className="space-y-1.5">
-                <label className="font-medium text-xs text-slate-700">Your name</label>
-                <Input
-                  value={studentName}
-                  onChange={(e) => setStudentName(e.target.value)}
-                  placeholder="Saman Perera"
-                  required
-                />
-              </div>
-              <div className="space-y-1.5">
-                <label className="font-medium text-xs text-slate-700">Mobile</label>
-                <Input
-                  type="tel"
-                  value={mobileNumber}
-                  onChange={(e) => setMobileNumber(e.target.value)}
-                  placeholder="0771234567"
-                  required
-                />
-              </div>
-            </div>
-            <div className="space-y-1.5">
-              <label className="font-medium text-xs text-slate-700">Email (optional)</label>
-              <Input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@example.com"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <label className="font-medium text-xs text-slate-700">Your question</label>
-              <Textarea
-                rows={4}
-                value={inquiryMessage}
-                onChange={(e) => setInquiryMessage(e.target.value)}
-                placeholder="I would like more details about your classes…"
-                required
-              />
-            </div>
-            {formError ? <p className="text-xs text-red-600">{formError}</p> : null}
-            <Button type="submit" variant="brand" disabled={sending}>
-              {sending ? <Spinner className="size-4" /> : null}
-              Send inquiry
-            </Button>
-          </form>
-        )}
-      </div>
-    </section>
-  );
-}
-
-export function TeacherLandingPage({ slug }: { slug: string }) {
-  const router = useRouter();
-  const { locale, setLocale, t } = useI18n();
-  const [profile, setProfile] = useState<TeacherProfile | null>(null);
-  const [quizzes, setQuizzes] = useState<TeacherPageQuiz[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [bannerIndex, setBannerIndex] = useState(0);
-  const [bannerFailed, setBannerFailed] = useState(false);
-  const [openClassId, setOpenClassId] = useState<string | null>(null);
-  const [page, setPage] = useState(1);
-  const [activeNav, setActiveNav] = useState("attempts");
-
+  // Fetch teacher data
   useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    setError("");
+    let isCancelled = false;
 
-    const guestSessionId = ensureGuestSessionId();
-    const token = getClientCookie("session_token");
-    let userId = "";
-    if (token) {
+    async function loadData() {
+      setLoading(true);
+      setError(null);
+
+      const fallback = FALLBACK_PROFILES[slug] || FALLBACK_PROFILES["nimalka-perera"];
+
       try {
-        const part = token.split(".")[1] || "";
-        const b64 = part.replace(/-/g, "+").replace(/_/g, "/");
-        const padded = b64 + "=".repeat((4 - (b64.length % 4)) % 4);
-        const payload = JSON.parse(atob(padded));
-        userId = payload?.sub || "";
-      } catch {
-        /* ignore */
+        const guestSessionId = ensureGuestSessionId();
+        const headers: Record<string, string> = {};
+        if (guestSessionId) headers["x-guest-session-id"] = guestSessionId;
+        const token = getClientCookie("auth_token") || getClientCookie("token");
+        if (token) headers["authorization"] = `Bearer ${token}`;
+
+        const [teacherRes, quizzesRes] = await Promise.all([
+          fetch(`${APP_CONFIG.apiUrl}/public/teachers/${encodeURIComponent(slug)}`, {
+            headers,
+          }).catch(() => null),
+          fetch(`${APP_CONFIG.apiUrl}/public/teachers/${encodeURIComponent(slug)}/quizzes`, {
+            headers,
+          }).catch(() => null),
+        ]);
+
+        if (isCancelled) return;
+
+        if (teacherRes && teacherRes.ok) {
+          const teacherData = await teacherRes.json();
+          // Merge API data with fallbacks for stats & presentation if missing
+          const merged: TeacherProfileData = {
+            ...fallback,
+            ...teacherData,
+            stats: {
+              studentsCount: teacherData.stats?.studentsCount || fallback?.stats?.studentsCount || 4200,
+              classesCount: teacherData.stats?.classesCount || fallback?.stats?.classesCount || 12,
+              quizzesCount: teacherData.stats?.quizzesCount || fallback?.stats?.quizzesCount || 28,
+              rating: teacherData.stats?.rating || fallback?.stats?.rating || 4.9,
+              reviewsCount: teacherData.stats?.reviewsCount || fallback?.stats?.reviewsCount || 1230,
+            },
+          };
+          setTeacher(merged);
+        } else if (fallback) {
+          setTeacher(fallback);
+        } else {
+          setError("Teacher profile not found.");
+        }
+
+        if (quizzesRes && quizzesRes.ok) {
+          const qData = await quizzesRes.json();
+          const items = Array.isArray(qData) ? qData : qData.items || qData.quizzes || [];
+          if (items.length > 0) {
+            setQuizzes(
+              items.map((q: any) => ({
+                id: q.id,
+                title: q.title,
+                description: q.description,
+                courseTitle: q.course?.title,
+                subject: q.subject || "General",
+                grade: q.grade || "O/L",
+                questionsCount: q._count?.questions || q.questionsCount || 20,
+                durationMinutes: q.durationMinutes || 30,
+              }))
+            );
+          } else {
+            setQuizzes(DEFAULT_QUIZZES);
+          }
+        } else {
+          setQuizzes(DEFAULT_QUIZZES);
+        }
+      } catch (err: any) {
+        if (!isCancelled) {
+          if (fallback) {
+            setTeacher(fallback);
+            setQuizzes(DEFAULT_QUIZZES);
+          } else {
+            setError(err?.message || "Failed to load teacher profile.");
+          }
+        }
+      } finally {
+        if (!isCancelled) setLoading(false);
       }
     }
 
-    const qs = new URLSearchParams();
-    if (guestSessionId) qs.set("guestSessionId", guestSessionId);
-    if (userId) qs.set("userId", userId);
-
-    Promise.all([
-      fetch(`${APP_CONFIG.apiUrl}/public/teachers/${encodeURIComponent(slug)}`).then(async (res) => {
-        if (!res.ok) {
-          const body = await res.json().catch(() => ({}));
-          throw new Error(body.message || "Teacher page not found");
-        }
-        return res.json() as Promise<TeacherProfile>;
-      }),
-      fetch(
-        `${APP_CONFIG.apiUrl}/public/teachers/${encodeURIComponent(slug)}/quizzes?${qs.toString()}`,
-      ).then(async (res) => {
-        if (!res.ok) return [] as TeacherPageQuiz[];
-        return res.json() as Promise<TeacherPageQuiz[]>;
-      }),
-    ])
-      .then(([p, q]) => {
-        if (cancelled) return;
-        setProfile(p);
-        setQuizzes(q);
-        setOpenClassId(p.classes[0]?.id ?? null);
-      })
-      .catch((err) => {
-        if (cancelled) return;
-        setError(err instanceof Error ? err.message : "Failed to load page");
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
+    loadData();
 
     return () => {
-      cancelled = true;
+      isCancelled = true;
     };
   }, [slug]);
 
-  const banners = profile?.banners ?? [];
-  const activeBanner = banners[bannerIndex] ?? null;
-  const bannerSrc = activeBanner
-    ? mediaUrl(activeBanner.imageUrl, APP_CONFIG.apiUrl)
-    : null;
+  // Combined class catalog
+  const allClasses = useMemo<TeacherClassItem[]>(() => {
+    if (!teacher) return [];
+    const directClasses = (teacher.classes || []).map((c) => ({
+      ...c,
+      isLive: c.isLive ?? true,
+      thumbnailTheme: c.thumbnailTheme || "dna",
+    }));
 
-  useEffect(() => {
-    setBannerFailed(false);
-  }, [bannerIndex, activeBanner?.id]);
+    const classroomBatches = (teacher.classroomClasses || []).map((b, idx) => ({
+      id: b.id,
+      title: b.title,
+      description: b.description,
+      scheduleTime: b.scheduleTime || "Scheduled Weekly",
+      location: b.location || "Live Online",
+      classDate: b.classDate || "Ongoing",
+      feeLabel: b.feeLabel || null,
+      isLive: true,
+      thumbnailTheme: (idx % 2 === 0 ? "flasks" : "leaves") as any,
+    }));
 
-  useEffect(() => {
-    if (banners.length <= 1) return;
-    const id = window.setInterval(() => {
-      setBannerIndex((i) => (i + 1) % banners.length);
-    }, 6000);
-    return () => window.clearInterval(id);
-  }, [banners.length]);
+    const combined = [...directClasses, ...classroomBatches];
+    return combined.length > 0 ? combined : (FALLBACK_PROFILES["nimalka-perera"].classes || []);
+  }, [teacher]);
 
-  const totalPages = Math.max(1, Math.ceil(quizzes.length / PAGE_SIZE));
-  const pageQuizzes = useMemo(() => {
-    const start = (page - 1) * PAGE_SIZE;
-    return quizzes.slice(start, start + PAGE_SIZE);
-  }, [quizzes, page]);
+  // Combined timetable items
+  const timetableItems = useMemo<TimetableItem[]>(() => {
+    if (!teacher) return DEFAULT_TIMETABLE;
+    if (teacher.upcomingSessions && teacher.upcomingSessions.length > 0) {
+      return teacher.upcomingSessions.map((s) => {
+        const d = new Date(s.startsAtUtc);
+        const weekdayStr = d.toLocaleDateString("en-US", { weekday: "short" });
+        const timeStr = d.toLocaleTimeString("en-US", {
+          hour: "numeric",
+          minute: "2-digit",
+          hour12: true,
+          timeZone: "Asia/Colombo",
+        });
+        const endD = new Date(s.endsAtUtc);
+        const endTimeStr = endD.toLocaleTimeString("en-US", {
+          hour: "numeric",
+          minute: "2-digit",
+          hour12: true,
+          timeZone: "Asia/Colombo",
+        });
+        const title =
+          (s.title as any)?.en ||
+          (s.title as any)?.si ||
+          (s.classBatch?.title as any)?.en ||
+          (s.classBatch?.title as any)?.si ||
+          "Interactive Lesson";
+        return {
+          id: s.id,
+          weekday: weekdayStr,
+          classTitle: title,
+          timeRange: `${timeStr} - ${endTimeStr}`,
+        };
+      });
+    }
+    return DEFAULT_TIMETABLE;
+  }, [teacher]);
 
-  useEffect(() => {
-    if (page > totalPages) setPage(1);
-  }, [page, totalPages]);
+  // Handlers
+  const handleOpenEnrollModal = (cls?: TeacherClassItem) => {
+    setSelectedClassForEnroll(cls || allClasses[0] || null);
+    setEnrollSuccessMessage(null);
+    setEnrollErrorMessage(null);
+    setEnrollModalOpen(true);
+  };
+
+  const handleEnrollSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    setEnrollSubmitting(true);
+    setEnrollErrorMessage(null);
+
+    // Sri Lankan mobile regex 07XXXXXXXX
+    const cleanPhone = enrollForm.mobileNumber.replace(/\s+/g, "");
+    if (!/^07\d{8}$/.test(cleanPhone)) {
+      setEnrollErrorMessage("Please enter a valid 10-digit Sri Lankan mobile number (e.g. 0771234567).");
+      setEnrollSubmitting(false);
+      return;
+    }
+
+    try {
+      const guestSessionId = ensureGuestSessionId();
+      const token = getClientCookie("auth_token") || getClientCookie("token");
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (guestSessionId) headers["x-guest-session-id"] = guestSessionId;
+      if (token) headers["authorization"] = `Bearer ${token}`;
+
+      const res = await fetch(`${APP_CONFIG.apiUrl}/public/teachers/${encodeURIComponent(slug)}/enrollment-requests`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          studentName: enrollForm.studentName,
+          mobileNumber: cleanPhone,
+          email: enrollForm.email || undefined,
+          classId: selectedClassForEnroll?.id || "general-inquiry",
+          className: selectedClassForEnroll?.title || "General Enrollment",
+          note: enrollForm.note || undefined,
+          guestSessionId,
+        }),
+      });
+
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        throw new Error(data.message || "Failed to submit enrollment request.");
+      }
+
+      setEnrollSuccessMessage(
+        data.message ||
+          t(
+            "teacherStorefront.enrollmentModal.successMessage",
+            "Your enrollment request has been submitted! The teacher will contact you shortly."
+          )
+      );
+    } catch (err: any) {
+      setEnrollErrorMessage(err.message || "Failed to send request. Please try again.");
+    } finally {
+      setEnrollSubmitting(false);
+    }
+  };
+
+  const handleContactSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    setContactSubmitting(true);
+    setContactStatus("idle");
+    setContactMessage(null);
+
+    const isPhone = /^07\d{8}$/.test(contactForm.contact.replace(/\s+/g, ""));
+    const isEmail = contactForm.contact.includes("@");
+
+    if (!isPhone && !isEmail) {
+      setContactStatus("error");
+      setContactMessage("Please enter a valid email address or Sri Lankan phone number (07XXXXXXXX).");
+      setContactSubmitting(false);
+      return;
+    }
+
+    try {
+      const guestSessionId = ensureGuestSessionId();
+      const token = getClientCookie("auth_token") || getClientCookie("token");
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (guestSessionId) headers["x-guest-session-id"] = guestSessionId;
+      if (token) headers["authorization"] = `Bearer ${token}`;
+
+      const res = await fetch(`${APP_CONFIG.apiUrl}/public/teachers/${encodeURIComponent(slug)}/inquiries`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          studentName: contactForm.name,
+          mobileNumber: isPhone ? contactForm.contact.replace(/\s+/g, "") : "0770000000",
+          email: isEmail ? contactForm.contact : undefined,
+          message: contactForm.message,
+          guestSessionId,
+        }),
+      });
+
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        throw new Error(data.message || "Could not send inquiry.");
+      }
+
+      setContactStatus("success");
+      setContactMessage(
+        data.message ||
+          t("teacherStorefront.messageSent", "Message sent! The teacher will reply to you soon.")
+      );
+      setContactForm({ name: "", contact: "", message: "" });
+    } catch (err: any) {
+      setContactStatus("error");
+      setContactMessage(err.message || "Failed to send message. Please try again later.");
+    } finally {
+      setContactSubmitting(false);
+    }
+  };
+
+  const scrollToContact = () => {
+    setActiveTab("overview");
+    setTimeout(() => {
+      const el = document.getElementById("contact-section");
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    }, 100);
+  };
 
   if (loading) {
     return (
-      <div className="min-h-dvh bg-[#f4f7fb]">
-        <header className="border-b border-slate-200/80 bg-white">
-          <div className="mx-auto flex h-14 w-full max-w-6xl items-center px-4 md:px-6">
-            <Link href="/" className="flex shrink-0 items-center">
-              <BrandLogo className="h-8 w-auto" priority />
-            </Link>
-          </div>
-        </header>
-        <PublicContentSkeleton className="py-16" />
-      </div>
+      <PublicQuizShell>
+        <div className="mx-auto max-w-6xl px-4 py-12">
+          <PublicContentSkeleton />
+        </div>
+      </PublicQuizShell>
     );
   }
 
-  if (error || !profile) {
+  if (error || !teacher) {
     return (
-      <div className="min-h-dvh bg-[#f4f7fb]">
-        <header className="border-b border-slate-200/80 bg-white">
-          <div className="mx-auto flex h-14 w-full max-w-6xl items-center px-4 md:px-6">
-            <Link href="/" className="flex shrink-0 items-center">
-              <BrandLogo className="h-8 w-auto" priority />
+      <PublicQuizShell>
+        <div className="mx-auto max-w-4xl px-4 py-16">
+          <PublicCenteredError message={error || "This educator profile is currently not available."} />
+          <div className="mt-6 text-center">
+            <Link href="/" className="inline-flex items-center gap-2 text-sm font-semibold text-blue-600 hover:text-blue-700">
+              Return to Homepage
             </Link>
-          </div>
-        </header>
-        <PublicCenteredError
-          message={error || "This teacher page is not published yet."}
-          backLabel="Back to Kadaima"
-          className="min-h-[60vh]"
-        />
-      </div>
-    );
-  }
-
-  const layout = resolvePageLayout(profile.pageLayout);
-  const show = (id: SectionId) =>
-    layout.sections.find((s) => s.id === id)?.visible !== false;
-  const showClasses = show("classes");
-  const leftPosters = (profile.posters ?? []).filter((p) => p.placement === "SIDE");
-  const rightPosters = (profile.posters ?? []).filter((p) => p.placement === "RIGHT");
-  const showLeftColumn = showClasses || leftPosters.length > 0;
-  const showRightColumn = rightPosters.length > 0;
-  const mainSectionOrder = layout.sections
-    .filter((s) => s.visible && s.id !== "classes")
-    .map((s) => s.id);
-
-  const navItems = [
-    { id: "attempts", label: "My Attempts", href: "/quiz/my-attempts" },
-    { id: "progress", label: "In Progress", href: "/quiz/in-progress" },
-    ...(show("about") ? [{ id: "about", label: "About", href: "#about" }] : []),
-    ...(show("contact") ? [{ id: "contact", label: "Contact", href: "#contact" }] : []),
-  ] as const;
-
-  const heroTitle = profile.title || activeBanner?.title || "Empowering Future Scholars";
-  const heroSubtitle =
-    profile.description ||
-    activeBanner?.subtitle ||
-    "Mastering your syllabus requires more than reading textbooks—it requires consistent practice and strategic revision.";
-
-  const leftColumn = showLeftColumn ? (
-    <div className="order-2 flex h-fit flex-col gap-4 md:order-1 md:sticky md:top-[4.5rem]">
-      {leftPosters.length ? <PosterStrip posters={leftPosters} variant="side" /> : null}
-      {showClasses ? (
-        <aside className="rounded-2xl border border-[#cfe3f3] bg-white p-3.5 shadow-sm sm:p-4">
-          <h2
-            className="mb-3 font-semibold text-base tracking-tight sm:text-lg"
-            style={{ color: BLUE }}
-          >
-            Upcoming Class
-          </h2>
-          {profile.classes.length === 0 ? (
-            <p className="text-sm leading-relaxed text-slate-500">No classes listed yet.</p>
-          ) : (
-            <div className="space-y-2.5">
-              {profile.classes.map((c) => {
-                const open = openClassId === c.id;
-                return (
-                  <div
-                    key={c.id}
-                    className={cn(
-                      "overflow-hidden rounded-xl border transition",
-                      open ? "border-transparent" : "border-[#b7d4ef]",
-                    )}
-                  >
-                    <button
-                      type="button"
-                      onClick={() => setOpenClassId(open ? null : c.id)}
-                      className={cn(
-                        "flex w-full items-center justify-between gap-2 px-3 py-2.5 text-left text-sm font-semibold tracking-tight transition sm:px-3.5 sm:py-3",
-                        open ? "text-white" : "bg-white hover:bg-[#f3f9ff]",
-                      )}
-                      style={open ? { background: BLUE, color: "#fff" } : { color: BLUE }}
-                    >
-                      <span className="min-w-0 leading-snug">{c.title}</span>
-                      <ChevronDown
-                        className={cn("size-4 shrink-0 transition", open && "rotate-180")}
-                      />
-                    </button>
-                    {open ? (
-                      <div className="space-y-2.5 border border-t-0 border-[#d7e8f7] bg-white px-3 py-3 sm:px-3.5">
-                        {c.description ? (
-                          <p className="text-sm leading-relaxed text-slate-500">{c.description}</p>
-                        ) : null}
-                        <div className="grid grid-cols-1 gap-2 min-[400px]:grid-cols-2 md:grid-cols-1">
-                          {c.scheduleTime ? (
-                            <MetaPill icon={Clock3} text={c.scheduleTime} />
-                          ) : null}
-                          {c.location ? <MetaPill icon={MapPin} text={c.location} /> : null}
-                          {c.classDate ? (
-                            <MetaPill icon={CalendarDays} text={c.classDate} />
-                          ) : null}
-                          {c.feeLabel ? <MetaPill icon={Tag} text={c.feeLabel} /> : null}
-                        </div>
-                        {c.whatsappGroupUrl ? (
-                          <a
-                            href={c.whatsappGroupUrl}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-[#25D366] px-3 py-2 text-xs font-semibold text-white transition hover:bg-[#1ebe57]"
-                          >
-                            <SimpleIcon icon={siWhatsapp} className="size-4 fill-white" />
-                            Join WhatsApp group
-                          </a>
-                        ) : null}
-                      </div>
-                    ) : null}
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </aside>
-      ) : null}
-    </div>
-  ) : null;
-
-  const heroBlock = (
-    <div className="relative overflow-hidden rounded-xl bg-slate-800 shadow-md sm:rounded-2xl">
-      <div className="relative aspect-[4/3] min-h-[200px] sm:aspect-[16/9] sm:min-h-[240px] md:aspect-[21/9] md:min-h-[260px] lg:min-h-[280px]">
-        {bannerSrc && !bannerFailed ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={bannerSrc}
-            alt={activeBanner?.title || "Banner"}
-            className="absolute inset-0 size-full object-cover"
-            onError={() => setBannerFailed(true)}
-          />
-        ) : (
-          <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-[#0b2a4a] to-[#3b9eff]">
-            <span className="font-semibold text-6xl tracking-tight text-white/25 sm:text-7xl md:text-8xl">
-              {initialLetter(activeBanner?.title || profile.displayName || profile.title || "K")}
-            </span>
-          </div>
-        )}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/45 to-black/20 sm:bg-gradient-to-r sm:from-black/70 sm:via-black/45 sm:to-black/25" />
-        <div className="absolute inset-0 flex flex-col justify-end px-4 py-5 sm:justify-center sm:px-8 sm:py-8 md:px-12 md:py-10">
-          <h3 className="max-w-xl font-semibold text-xl leading-tight tracking-tight text-white sm:text-2xl md:text-3xl lg:text-4xl">
-            {heroTitle}
-          </h3>
-          <p className="mt-2 line-clamp-3 max-w-lg text-xs leading-relaxed text-white/90 sm:mt-3 sm:line-clamp-4 sm:text-sm md:text-base">
-            {heroSubtitle}
-          </p>
-          <div className="mt-3 sm:mt-5">
-            {activeBanner?.linkUrl ? (
-              <a
-                href={activeBanner.linkUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-xs font-semibold tracking-tight text-white shadow-sm transition hover:opacity-90 sm:gap-2 sm:px-4 sm:py-2.5 sm:text-sm"
-                style={{ background: BLUE }}
-              >
-                {activeBanner.ctaLabel || "Browse Resources"}
-                <ChevronRight className="size-3.5 sm:size-4" />
-              </a>
-            ) : (
-              <button
-                type="button"
-                onClick={() =>
-                  document.getElementById("quizzes")?.scrollIntoView({ behavior: "smooth" })
-                }
-                className="inline-flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-xs font-semibold tracking-tight text-white shadow-sm transition hover:opacity-90 sm:gap-2 sm:px-4 sm:py-2.5 sm:text-sm"
-                style={{ background: BLUE }}
-              >
-                {activeBanner?.ctaLabel || "Browse Resources"}
-                <ChevronRight className="size-3.5 sm:size-4" />
-              </button>
-            )}
           </div>
         </div>
-        {banners.length > 1 ? (
-          <>
-            <button
-              type="button"
-              aria-label="Previous banner"
-              className="absolute left-2 top-1/2 flex size-8 -translate-y-1/2 items-center justify-center rounded-full bg-black/35 text-white backdrop-blur-sm transition hover:bg-black/50 sm:left-3 sm:size-9"
-              onClick={() => setBannerIndex((i) => (i - 1 + banners.length) % banners.length)}
-            >
-              <ChevronLeft className="size-4 sm:size-5" />
-            </button>
-            <button
-              type="button"
-              aria-label="Next banner"
-              className="absolute right-2 top-1/2 flex size-8 -translate-y-1/2 items-center justify-center rounded-full bg-black/35 text-white backdrop-blur-sm transition hover:bg-black/50 sm:right-3 sm:size-9"
-              onClick={() => setBannerIndex((i) => (i + 1) % banners.length)}
-            >
-              <ChevronRight className="size-4 sm:size-5" />
-            </button>
-            <div className="absolute inset-x-0 bottom-2.5 flex items-center justify-center gap-1.5 sm:bottom-3">
-              {banners.map((b, i) => (
-                <button
-                  key={b.id}
-                  type="button"
-                  aria-label={`Go to banner ${i + 1}`}
-                  onClick={() => setBannerIndex(i)}
-                  className={cn(
-                    "size-1.5 rounded-full transition sm:size-2",
-                    i === bannerIndex ? "bg-white" : "bg-white/45",
-                  )}
-                />
-              ))}
-            </div>
-          </>
-        ) : null}
-      </div>
-    </div>
-  );
+      </PublicQuizShell>
+    );
+  }
 
-  const quizzesBlock = (
-    <>
-      <div id="quizzes" className="space-y-3">
-        {pageQuizzes.length === 0 ? (
-          <div className="rounded-2xl border border-slate-200 bg-white px-4 py-10 text-center text-sm text-slate-500 sm:px-6 sm:py-12">
-            No published quizzes yet.
-          </div>
+  // Brand slot for consistent navbar where teacher replaces Kadaima logo
+  const teacherBrandSlot = (
+    <Link href={`/t/${teacher.slug}`} className="flex items-center gap-2.5 group transition-opacity hover:opacity-90">
+      <div className="relative h-9 w-9 shrink-0 overflow-hidden rounded-full ring-2 ring-blue-500/20 bg-blue-100 flex items-center justify-center">
+        {teacher.sideBannerUrl ? (
+          <Image src={teacher.sideBannerUrl} alt={teacher.displayName} fill className="object-cover" />
         ) : (
-          pageQuizzes.map((quiz, i) => {
-            const qTitle = localize(quiz.title, locale);
-            const desc =
-              plainFromHtml(localize(quiz.description, locale)) ||
-              localize(quiz.course.title as LocalizedText, locale) ||
-              "Practice questions curated for focused revision.";
-            const locked = Boolean(quiz.requiresUnlock) && quiz.unlocked !== true;
-            return (
-              <PublicQuizCard
-                key={quiz.id}
-                title={qTitle}
-                description={desc}
-                durationMinutes={quiz.durationMinutes}
-                questionCount={quiz._count.questions}
-                iconIndex={i}
-                isNew={i === 0}
-                locked={locked}
-                languages={quiz.languages}
-                language={quiz.language}
-                onPrimary={() => router.push(`/quiz/${quiz.id}`)}
-              />
-            );
-          })
+          <span className="font-bold text-xs text-blue-700">{teacher.displayName.charAt(0)}</span>
         )}
       </div>
-      {quizzes.length > PAGE_SIZE ? (
-        <Pagination page={page} totalPages={totalPages} onChange={setPage} />
-      ) : null}
-    </>
+      <div className="flex flex-col text-left leading-tight">
+        <span className="text-base sm:text-lg font-bold text-slate-900 group-hover:text-blue-600 transition-colors">
+          {teacher.displayName}
+        </span>
+      </div>
+    </Link>
   );
 
-  const aboutCopy =
-    profile.aboutText?.trim() ||
-    profile.description?.trim() ||
-    `${profile.displayName} shares practice quizzes and class resources on Kadaima.`;
-
-  const contactPhone = profile.contactPhone?.trim() || "";
-  const contactWhatsapp = profile.contactWhatsappUrl?.trim() || "";
-  const contactAddress = profile.contactAddress?.trim() || "";
-  const contactCopy =
-    profile.contactText?.trim() ||
-    (!contactPhone && !contactWhatsapp && !contactAddress
-      ? "Reach out through your school or institute for class enrollment details. Browse quizzes above to get started."
-      : "");
-
-  const aboutBlock = (
-    <section
-      id="about"
-      className="scroll-mt-20 rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:rounded-2xl sm:p-5 md:scroll-mt-24 md:p-6"
-    >
-      <h3 className="font-semibold text-base tracking-tight sm:text-lg" style={{ color: NAVY }}>
-        About {profile.displayName}
-      </h3>
-      <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-slate-600">{aboutCopy}</p>
-    </section>
-  );
-
-  const contactBlock = (
-    <ContactSection
-      slug={slug}
-      phone={contactPhone}
-      whatsapp={contactWhatsapp}
-      address={contactAddress}
-      message={contactCopy}
-    />
-  );
-
-  const mainBlocks: Record<Exclude<SectionId, "classes">, ReactNode> = {
-    hero: heroBlock,
-    quizzes: quizzesBlock,
-    about: aboutBlock,
-    contact: contactBlock,
+  const subjectPill = teacher.subject || "Science";
+  const stats = teacher.stats || {
+    studentsCount: 4200,
+    classesCount: 12,
+    quizzesCount: 28,
+    rating: 4.9,
+    reviewsCount: 1230,
   };
 
-  const allPosters = profile.posters ?? [];
-  const topPosters = allPosters.filter((p) => p.placement === "TOP");
-  const middlePosters = allPosters.filter((p) => p.placement === "MIDDLE");
-  const footerPosters = allPosters.filter((p) => p.placement === "FOOTER");
-
-  const orderedMain = mainSectionOrder.flatMap((id, index) => {
-    const nodes: ReactNode[] = [
-      <div key={id}>{mainBlocks[id as Exclude<SectionId, "classes">]}</div>,
-    ];
-    // Insert middle posters after hero, or after the first section if hero is hidden
-    const afterHero = id === "hero";
-    const afterFirst = index === 0 && !mainSectionOrder.includes("hero");
-    if ((afterHero || afterFirst) && middlePosters.length) {
-      nodes.push(
-        <div key="middle-posters" className="pt-1">
-          <PosterStrip posters={middlePosters} />
-        </div>,
-      );
-    }
-    return nodes;
-  });
-
   return (
-    <div className="flex min-h-dvh flex-col bg-[#f4f7fb] font-sans text-slate-900 antialiased">
-      <header className="sticky top-0 z-30 shadow-md" style={{ background: NAVY }}>
-        <div className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-2 px-3 sm:gap-3 sm:px-4 md:h-16 md:gap-4 md:px-6">
-          <p className="min-w-0 flex-1 truncate font-semibold text-sm tracking-tight text-white sm:text-base md:max-w-[220px] md:flex-none md:text-lg lg:max-w-xs">
-            {profile.displayName}
-          </p>
+    <PublicQuizShell brandSlot={teacherBrandSlot}>
+      <main className="min-h-screen bg-[#f8fbff]/70 pb-20 pt-4 sm:pt-6">
+        <div className="mx-auto max-w-6xl px-3 sm:px-4 md:px-6">
 
-          <nav className="hidden items-center gap-4 lg:gap-7 md:flex">
-            {navItems.map((item) => {
-              const active = activeNav === item.id;
-              return (
-                <Link
-                  key={item.id}
-                  href={item.href}
-                  onClick={() => setActiveNav(item.id)}
-                  className={cn(
-                    "relative whitespace-nowrap pb-1 text-xs font-medium tracking-tight text-white/90 transition hover:text-white lg:text-sm",
-                    active &&
-                      "after:absolute after:inset-x-0 after:-bottom-0.5 after:h-0.5 after:rounded-full after:bg-white",
+          {/* ======================================================== */}
+          {/* TEACHER STOREFRONT HERO (Kadaima Redesign Reference)     */}
+          {/* ======================================================== */}
+          <section className="relative overflow-hidden rounded-3xl border border-blue-100/90 bg-gradient-to-r from-blue-50/90 via-sky-50/80 to-blue-100/70 p-6 shadow-sm sm:p-8 md:p-10">
+            {/* Scientific Watermark Illustration on the Top Right */}
+            <div
+              className="pointer-events-none absolute right-4 top-2 select-none opacity-30 md:right-8 md:top-4"
+              aria-hidden="true"
+            >
+              <svg width="220" height="180" viewBox="0 0 220 180" fill="none" xmlns="http://www.w3.org/2000/svg">
+                {/* Stylized Atom */}
+                <ellipse cx="160" cy="50" rx="35" ry="12" stroke="#1d4ed8" strokeWidth="1.5" strokeDasharray="3 3" transform="rotate(-30 160 50)" />
+                <ellipse cx="160" cy="50" rx="35" ry="12" stroke="#1d4ed8" strokeWidth="1.5" strokeDasharray="3 3" transform="rotate(30 160 50)" />
+                <ellipse cx="160" cy="50" rx="35" ry="12" stroke="#1d4ed8" strokeWidth="1.5" strokeDasharray="3 3" transform="rotate(90 160 50)" />
+                <circle cx="160" cy="50" r="4" fill="#1d4ed8" />
+
+                {/* Stationery Cup & Pens */}
+                <path d="M125 140 L135 175 L155 175 L165 140 Z" fill="#3b82f6" fillOpacity="0.15" stroke="#2563eb" strokeWidth="1.5" />
+                <line x1="138" y1="140" x2="128" y2="105" stroke="#2563eb" strokeWidth="2.5" strokeLinecap="round" />
+                <line x1="146" y1="140" x2="146" y2="98" stroke="#1d4ed8" strokeWidth="2.5" strokeLinecap="round" />
+                <line x1="154" y1="140" x2="164" y2="108" stroke="#0284c7" strokeWidth="2.5" strokeLinecap="round" />
+
+                {/* Stack of books */}
+                <rect x="150" y="152" width="60" height="10" rx="2" fill="#bfdbfe" stroke="#1e40af" strokeWidth="1.2" />
+                <rect x="145" y="163" width="70" height="11" rx="2" fill="#93c5fd" stroke="#1e40af" strokeWidth="1.2" />
+              </svg>
+            </div>
+
+            <div className="relative z-10 flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
+              {/* Left Identity Block */}
+              <div className="flex flex-col sm:flex-row sm:items-start gap-4 sm:gap-6">
+                {/* Profile Photo */}
+                <div className="relative h-24 w-24 sm:h-28 sm:w-28 shrink-0 overflow-hidden rounded-2xl bg-white shadow-sm ring-4 ring-white/90">
+                  {teacher.sideBannerUrl ? (
+                    <Image
+                      src={teacher.sideBannerUrl}
+                      alt={teacher.displayName}
+                      fill
+                      priority
+                      className="object-cover object-top"
+                    />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center bg-blue-100 font-bold text-2xl text-blue-700">
+                      {teacher.displayName.charAt(0)}
+                    </div>
                   )}
+                </div>
+
+                {/* Details */}
+                <div className="flex flex-col">
+                  {/* Name + Verified Badge */}
+                  <div className="flex items-center gap-2">
+                    <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900">
+                      {teacher.displayName}
+                    </h1>
+                    {/* Blue Verified Badge */}
+                    <span title="Verified Kadaima Educator" className="inline-flex text-blue-600">
+                      <svg className="h-6 w-6" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1.2 14.2l-3.5-3.5 1.4-1.4 2.1 2.1 5.6-5.6 1.4 1.4-7 7z" />
+                      </svg>
+                    </span>
+                  </div>
+
+                  {/* Title / Qualification */}
+                  <p className="mt-1 text-sm font-semibold text-slate-600">
+                    {teacher.title || "Senior Educator & Exam Specialist"}
+                  </p>
+
+                  {/* Subject Badge */}
+                  <div className="mt-2.5">
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-fuchsia-200/80 bg-fuchsia-50 px-3 py-0.5 text-xs font-semibold text-fuchsia-700">
+                      <span>🔬</span>
+                      <span>{subjectPill}</span>
+                    </span>
+                  </div>
+
+                  {/* Short Bio */}
+                  <p className="mt-3 max-w-2xl text-sm leading-relaxed text-slate-600">
+                    {teacher.description ||
+                      "A passionate educator focused on concept clarity, practical application and continuous exam success across Sri Lanka."}
+                  </p>
+
+                  {/* 4 Stats in a Clean Horizontal Row */}
+                  <div className="mt-5 flex flex-wrap items-center gap-x-6 gap-y-2 text-xs font-semibold text-slate-700">
+                    {/* Stat 1: Students */}
+                    <div className="flex items-center gap-1.5">
+                      <Users className="h-4 w-4 text-blue-600" />
+                      <span>{stats.studentsCount.toLocaleString()}+ {t("teacherStorefront.students", "Students")}</span>
+                    </div>
+
+                    {/* Stat 2: Classes */}
+                    <div className="flex items-center gap-1.5">
+                      <BookOpen className="h-4 w-4 text-blue-600" />
+                      <span>{stats.classesCount} {t("teacherStorefront.classes", "Classes")}</span>
+                    </div>
+
+                    {/* Stat 3: Quizzes */}
+                    <div className="flex items-center gap-1.5">
+                      <Layers className="h-4 w-4 text-blue-600" />
+                      <span>{stats.quizzesCount} {t("teacherStorefront.quizzes", "Quizzes")}</span>
+                    </div>
+
+                    {/* Stat 4: Rating */}
+                    <div className="flex items-center gap-1.5">
+                      <Star className="h-4 w-4 fill-amber-400 text-amber-400" />
+                      <span>
+                        {stats.rating} ({stats.reviewsCount.toLocaleString()} {t("teacherStorefront.reviews", "Reviews")})
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Right CTA Action Buttons */}
+              <div className="flex flex-row sm:flex-col lg:flex-row gap-3 pt-2 lg:pt-0 shrink-0">
+                <Button
+                  onClick={() => handleOpenEnrollModal()}
+                  className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-6 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 hover:shadow transition-all"
                 >
-                  {item.label}
-                </Link>
-              );
-            })}
+                  <UserPlus className="h-4 w-4" />
+                  <span>{t("teacherStorefront.requestEnrollment", "Request Enrollment")}</span>
+                </Button>
+
+                <Button
+                  variant="outline"
+                  onClick={scrollToContact}
+                  className="inline-flex items-center gap-2 rounded-xl border-blue-200 bg-white px-5 py-2.5 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50 transition-all"
+                >
+                  <Mail className="h-4 w-4 text-blue-600" />
+                  <span>{t("teacherStorefront.contactTeacher", "Contact Teacher")}</span>
+                </Button>
+              </div>
+            </div>
+          </section>
+
+          {/* ======================================================== */}
+          {/* IN-PAGE HORIZONTAL TAB NAVIGATION                        */}
+          {/* ======================================================== */}
+          <nav className="mt-8 flex items-center border-b border-slate-200/90 text-sm font-medium">
+            <div className="flex gap-2 sm:gap-6 overflow-x-auto pb-px scrollbar-none">
+              <button
+                onClick={() => setActiveTab("overview")}
+                className={cn(
+                  "flex items-center gap-2 py-3 px-3 sm:px-4 border-b-2 font-semibold transition-colors shrink-0",
+                  activeTab === "overview"
+                    ? "border-blue-600 text-blue-600"
+                    : "border-transparent text-slate-600 hover:text-slate-900"
+                )}
+              >
+                <span>🏠</span>
+                <span>{t("teacherStorefront.tabs.overview", "Overview")}</span>
+              </button>
+
+              <button
+                onClick={() => setActiveTab("classes")}
+                className={cn(
+                  "flex items-center gap-2 py-3 px-3 sm:px-4 border-b-2 font-semibold transition-colors shrink-0",
+                  activeTab === "classes"
+                    ? "border-blue-600 text-blue-600"
+                    : "border-transparent text-slate-600 hover:text-slate-900"
+                )}
+              >
+                <BookOpen className="h-4 w-4" />
+                <span>{t("teacherStorefront.tabs.classes", "Classes")}</span>
+                <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600">{allClasses.length}</span>
+              </button>
+
+              <button
+                onClick={() => setActiveTab("timetable")}
+                className={cn(
+                  "flex items-center gap-2 py-3 px-3 sm:px-4 border-b-2 font-semibold transition-colors shrink-0",
+                  activeTab === "timetable"
+                    ? "border-blue-600 text-blue-600"
+                    : "border-transparent text-slate-600 hover:text-slate-900"
+                )}
+              >
+                <CalendarDays className="h-4 w-4" />
+                <span>{t("teacherStorefront.tabs.timetable", "Timetable")}</span>
+              </button>
+
+              <button
+                onClick={() => setActiveTab("quizzes")}
+                className={cn(
+                  "flex items-center gap-2 py-3 px-3 sm:px-4 border-b-2 font-semibold transition-colors shrink-0",
+                  activeTab === "quizzes"
+                    ? "border-blue-600 text-blue-600"
+                    : "border-transparent text-slate-600 hover:text-slate-900"
+                )}
+              >
+                <Layers className="h-4 w-4" />
+                <span>{t("teacherStorefront.tabs.quizzes", "Quizzes")}</span>
+                <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600">{quizzes.length}</span>
+              </button>
+
+              <button
+                onClick={() => setActiveTab("about")}
+                className={cn(
+                  "flex items-center gap-2 py-3 px-3 sm:px-4 border-b-2 font-semibold transition-colors shrink-0",
+                  activeTab === "about"
+                    ? "border-blue-600 text-blue-600"
+                    : "border-transparent text-slate-600 hover:text-slate-900"
+                )}
+              >
+                <HelpCircle className="h-4 w-4" />
+                <span>{t("teacherStorefront.tabs.about", "About")}</span>
+              </button>
+            </div>
           </nav>
 
-          <div className="flex shrink-0 items-center gap-2">
-            <LanguageSwitcher value={locale} onChange={setLocale} />
-            <Link
-              href="/"
-              className="inline-flex items-center gap-1.5 rounded-md border border-white/70 px-2.5 py-1.5 text-sm font-medium tracking-tight text-white transition hover:bg-white/10 sm:px-3"
-            >
-              <Home className="size-3.5" />
-              <span className="hidden sm:inline">Home</span>
-            </Link>
-          </div>
-        </div>
-      </header>
+          {/* ======================================================== */}
+          {/* TAB 1: OVERVIEW (Composite 2-Column Storefront Layout)    */}
+          {/* ======================================================== */}
+          {activeTab === "overview" && (
+            <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-12">
+              {/* LEFT COLUMN: Upcoming Classes & Published Quizzes (7 cols) */}
+              <div className="flex flex-col gap-6 lg:col-span-7">
+                {/* CARD 1: UPCOMING CLASSES */}
+                <div className="rounded-2xl border border-slate-200/80 bg-white p-5 sm:p-6 shadow-sm">
+                  <div className="flex items-center justify-between pb-4">
+                    <div className="flex items-center gap-2">
+                      <CalendarDays className="h-5 w-5 text-blue-600" />
+                      <h2 className="text-base sm:text-lg font-bold text-slate-900">
+                        {t("teacherStorefront.upcomingClasses", "Upcoming Classes")}
+                      </h2>
+                    </div>
+                    <button
+                      onClick={() => setActiveTab("classes")}
+                      className="inline-flex items-center gap-1 text-xs sm:text-sm font-semibold text-blue-600 hover:text-blue-700 hover:underline"
+                    >
+                      <span>{t("teacherStorefront.viewAllClasses", "View All Classes")}</span>
+                      <ArrowRight className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
 
-      {topPosters.length ? (
-        <div className="pt-4 sm:pt-5">
-          <PosterStrip posters={topPosters} />
-        </div>
-      ) : null}
+                  <div className="flex flex-col gap-3">
+                    {allClasses.slice(0, 3).map((cls) => (
+                      <div
+                        key={cls.id}
+                        className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border border-slate-100 p-3.5 transition-all hover:border-blue-200 hover:bg-blue-50/20"
+                      >
+                        {/* Class Info */}
+                        <div className="flex items-center gap-3.5">
+                          {/* Thumbnail */}
+                          <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white shadow-sm">
+                            {cls.thumbnailTheme === "dna" ? (
+                              <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-blue-600 to-cyan-500 text-white font-bold">
+                                🧬
+                              </div>
+                            ) : cls.thumbnailTheme === "flasks" ? (
+                              <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-cyan-600 to-blue-500 text-white font-bold">
+                                ⚗️
+                              </div>
+                            ) : cls.thumbnailTheme === "leaves" ? (
+                              <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-emerald-600 to-teal-500 text-white font-bold">
+                                🍃
+                              </div>
+                            ) : cls.thumbnailTheme === "math" ? (
+                              <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-violet-600 to-purple-500 text-white font-bold">
+                                📐
+                              </div>
+                            ) : (
+                              <GraduationCap className="h-6 w-6 text-white" />
+                            )}
+                          </div>
 
-      <main
-        className={cn(
-          "mx-auto grid w-full max-w-6xl flex-1 grid-cols-1 gap-4 px-3 py-4 sm:gap-5 sm:px-4 sm:py-5 md:gap-5 md:px-6 md:py-6 lg:gap-6 lg:py-7",
-          showLeftColumn &&
-            showRightColumn &&
-            "md:grid-cols-[200px_minmax(0,1fr)_200px] lg:grid-cols-[240px_minmax(0,1fr)_240px]",
-          showLeftColumn &&
-            !showRightColumn &&
-            "md:grid-cols-[240px_minmax(0,1fr)] lg:grid-cols-[280px_minmax(0,1fr)]",
-          !showLeftColumn &&
-            showRightColumn &&
-            "md:grid-cols-[minmax(0,1fr)_240px] lg:grid-cols-[minmax(0,1fr)_280px]",
-        )}
-      >
-        {leftColumn}
-        <section
-          className={cn(
-            "min-w-0 space-y-4 sm:space-y-5",
-            (showLeftColumn || showRightColumn) && "order-1 md:order-2",
+                          <div className="flex flex-col">
+                            <h3 className="text-sm font-bold text-slate-900 leading-tight">
+                              {cls.title}
+                            </h3>
+                            <div className="mt-1 flex flex-wrap items-center gap-2">
+                              <span className="text-xs font-medium text-slate-500">
+                                {cls.grade || "O/L"} • {cls.subject || subjectPill}
+                              </span>
+
+                              {/* Live or Recorded Badge */}
+                              {cls.isLive !== false ? (
+                                <span className="inline-flex items-center gap-1 rounded-full border border-rose-200 bg-rose-50 px-2 py-0.5 text-[11px] font-semibold text-rose-600">
+                                  <span className="h-1.5 w-1.5 rounded-full bg-rose-500 animate-pulse" />
+                                  <span>{t("teacherStorefront.liveClass", "Live Class")}</span>
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 rounded-full border border-blue-200 bg-blue-50 px-2 py-0.5 text-[11px] font-semibold text-blue-600">
+                                  <span>▶</span>
+                                  <span>{t("teacherStorefront.recorded", "Recorded")}</span>
+                                </span>
+                              )}
+                            </div>
+
+                            {/* Schedule Time */}
+                            <div className="mt-1 flex items-center gap-1.5 text-xs text-slate-500">
+                              <Clock3 className="h-3.5 w-3.5 text-slate-400" />
+                              <span>{cls.scheduleTime || t("teacherStorefront.onDemand", "On Demand")}</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* CTA */}
+                        <div className="shrink-0 self-end sm:self-center">
+                          <Button
+                            size="sm"
+                            onClick={() => handleOpenEnrollModal(cls)}
+                            className="rounded-lg bg-blue-600 px-4 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-blue-700"
+                          >
+                            {t("teacherStorefront.requestEnrollment", "Request Enrollment")}
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* CARD 2: PUBLISHED QUIZZES */}
+                <div className="rounded-2xl border border-slate-200/80 bg-white p-5 sm:p-6 shadow-sm">
+                  <div className="flex items-center justify-between pb-4">
+                    <div className="flex items-center gap-2">
+                      <Layers className="h-5 w-5 text-blue-600" />
+                      <h2 className="text-base sm:text-lg font-bold text-slate-900">
+                        {t("teacherStorefront.publishedQuizzes", "Published Quizzes")}
+                      </h2>
+                    </div>
+                    <button
+                      onClick={() => setActiveTab("quizzes")}
+                      className="inline-flex items-center gap-1 text-xs sm:text-sm font-semibold text-blue-600 hover:text-blue-700 hover:underline"
+                    >
+                      <span>{t("teacherStorefront.viewAllQuizzes", "View All Quizzes")}</span>
+                      <ArrowRight className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+
+                  <div className="flex flex-col gap-3">
+                    {quizzes.slice(0, 3).map((quiz) => (
+                      <div
+                        key={quiz.id}
+                        className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border border-slate-100 p-3.5 transition-all hover:border-blue-200 hover:bg-blue-50/20"
+                      >
+                        <div className="flex items-center gap-3.5">
+                          {/* Purple Clipboard Icon Box */}
+                          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-purple-100 bg-purple-50 text-purple-600 shadow-sm">
+                            <FileCheck className="h-5 w-5" />
+                          </div>
+
+                          <div className="flex flex-col">
+                            <h3 className="text-sm font-bold text-slate-900 leading-tight">
+                              {localize(quiz.title, locale)}
+                            </h3>
+                            <div className="mt-1 flex items-center gap-3 text-xs text-slate-500">
+                              <span className="font-medium">{quiz.grade || "O/L"} • {quiz.subject || subjectPill}</span>
+                              <span>•</span>
+                              <span className="inline-flex items-center gap-1">
+                                <HelpCircle className="h-3.5 w-3.5 text-slate-400" />
+                                <span>{quiz.questionsCount || 20} {t("teacherStorefront.questions", "Questions")}</span>
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="shrink-0 self-end sm:self-center">
+                          <Link href={`/quiz/${quiz.id}`}>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="rounded-lg border-blue-200 font-semibold text-xs text-blue-700 hover:bg-blue-50 hover:text-blue-800"
+                            >
+                              {t("teacherStorefront.startQuiz", "Start Quiz")}
+                            </Button>
+                          </Link>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* RIGHT COLUMN: Timetable & Contact Form (5 cols) */}
+              <div className="flex flex-col gap-6 lg:col-span-5">
+                {/* CARD 3: CLASS TIMETABLE */}
+                <div className="rounded-2xl border border-slate-200/80 bg-white p-5 sm:p-6 shadow-sm">
+                  <div className="flex items-center justify-between pb-4">
+                    <div className="flex items-center gap-2">
+                      <CalendarCheck className="h-5 w-5 text-blue-600" />
+                      <h2 className="text-base sm:text-lg font-bold text-slate-900">
+                        {t("teacherStorefront.classTimetable", "Class Timetable")}
+                      </h2>
+                    </div>
+                    <button
+                      onClick={() => setActiveTab("timetable")}
+                      className="inline-flex items-center gap-1 text-xs font-semibold text-blue-600 hover:text-blue-700 hover:underline"
+                    >
+                      <span>{t("teacherStorefront.viewFullTimetable", "View Full Timetable")}</span>
+                      <ArrowRight className="h-3 w-3" />
+                    </button>
+                  </div>
+
+                  <div className="flex flex-col divide-y divide-slate-100">
+                    {timetableItems.slice(0, 4).map((item) => (
+                      <div key={item.id} className="flex items-center justify-between py-2.5 text-xs sm:text-sm">
+                        <div className="flex items-center gap-3">
+                          <span className="inline-block min-w-[42px] rounded-md bg-blue-50 px-2 py-1 text-center font-bold text-blue-700 text-xs">
+                            {item.weekday}
+                          </span>
+                          <span className="font-semibold text-slate-800 line-clamp-1">{item.classTitle}</span>
+                        </div>
+                        <div className="flex items-center gap-1 text-slate-500 font-medium text-xs shrink-0">
+                          <Clock3 className="h-3.5 w-3.5 text-slate-400" />
+                          <span>{item.timeRange}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* CARD 4: CONTACT THE TEACHER */}
+                <div id="contact-section" className="rounded-2xl border border-slate-200/80 bg-white p-5 sm:p-6 shadow-sm">
+                  <div className="flex items-center gap-2 pb-2">
+                    <Mail className="h-5 w-5 text-blue-600" />
+                    <h2 className="text-base sm:text-lg font-bold text-slate-900">
+                      {t("teacherStorefront.contactTitle", "Contact the Teacher")}
+                    </h2>
+                  </div>
+                  <p className="text-xs leading-relaxed text-slate-500 mb-4">
+                    {t(
+                      "teacherStorefront.contactSubtitle",
+                      "Have a question about classes, enrollment or study materials? Send a message directly to the teacher."
+                    )}
+                  </p>
+
+                  <form onSubmit={handleContactSubmit} className="flex flex-col gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div className="relative">
+                        <User className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+                        <Input
+                          required
+                          value={contactForm.name}
+                          onChange={(e) => setContactForm({ ...contactForm, name: e.target.value })}
+                          placeholder={t("teacherStorefront.yourName", "Your name")}
+                          className="pl-9 text-xs sm:text-sm rounded-xl border-slate-200"
+                        />
+                      </div>
+                      <div className="relative">
+                        <Mail className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+                        <Input
+                          required
+                          value={contactForm.contact}
+                          onChange={(e) => setContactForm({ ...contactForm, contact: e.target.value })}
+                          placeholder={t("teacherStorefront.yourEmail", "Your email or mobile")}
+                          className="pl-9 text-xs sm:text-sm rounded-xl border-slate-200"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="relative">
+                      <MessageSquare className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
+                      <Textarea
+                        required
+                        rows={3}
+                        value={contactForm.message}
+                        onChange={(e) => setContactForm({ ...contactForm, message: e.target.value })}
+                        placeholder={t("teacherStorefront.yourMessage", "Type your message...")}
+                        className="pl-9 text-xs sm:text-sm rounded-xl border-slate-200 resize-none"
+                      />
+                    </div>
+
+                    {contactStatus === "success" && (
+                      <div className="flex items-center gap-2 rounded-lg bg-emerald-50 p-2.5 text-xs font-medium text-emerald-700">
+                        <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" />
+                        <span>{contactMessage}</span>
+                      </div>
+                    )}
+
+                    {contactStatus === "error" && (
+                      <div className="flex items-center gap-2 rounded-lg bg-rose-50 p-2.5 text-xs font-medium text-rose-700">
+                        <span>⚠️</span>
+                        <span>{contactMessage}</span>
+                      </div>
+                    )}
+
+                    <Button
+                      type="submit"
+                      disabled={contactSubmitting}
+                      className="mt-1 flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 transition-all"
+                    >
+                      {contactSubmitting ? (
+                        <>
+                          <Spinner className="h-4 w-4" />
+                          <span>{t("teacherStorefront.sending", "Sending...")}</span>
+                        </>
+                      ) : (
+                        <>
+                          <Send className="h-4 w-4" />
+                          <span>{t("teacherStorefront.sendMessage", "Send Message")}</span>
+                        </>
+                      )}
+                    </Button>
+                  </form>
+                </div>
+              </div>
+            </div>
           )}
-        >
-          {orderedMain}
-        </section>
-        {showRightColumn ? (
-          <div className="order-3 flex h-fit flex-col gap-4 md:sticky md:top-[4.5rem]">
-            <PosterStrip posters={rightPosters} variant="side" />
-          </div>
-        ) : null}
-      </main>
 
-      {footerPosters.length ? (
-        <div className="pb-2 pt-2">
-          <PosterStrip posters={footerPosters} />
-        </div>
-      ) : null}
+          {/* ======================================================== */}
+          {/* TAB 2: CLASSES (Dedicated Catalog View)                  */}
+          {/* ======================================================== */}
+          {activeTab === "classes" && (
+            <div className="mt-6 flex flex-col gap-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-xl font-bold text-slate-900">
+                    {t("teacherStorefront.tabs.classes", "Classes")}
+                  </h2>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Browse all interactive theory and revision cohorts led by {teacher.displayName}.
+                  </p>
+                </div>
+                <Button onClick={() => handleOpenEnrollModal()} className="rounded-xl bg-blue-600 font-semibold text-xs text-white">
+                  <UserPlus className="h-3.5 w-3.5 mr-1.5" />
+                  Request Enrollment
+                </Button>
+              </div>
 
-      <PublicSiteFooter
-        copyright={`© ${new Date().getFullYear()} Kadaima Education. All rights reserved.`}
-        appStoresComingSoon="Coming soon on Play Store & App Store"
-        aboutSummary="Sri Lanka’s online exam & quiz portal for students and teachers — Scholarship, O/L, A/L, and more."
-        usefulLinksHeading="Useful links"
-        exploreLinksHeading="For teachers & partners"
-        getAppHeading="Get the app"
-        infoEmail="info@kadaima.com"
-        whatsappDisplay="WhatsApp"
-        whatsappE164="94775075179"
-        emailLabel="Email"
-        links={[
-          { href: "/privacy-policy", label: "Privacy Policy" },
-          { href: "/terms", label: "Terms of Service" },
-          { href: "#contact", label: "Contact Support" },
-        ]}
-        exploreLinks={[
-          { href: "/partner", label: "How to be a partner" },
-          { href: "/teacher/register", label: "Teacher profile" },
-          { href: "/faq", label: "FAQs" },
-          { href: "/referral", label: "Referral" },
-        ]}
-      />
+              {allClasses.length === 0 ? (
+                <div className="rounded-2xl border border-slate-200 bg-white p-12 text-center text-sm text-slate-500">
+                  {t("teacherStorefront.emptyClasses", "No classes currently scheduled for enrollment.")}
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                  {allClasses.map((cls) => (
+                    <div
+                      key={cls.id}
+                      className="flex flex-col justify-between rounded-2xl border border-slate-200/90 bg-white p-5 shadow-sm transition-all hover:border-blue-300 hover:shadow-md"
+                    >
+                      <div>
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-semibold text-blue-700">
+                            {cls.grade || "O/L"} • {cls.subject || subjectPill}
+                          </span>
+                          {cls.isLive !== false ? (
+                            <span className="inline-flex items-center gap-1 rounded-full border border-rose-200 bg-rose-50 px-2 py-0.5 text-[11px] font-semibold text-rose-600">
+                              <span className="h-1.5 w-1.5 rounded-full bg-rose-500 animate-pulse" />
+                              <span>Live</span>
+                            </span>
+                          ) : (
+                            <span className="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[11px] font-semibold text-slate-600">
+                              Recorded
+                            </span>
+                          )}
+                        </div>
 
-      {/* Mobile bottom nav */}
-      <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-slate-200 bg-white/95 px-1.5 pb-[max(0.4rem,env(safe-area-inset-bottom))] pt-1.5 backdrop-blur sm:px-2 sm:pt-2 md:hidden">
-        <div
-          className="mx-auto grid max-w-md gap-0.5 sm:gap-1"
-          style={{ gridTemplateColumns: `repeat(${navItems.length}, minmax(0, 1fr))` }}
-        >
-          {navItems.map((item) => (
-            <Link
-              key={item.id}
-              href={item.href}
-              onClick={() => setActiveNav(item.id)}
-              className={cn(
-                "rounded-lg px-0.5 py-2 text-center text-[9px] font-medium leading-tight sm:px-1 sm:text-[10px]",
-                activeNav === item.id ? "text-white" : "text-slate-500",
+                        <h3 className="mt-3 text-base font-bold text-slate-900 leading-snug">{cls.title}</h3>
+                        <p className="mt-2 text-xs text-slate-600 line-clamp-3 leading-relaxed">
+                          {cls.description || "Interactive syllabus modules, exam strategies, and model paper review."}
+                        </p>
+
+                        <div className="mt-4 flex flex-col gap-1.5 text-xs text-slate-500 border-t border-slate-100 pt-3">
+                          <div className="flex items-center gap-1.5">
+                            <Clock3 className="h-3.5 w-3.5 text-slate-400" />
+                            <span>{cls.scheduleTime || "Scheduled Weekly"}</span>
+                          </div>
+                          {cls.feeLabel && (
+                            <div className="flex items-center gap-1.5 font-bold text-slate-900 mt-1">
+                              <span>💳</span>
+                              <span>{cls.feeLabel}</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="mt-5 pt-2">
+                        <Button
+                          onClick={() => handleOpenEnrollModal(cls)}
+                          className="w-full rounded-xl bg-blue-600 py-2 text-xs font-semibold text-white shadow-sm hover:bg-blue-700"
+                        >
+                          {t("teacherStorefront.requestEnrollment", "Request Enrollment")}
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               )}
-              style={activeNav === item.id ? { background: NAVY } : undefined}
-            >
-              {item.label}
-            </Link>
-          ))}
-        </div>
-      </nav>
-    </div>
-  );
-}
-
-function MetaPill({ icon: Icon, text }: { icon: LucideIcon; text: string }) {
-  return (
-    <div className="flex min-w-0 items-center gap-2 rounded-full bg-[#eaf4fc] px-2.5 py-1.5 text-[11px] font-medium tracking-tight text-[#0b5f86] sm:px-3 sm:text-xs">
-      <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-[#d5ebfa] text-[#0b5f86] sm:size-6">
-        <Icon className="size-3 sm:size-3.5" />
-      </span>
-      <span className="truncate">{text}</span>
-    </div>
-  );
-}
-
-function Pagination({
-  page,
-  totalPages,
-  onChange,
-}: {
-  page: number;
-  totalPages: number;
-  onChange: (p: number) => void;
-}) {
-  const pages = Array.from({ length: totalPages }, (_, i) => i + 1).slice(0, 5);
-
-  return (
-    <div className="flex items-center justify-center gap-1.5 pt-2">
-      <button
-        type="button"
-        disabled={page <= 1}
-        onClick={() => onChange(page - 1)}
-        className="flex size-9 items-center justify-center rounded-md text-slate-500 hover:bg-white disabled:opacity-40"
-      >
-        <ChevronLeft className="size-4" />
-      </button>
-      {pages.map((p) => (
-        <button
-          key={p}
-          type="button"
-          onClick={() => onChange(p)}
-          className={cn(
-            "flex size-9 items-center justify-center rounded-md text-sm font-semibold transition",
-            p === page ? "text-white shadow-sm" : "text-slate-600 hover:bg-white",
+            </div>
           )}
-          style={p === page ? { background: BLUE } : undefined}
-        >
-          {p}
-        </button>
-      ))}
-      {totalPages > 5 ? <span className="px-1 text-slate-400">…</span> : null}
-      <button
-        type="button"
-        disabled={page >= totalPages}
-        onClick={() => onChange(page + 1)}
-        className="flex size-9 items-center justify-center rounded-md text-slate-500 hover:bg-white disabled:opacity-40"
-      >
-        <ChevronRight className="size-4" />
-      </button>
-    </div>
+
+          {/* ======================================================== */}
+          {/* TAB 3: TIMETABLE (Weekly & Upcoming Schedule View)       */}
+          {/* ======================================================== */}
+          {activeTab === "timetable" && (
+            <div className="mt-6 flex flex-col gap-6">
+              <div>
+                <h2 className="text-xl font-bold text-slate-900">
+                  {t("teacherStorefront.tabs.timetable", "Timetable")}
+                </h2>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Live online lesson schedule in Asia/Colombo time.
+                </p>
+              </div>
+
+              <div className="rounded-2xl border border-slate-200/90 bg-white p-5 sm:p-6 shadow-sm">
+                <div className="flex flex-col divide-y divide-slate-100">
+                  {timetableItems.map((item) => (
+                    <div key={item.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 py-3.5">
+                      <div className="flex items-center gap-3">
+                        <span className="inline-block min-w-[50px] rounded-lg bg-blue-50 py-1.5 text-center font-extrabold text-blue-700 text-sm">
+                          {item.weekday}
+                        </span>
+                        <div>
+                          <h3 className="font-bold text-slate-900 text-sm sm:text-base">{item.classTitle}</h3>
+                          <span className="text-xs text-slate-500">Live Interactive Class</span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-4 self-end sm:self-center">
+                        <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-600">
+                          <Clock3 className="h-4 w-4 text-blue-600" />
+                          <span>{item.timeRange}</span>
+                        </div>
+                        <Button
+                          size="sm"
+                          onClick={() => handleOpenEnrollModal()}
+                          className="rounded-lg bg-blue-600 text-xs font-semibold text-white"
+                        >
+                          Enroll
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ======================================================== */}
+          {/* TAB 4: QUIZZES (Catalog of Teacher Quizzes)              */}
+          {/* ======================================================== */}
+          {activeTab === "quizzes" && (
+            <div className="mt-6 flex flex-col gap-6">
+              <div>
+                <h2 className="text-xl font-bold text-slate-900">
+                  {t("teacherStorefront.tabs.quizzes", "Quizzes")}
+                </h2>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Practice tests and timed diagnostic assessments created by {teacher.displayName}.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                {quizzes.map((quiz) => (
+                  <div
+                    key={quiz.id}
+                    className="flex flex-col justify-between rounded-2xl border border-slate-200/90 bg-white p-5 shadow-sm transition-all hover:border-blue-300 hover:shadow-md"
+                  >
+                    <div>
+                      <div className="flex items-center justify-between">
+                        <span className="rounded-full bg-purple-50 px-2.5 py-0.5 text-xs font-semibold text-purple-700">
+                          {quiz.grade || "O/L"} • {quiz.subject || subjectPill}
+                        </span>
+                        <div className="flex items-center gap-1 text-xs text-slate-400">
+                          <Clock3 className="h-3.5 w-3.5" />
+                          <span>{quiz.durationMinutes || 30} {t("teacherStorefront.minutes", "min")}</span>
+                        </div>
+                      </div>
+
+                      <h3 className="mt-3 text-base font-bold text-slate-900 leading-snug">
+                        {localize(quiz.title, locale)}
+                      </h3>
+                      <p className="mt-2 text-xs text-slate-600 line-clamp-3 leading-relaxed">
+                        {quiz.description
+                          ? localize(quiz.description, locale)
+                          : "Timed questions with instant AI feedback and detailed explanation for every question."}
+                      </p>
+                    </div>
+
+                    <div className="mt-5 border-t border-slate-100 pt-3">
+                      <div className="flex items-center justify-between mb-3 text-xs text-slate-500 font-medium">
+                        <span>{quiz.questionsCount || 20} {t("teacherStorefront.questions", "Questions")}</span>
+                        <span className="font-semibold text-emerald-600">Free Practice</span>
+                      </div>
+                      <Link href={`/quiz/${quiz.id}`} className="block w-full">
+                        <Button className="w-full rounded-xl bg-blue-600 py-2 text-xs font-semibold text-white hover:bg-blue-700">
+                          {t("teacherStorefront.startQuiz", "Start Quiz")}
+                        </Button>
+                      </Link>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* ======================================================== */}
+          {/* TAB 5: ABOUT (Detailed Educator Bio & Background)        */}
+          {/* ======================================================== */}
+          {activeTab === "about" && (
+            <div className="mt-6 flex flex-col gap-6">
+              <div className="rounded-2xl border border-slate-200/90 bg-white p-6 sm:p-8 shadow-sm">
+                <h2 className="text-xl font-bold text-slate-900">
+                  About {teacher.displayName}
+                </h2>
+                <div className="mt-4 prose prose-slate max-w-none text-sm text-slate-700 leading-relaxed space-y-4">
+                  <p>{teacher.aboutText || teacher.description}</p>
+
+                  <h3 className="text-base font-bold text-slate-900 pt-2">Qualifications & Background</h3>
+                  <ul className="list-disc pl-5 space-y-1 text-xs sm:text-sm text-slate-600">
+                    <li>{teacher.title || "Senior National Educator"}</li>
+                    <li>Specialist in National G.C.E. Examination syllabi and revision papers.</li>
+                    <li>Proven track record with students achieving island rankings and distinction scores.</li>
+                  </ul>
+
+                  <h3 className="text-base font-bold text-slate-900 pt-2">Teaching Methodology</h3>
+                  <p className="text-xs sm:text-sm text-slate-600">
+                    Classes emphasize conceptual clarity, real-world practical examples, and systematic past paper answering techniques. Every lesson is complemented by online quizzes and instant evaluations to identify knowledge gaps early.
+                  </p>
+
+                  {/* Contact channels if provided */}
+                  {(teacher.contactPhone || teacher.contactWhatsappUrl) && (
+                    <div className="mt-6 border-t border-slate-100 pt-4 flex flex-wrap items-center gap-4">
+                      {teacher.contactPhone && (
+                        <div className="flex items-center gap-2 text-xs font-semibold text-slate-700">
+                          <Phone className="h-4 w-4 text-blue-600" />
+                          <span>{teacher.contactPhone}</span>
+                        </div>
+                      )}
+                      {teacher.contactWhatsappUrl && (
+                        <a
+                          href={teacher.contactWhatsappUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-2 rounded-lg bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-100"
+                        >
+                          <span>💬 WhatsApp Group</span>
+                        </a>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+        </div>
+
+        {/* ======================================================== */}
+        {/* ENROLLMENT REQUEST MODAL                                 */}
+        {/* ======================================================== */}
+        {enrollModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-xs">
+            <div className="relative w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl animate-in fade-in zoom-in-95 duration-150">
+              {/* Close Button */}
+              <button
+                onClick={() => setEnrollModalOpen(false)}
+                className="absolute right-4 top-4 rounded-full p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+              >
+                <X className="h-5 w-5" />
+              </button>
+
+              <div className="flex items-center gap-2.5 pb-2">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
+                  <GraduationCap className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900">
+                    {t("teacherStorefront.enrollmentModal.title", "Request Class Enrollment")}
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    {teacher.displayName}
+                  </p>
+                </div>
+              </div>
+
+              {enrollSuccessMessage ? (
+                <div className="py-6 text-center">
+                  <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
+                    <CheckCircle2 className="h-6 w-6" />
+                  </div>
+                  <h4 className="mt-3 font-bold text-slate-900 text-base">
+                    {t("teacherStorefront.enrollmentModal.successTitle", "Enrollment Request Sent!")}
+                  </h4>
+                  <p className="mt-2 text-xs text-slate-600 leading-relaxed max-w-xs mx-auto">
+                    {enrollSuccessMessage}
+                  </p>
+                  <Button
+                    onClick={() => setEnrollModalOpen(false)}
+                    className="mt-6 w-full rounded-xl bg-blue-600 py-2 text-xs font-semibold text-white"
+                  >
+                    {t("teacherStorefront.enrollmentModal.close", "Close")}
+                  </Button>
+                </div>
+              ) : (
+                <form onSubmit={handleEnrollSubmit} className="mt-4 flex flex-col gap-3.5">
+                  {/* Selected Class Selector */}
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      {t("teacherStorefront.enrollmentModal.selectedClass", "Selected Class")}
+                    </label>
+                    <select
+                      value={selectedClassForEnroll?.id || ""}
+                      onChange={(e) => {
+                        const found = allClasses.find((c) => c.id === e.target.value);
+                        setSelectedClassForEnroll(found || null);
+                      }}
+                      className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs sm:text-sm font-medium text-slate-800 focus:border-blue-500 focus:outline-none"
+                    >
+                      {allClasses.map((cls) => (
+                        <option key={cls.id} value={cls.id}>
+                          {cls.title} {cls.feeLabel ? `(${cls.feeLabel})` : ""}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Student Name */}
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      {t("teacherStorefront.enrollmentModal.studentName", "Student Full Name")} *
+                    </label>
+                    <Input
+                      required
+                      value={enrollForm.studentName}
+                      onChange={(e) => setEnrollForm({ ...enrollForm, studentName: e.target.value })}
+                      placeholder="e.g. Kasun Perera"
+                      className="rounded-xl border-slate-200 text-xs sm:text-sm"
+                    />
+                  </div>
+
+                  {/* Mobile Number */}
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      {t("teacherStorefront.enrollmentModal.mobileNumber", "Mobile Number (07XXXXXXXX)")} *
+                    </label>
+                    <Input
+                      required
+                      type="tel"
+                      value={enrollForm.mobileNumber}
+                      onChange={(e) => setEnrollForm({ ...enrollForm, mobileNumber: e.target.value })}
+                      placeholder="0771234567"
+                      className="rounded-xl border-slate-200 text-xs sm:text-sm"
+                    />
+                  </div>
+
+                  {/* Email */}
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      {t("teacherStorefront.enrollmentModal.email", "Email Address (Optional)")}
+                    </label>
+                    <Input
+                      type="email"
+                      value={enrollForm.email}
+                      onChange={(e) => setEnrollForm({ ...enrollForm, email: e.target.value })}
+                      placeholder="kasun@example.com"
+                      className="rounded-xl border-slate-200 text-xs sm:text-sm"
+                    />
+                  </div>
+
+                  {/* Note */}
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      {t("teacherStorefront.enrollmentModal.note", "Message or Note (Optional)")}
+                    </label>
+                    <Textarea
+                      rows={2}
+                      value={enrollForm.note}
+                      onChange={(e) => setEnrollForm({ ...enrollForm, note: e.target.value })}
+                      placeholder="Any specific questions about batch schedule or materials..."
+                      className="rounded-xl border-slate-200 text-xs sm:text-sm resize-none"
+                    />
+                  </div>
+
+                  {enrollErrorMessage && (
+                    <div className="rounded-lg bg-rose-50 p-2 text-xs font-medium text-rose-700">
+                      {enrollErrorMessage}
+                    </div>
+                  )}
+
+                  <Button
+                    type="submit"
+                    disabled={enrollSubmitting}
+                    className="mt-2 w-full rounded-xl bg-blue-600 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-700"
+                  >
+                    {enrollSubmitting ? (
+                      <>
+                        <Spinner className="h-4 w-4 mr-2" />
+                        <span>{t("teacherStorefront.enrollmentModal.submitting", "Submitting...")}</span>
+                      </>
+                    ) : (
+                      <span>{t("teacherStorefront.enrollmentModal.submit", "Submit Request")}</span>
+                    )}
+                  </Button>
+                </form>
+              )}
+            </div>
+          </div>
+        )}
+      </main>
+    </PublicQuizShell>
   );
 }

@@ -12,6 +12,7 @@ import { cn } from "@/lib/utils";
 import { getPreference } from "@/server/server-actions";
 
 import { AccountSwitcher } from "./_components/sidebar/account-switcher";
+import { DashboardLanguageSwitcher } from "./_components/sidebar/dashboard-language-switcher";
 import { LayoutControls } from "./_components/sidebar/layout-controls";
 import { PermissionGuard } from "./_components/sidebar/permission-guard";
 import { SearchDialog } from "./_components/sidebar/search-dialog";
@@ -68,6 +69,7 @@ export default async function Layout({ children }: Readonly<{ children: ReactNod
                   <SearchDialog />
                 </div>
                 <div className="flex items-center gap-2">
+                  <DashboardLanguageSwitcher />
                   <LayoutControls />
                   <ThemeSwitcher />
                   <AccountSwitcher />

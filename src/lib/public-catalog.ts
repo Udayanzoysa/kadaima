@@ -3,8 +3,7 @@ import { localize } from "@/types/quiz";
 
 export type CourseKind = "scholarship" | "ol" | "al" | "driving" | "other";
 
-const COURSE_UUID_RE =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const COURSE_UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 /** Strip HTML tags for card/SEO plain text. */
 export function plainFromHtml(html: string | null | undefined): string {
@@ -34,33 +33,24 @@ export function courseKindFromTitle(title: LocalizedText | string | null | undef
 }
 
 export function categoryRankFromKind(kind: CourseKind): number {
-  if (kind === "scholarship") return 0;
-  if (kind === "ol") return 1;
-  if (kind === "al") return 2;
-  if (kind === "driving") return 3;
-  return 4;
+  // Full catalog (/quiz): keep a stable exam-type order. Home uses admin homepage config instead.
+  if (kind === "ol") return 0;
+  if (kind === "al") return 1;
+  if (kind === "driving") return 2;
+  if (kind === "other") return 3;
+  if (kind === "scholarship") return 4;
+  return 5;
 }
 
-export function shortCourseLabel(
-  title: LocalizedText | string | null | undefined,
-  locale: string,
-): string {
+export function shortCourseLabel(title: LocalizedText | string | null | undefined, locale: string): string {
   const kind = courseKindFromTitle(title);
   if (kind === "scholarship") {
-    return locale === "si"
-      ? "5 ශ්‍රේණි ශිෂ්‍යත්ව"
-      : locale === "ta"
-        ? "தரம் 5 புலமை"
-        : "Grade 5 Scholarship";
+    return locale === "si" ? "5 ශ්‍රේණි ශිෂ්‍යත්ව" : locale === "ta" ? "தரம் 5 புலமை" : "Grade 5 Scholarship";
   }
   if (kind === "ol") return "G.C.E. O/L";
   if (kind === "al") return "G.C.E. A/L";
   if (kind === "driving") {
-    return locale === "si"
-      ? "රියදුරු බලපත්‍ර"
-      : locale === "ta"
-        ? "ஓட்டுநர் உரிமம்"
-        : "Driving Licence Exam";
+    return locale === "si" ? "රියදුරු බලපත්‍ර" : locale === "ta" ? "ஓட்டுநர் உரிமம்" : "Driving Licence Exam";
   }
   const full = localize(
     (typeof title === "string" ? { en: title, si: "", ta: "" } : title) as LocalizedText,

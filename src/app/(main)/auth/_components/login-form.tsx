@@ -22,12 +22,7 @@ import { notifyAuthChanged, postLoginPath } from "@/lib/auth-redirect";
 import { setClientCookie } from "@/lib/cookie.client";
 import { cn } from "@/lib/utils";
 
-import {
-  authInputClass,
-  authInputGroupClass,
-  authInputGroupControlClass,
-  authPrimaryButtonClass,
-} from "./auth-shell";
+import { authInputClass, authInputGroupClass, authInputGroupControlClass, authPrimaryButtonClass } from "./auth-shell";
 
 const formSchema = z.object({
   email: z.string().email({ message: "Please enter a valid email address." }),
@@ -107,8 +102,7 @@ export function LoginForm({ redirectTo, onSuccess }: LoginFormProps) {
         throw new Error("Invalid response schema from the authentication server.");
       }
     } catch (error) {
-      const errMsg =
-        error instanceof Error ? error.message : "Please check your credentials and try again.";
+      const errMsg = error instanceof Error ? error.message : "Please check your credentials and try again.";
       toast.error("Login failed", {
         description: errMsg,
       });
@@ -137,10 +131,7 @@ export function LoginForm({ redirectTo, onSuccess }: LoginFormProps) {
 
       finishLogin(result.accessToken, false);
     } catch (error) {
-      const errMsg =
-        error instanceof Error
-          ? error.message
-          : "The verification code is incorrect or has expired.";
+      const errMsg = error instanceof Error ? error.message : "The verification code is incorrect or has expired.";
       toast.error("Verification failed", {
         description: errMsg,
       });

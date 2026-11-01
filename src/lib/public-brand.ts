@@ -1,18 +1,27 @@
 /**
  * Canonical Kadaima public-site palette.
- * Source of truth: home hero (`PublicHomeHero`) + shell CTAs.
+ * Aligned with Master Plan tokens & high-fidelity design specs:
+ * Brand blue: #1769D2 (hover: #1152AA)
+ * Background: #F6F9FD, Surface: #FFFFFF, Border: #DFE7F1
+ * Dark text: #12243E, Secondary text: #607089
+ * Success: #13845A, Warning: #A45B00, Error: #BE2344
  */
 export const PUBLIC_BRAND = {
-  pageBg: "#f4f7fb",
-  /** Primary actions, links, active nav — WCAG-friendly on white. */
-  brand: "#1563b8",
-  brandHover: "#114f94",
-  /** Bright end of hero gradient / highlights. */
+  pageBg: "#F6F9FD",
+  /** Primary interactive actions, links, active nav — #1769D2 */
+  brand: "#1769D2",
+  brandHover: "#1152AA",
+  /** Bright accent highlights */
   brandBright: "#3b9eff",
-  soft: "#eef6ff",
-  softBorder: "#bcd8ff",
-  softDeep: "#dcebff",
-  ink: "#123a6b",
+  soft: "#EEF4FC",
+  softBorder: "#DFE7F1",
+  softDeep: "#D5E4F7",
+  textPrimary: "#12243E",
+  textSecondary: "#607089",
+  success: "#13845A",
+  warning: "#A45B00",
+  error: "#BE2344",
+  ink: "#12243E",
   gradientFrom: "#0b2a4a",
   gradientVia: "#1a4a7a",
   gradientTo: "#3b9eff",
@@ -24,3 +33,4 @@ export const PUBLIC_HERO_GRADIENT_CLASS =
 
 export const PUBLIC_HERO_GLOW_CLASS =
   "pointer-events-none absolute bottom-0 right-0 hidden h-full w-1/2 bg-[radial-gradient(ellipse_at_80%_50%,_rgba(255,255,255,0.16),_transparent_55%)] md:block";
+

@@ -48,9 +48,7 @@ async function createMany(questions: ImportQuestionPayload[]) {
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        const msg = Array.isArray(err.message)
-          ? err.message.join(", ")
-          : err.message || `Question ${i + 1} failed`;
+        const msg = Array.isArray(err.message) ? err.message.join(", ") : err.message || `Question ${i + 1} failed`;
         failures.push(msg);
       } else {
         ok += 1;
@@ -106,9 +104,7 @@ export function AiImportPdfQuestions({ onImported, variant = "outline" }: Props)
       });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) {
-        const msg = Array.isArray(body.message)
-          ? body.message.join(", ")
-          : body.message || "AI analysis failed";
+        const msg = Array.isArray(body.message) ? body.message.join(", ") : body.message || "AI analysis failed";
         throw new Error(msg);
       }
 
@@ -135,9 +131,7 @@ export function AiImportPdfQuestions({ onImported, variant = "outline" }: Props)
     }
     setImporting(true);
     try {
-      const payload: ImportQuestionPayload[] = pending.map(
-        ({ confidence: _c, ...rest }) => rest,
-      );
+      const payload: ImportQuestionPayload[] = pending.map(({ confidence: _c, ...rest }) => rest);
       const { ok, failures } = await createMany(payload);
       if (ok) toast.success(`Imported ${ok} draft question${ok === 1 ? "" : "s"}`);
       if (failures.length) {
@@ -175,8 +169,8 @@ export function AiImportPdfQuestions({ onImported, variant = "outline" }: Props)
         <DialogHeader>
           <DialogTitle>Import questions from exam PDF</DialogTitle>
           <DialogDescription>
-            Upload a past paper. Gemini analyzes it and creates draft questions for you to review
-            before saving to the bank.
+            Upload a past paper. Gemini analyzes it and creates draft questions for you to review before saving to the
+            bank.
           </DialogDescription>
         </DialogHeader>
 
@@ -205,9 +199,7 @@ export function AiImportPdfQuestions({ onImported, variant = "outline" }: Props)
           />
         </label>
 
-        {modelLabel && (
-          <p className="text-muted-foreground text-xs">Model: {modelLabel}</p>
-        )}
+        {modelLabel && <p className="text-muted-foreground text-xs">Model: {modelLabel}</p>}
 
         {pending.length > 0 && (
           <div className="max-h-72 space-y-2 overflow-y-auto rounded-lg border p-3">
@@ -221,16 +213,13 @@ export function AiImportPdfQuestions({ onImported, variant = "outline" }: Props)
                   <span className="font-medium text-foreground">
                     [{q.type}] {q.questionText.en || q.questionText.si || q.questionText.ta}
                   </span>
-                  {typeof q.confidence === "number" && (
-                    <span> · confidence {Math.round(q.confidence * 100)}%</span>
-                  )}
+                  {typeof q.confidence === "number" && <span> · confidence {Math.round(q.confidence * 100)}%</span>}
                 </li>
               ))}
               {pending.length > 12 && <li>…and {pending.length - 12} more</li>}
             </ol>
             <p className="text-muted-foreground text-[11px]">
-              Always review drafts after import — AI can miss options or mark the wrong answer on
-              scanned papers.
+              Always review drafts after import — AI can miss options or mark the wrong answer on scanned papers.
             </p>
           </div>
         )}

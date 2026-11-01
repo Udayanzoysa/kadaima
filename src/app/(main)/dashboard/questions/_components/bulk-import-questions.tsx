@@ -57,9 +57,7 @@ async function createMany(questions: ImportQuestionPayload[]) {
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        const msg = Array.isArray(err.message)
-          ? err.message.join(", ")
-          : err.message || `Row ${i + 1} failed`;
+        const msg = Array.isArray(err.message) ? err.message.join(", ") : err.message || `Row ${i + 1} failed`;
         failures.push(msg);
       } else {
         ok += 1;
@@ -207,8 +205,8 @@ export function BulkImportQuestions({ onImported, variant = "outline" }: Props) 
               <p>
                 Short answers: <code className="rounded bg-muted px-1">accepted_answers</code> plus optional{" "}
                 <code className="rounded bg-muted px-1">accepted_answers_si</code> /{" "}
-                <code className="rounded bg-muted px-1">accepted_answers_ta</code> (| between answers).
-                English question text is optional — SI-only or TA-only papers are allowed.
+                <code className="rounded bg-muted px-1">accepted_answers_ta</code> (| between answers). English question
+                text is optional — SI-only or TA-only papers are allowed.
               </p>
               <p>Open the .csv in Excel (UTF-8), fill rows, Save As CSV, then upload.</p>
             </div>
@@ -240,21 +238,18 @@ export function BulkImportQuestions({ onImported, variant = "outline" }: Props) 
               />
               <FieldDescription className="space-y-1">
                 <span className="block">
-                  <strong>Multilingual:</strong> prefix lines with{" "}
-                  <code className="rounded bg-muted px-1">EN:</code>{" "}
-                  <code className="rounded bg-muted px-1">SI:</code>{" "}
-                  <code className="rounded bg-muted px-1">TA:</code> for the question. Options:{" "}
-                  <code className="rounded bg-muted px-1">A. English</code> or{" "}
+                  <strong>Multilingual:</strong> prefix lines with <code className="rounded bg-muted px-1">EN:</code>{" "}
+                  <code className="rounded bg-muted px-1">SI:</code> <code className="rounded bg-muted px-1">TA:</code>{" "}
+                  for the question. Options: <code className="rounded bg-muted px-1">A. English</code> or{" "}
                   <code className="rounded bg-muted px-1">A-SI:</code> /{" "}
                   <code className="rounded bg-muted px-1">A-TA:</code>. End with{" "}
                   <code className="rounded bg-muted px-1">ANSWER: A</code>.
                 </span>
                 <span className="block">
-                  Sinhala-only papers are fine — use only{" "}
-                  <code className="rounded bg-muted px-1">SI:</code> and{" "}
+                  Sinhala-only papers are fine — use only <code className="rounded bg-muted px-1">SI:</code> and{" "}
                   <code className="rounded bg-muted px-1">A-SI:</code> (same for Tamil with{" "}
-                  <code className="rounded bg-muted px-1">TA:</code>). Plain Moodle Aiken
-                  (English only) still works. Separate questions with a blank line.
+                  <code className="rounded bg-muted px-1">TA:</code>). Plain Moodle Aiken (English only) still works.
+                  Separate questions with a blank line.
                 </span>
               </FieldDescription>
             </Field>
@@ -276,20 +271,28 @@ export function BulkImportQuestions({ onImported, variant = "outline" }: Props) 
                   Use double newlines to separate questions. Add metadata properties at the bottom of a block.
                 </p>
                 <ul className="list-disc list-inside space-y-1 text-muted-foreground">
-                  <li><strong className="text-foreground">POINTS:</strong> Point weight (e.g. <code className="bg-muted px-1 rounded">POINTS: 2</code>)</li>
-                  <li><strong className="text-foreground">STATUS:</strong> Draft, Published, or Archived</li>
-                  <li><strong className="text-foreground">TAGS:</strong> Comma-separated labels (e.g. <code className="bg-muted px-1 rounded">TAGS: Math, Science</code>)</li>
+                  <li>
+                    <strong className="text-foreground">POINTS:</strong> Point weight (e.g.{" "}
+                    <code className="bg-muted px-1 rounded">POINTS: 2</code>)
+                  </li>
+                  <li>
+                    <strong className="text-foreground">STATUS:</strong> Draft, Published, or Archived
+                  </li>
+                  <li>
+                    <strong className="text-foreground">TAGS:</strong> Comma-separated labels (e.g.{" "}
+                    <code className="bg-muted px-1 rounded">TAGS: Math, Science</code>)
+                  </li>
                 </ul>
               </div>
 
               <div className="space-y-2">
                 <h5 className="font-semibold text-foreground text-sm">Question Types Syntax</h5>
-                
+
                 <div className="space-y-2">
                   <div className="p-2 border rounded-md">
                     <strong className="text-foreground block mb-1">1. Multiple Choice (MCQ)</strong>
                     <pre className="bg-muted p-2 rounded text-[10px] font-mono whitespace-pre">
-{`EN: What is the capital of Sri Lanka?
+                      {`EN: What is the capital of Sri Lanka?
 SI: ශ්‍රී ලංකාවේ අගනුවර කුමක්ද?
 A. Colombo
 A-SI: කොළඹ
@@ -302,7 +305,7 @@ ANSWER: A`}
                   <div className="p-2 border rounded-md">
                     <strong className="text-foreground block mb-1">2. Fill in the Blank (SHORT_TEXT)</strong>
                     <pre className="bg-muted p-2 rounded text-[10px] font-mono whitespace-pre">
-{`EN: The capital of Sri Lanka is _____.
+                      {`EN: The capital of Sri Lanka is _____.
 TYPE: FILL_IN_THE_BLANK
 ANSWER: Colombo | Sri Jayawardenepura Kotte
 MATCH_MODE: case_insensitive`}
@@ -312,7 +315,7 @@ MATCH_MODE: case_insensitive`}
                   <div className="p-2 border rounded-md">
                     <strong className="text-foreground block mb-1">3. Numeric Answer (NUMERIC)</strong>
                     <pre className="bg-muted p-2 rounded text-[10px] font-mono whitespace-pre">
-{`EN: What is 2 + 2?
+                      {`EN: What is 2 + 2?
 TYPE: NUMERIC
 ANSWER: 4
 TOLERANCE: 0`}
@@ -322,7 +325,7 @@ TOLERANCE: 0`}
                   <div className="p-2 border rounded-md">
                     <strong className="text-foreground block mb-1">4. Sequencing (SEQUENCE)</strong>
                     <pre className="bg-muted p-2 rounded text-[10px] font-mono whitespace-pre">
-{`EN: Arrange in order:
+                      {`EN: Arrange in order:
 TYPE: SEQUENCE
 A. Boil water
 B. Steep tea leaves
@@ -333,7 +336,7 @@ C. Serve hot`}
                   <div className="p-2 border rounded-md">
                     <strong className="text-foreground block mb-1">5. Free-text Essay (ESSAY)</strong>
                     <pre className="bg-muted p-2 rounded text-[10px] font-mono whitespace-pre">
-{`EN: Write about climate change.
+                      {`EN: Write about climate change.
 TYPE: ESSAY
 MIN_WORDS: 100
 MIN_SENTENCES: 5`}
@@ -350,9 +353,7 @@ MIN_SENTENCES: 5`}
             <p className="text-sm">
               Ready to import: <strong>{previewCount}</strong> question
               {previewCount === 1 ? "" : "s"}
-              {issues.length > 0 && (
-                <span className="text-muted-foreground"> · {issues.length} row warning(s)</span>
-              )}
+              {issues.length > 0 && <span className="text-muted-foreground"> · {issues.length} row warning(s)</span>}
             </p>
             <IssuesList issues={issues} />
           </div>
@@ -362,11 +363,7 @@ MIN_SENTENCES: 5`}
           <Button type="button" variant="ghost" onClick={() => setOpen(false)} disabled={importing}>
             Cancel
           </Button>
-          <Button
-            type="button"
-            onClick={() => void handleImport()}
-            disabled={importing || pending.length === 0}
-          >
+          <Button type="button" onClick={() => void handleImport()} disabled={importing || pending.length === 0}>
             {importing ? (
               <>
                 <Spinner className="size-4" />

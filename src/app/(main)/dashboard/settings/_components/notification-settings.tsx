@@ -9,13 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Spinner } from "@/components/ui/spinner";
 import { APP_CONFIG } from "@/config/app-config";
 import { getClientCookie } from "@/lib/cookie.client";
@@ -188,10 +182,9 @@ export function NotificationSettings() {
         kind,
         email: "student@example.com",
       });
-      const res = await fetch(
-        `${APP_CONFIG.apiUrl}/settings/notifications/email-template?${params}`,
-        { headers: authHeaders() },
-      );
+      const res = await fetch(`${APP_CONFIG.apiUrl}/settings/notifications/email-template?${params}`, {
+        headers: authHeaders(),
+      });
       if (!res.ok) throw new Error("Failed to load template preview");
       const data = await res.json();
       setPreview({
@@ -242,9 +235,7 @@ export function NotificationSettings() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        const errMsg = Array.isArray(data.message)
-          ? data.message.join(", ")
-          : data.message || "Test email failed";
+        const errMsg = Array.isArray(data.message) ? data.message.join(", ") : data.message || "Test email failed";
         throw new Error(errMsg);
       }
 
@@ -254,10 +245,9 @@ export function NotificationSettings() {
       });
     } catch (err) {
       const message = err instanceof Error ? err.message : "Test email failed";
-      toast.error(
-        message.toLowerCase().includes("no user found") ? "No user found" : "SMTP test failed",
-        { description: message },
-      );
+      toast.error(message.toLowerCase().includes("no user found") ? "No user found" : "SMTP test failed", {
+        description: message,
+      });
     } finally {
       setTestingEmail(false);
     }
@@ -355,8 +345,7 @@ export function NotificationSettings() {
       <div className="space-y-1">
         <h2 className="font-semibold text-xl tracking-tight">Mail & SMS gateways</h2>
         <p className="text-muted-foreground text-sm">
-          Configure the outgoing mail server and SMS provider used for password resets and
-          notifications.
+          Configure the outgoing mail server and SMS provider used for password resets and notifications.
         </p>
       </div>
 
@@ -368,8 +357,7 @@ export function NotificationSettings() {
               SMTP / Outgoing mail
             </CardTitle>
             <CardDescription className="text-muted-foreground text-sm">
-              Default profile: Namecheap Private Email (`mail.privateemail.com`) with SSL on port
-              465.
+              Default profile: Namecheap Private Email (`mail.privateemail.com`) with SSL on port 465.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4 p-6">
@@ -400,10 +388,7 @@ export function NotificationSettings() {
 
               <Field className="gap-1.5">
                 <FieldLabel>Type of security (encryption)</FieldLabel>
-                <Select
-                  value={smtpEncryption}
-                  onValueChange={(v) => onEncryptionChange(v as SmtpEncryption)}
-                >
+                <Select value={smtpEncryption} onValueChange={(v) => onEncryptionChange(v as SmtpEncryption)}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
@@ -468,10 +453,7 @@ export function NotificationSettings() {
               </p>
               <Field className="gap-1.5">
                 <FieldLabel>Template</FieldLabel>
-                <Select
-                  value={templateKind}
-                  onValueChange={(v) => setTemplateKind(v as EmailTemplateKind)}
-                >
+                <Select value={templateKind} onValueChange={(v) => setTemplateKind(v as EmailTemplateKind)}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
@@ -495,12 +477,7 @@ export function NotificationSettings() {
                     <span className="font-medium">{preview.subject}</span>
                   </p>
                   <div className="max-h-[360px] overflow-auto rounded-md border border-border bg-white">
-                    <iframe
-                      title="Email preview"
-                      className="h-[340px] w-full"
-                      sandbox=""
-                      srcDoc={preview.html}
-                    />
+                    <iframe title="Email preview" className="h-[340px] w-full" sandbox="" srcDoc={preview.html} />
                   </div>
                 </div>
               ) : null}
@@ -510,8 +487,7 @@ export function NotificationSettings() {
               <div className="font-medium text-sm">Test SMTP / password-reset email</div>
               <p className="text-muted-foreground text-xs">
                 Enter a registered user email. If the address is not in the system, you will see{" "}
-                <strong>No user found for that email</strong>. Otherwise a real password-reset
-                email is sent.
+                <strong>No user found for that email</strong>. Otherwise a real password-reset email is sent.
               </p>
               <Field className="gap-1.5">
                 <FieldLabel htmlFor="test-email">Send test to</FieldLabel>
@@ -524,12 +500,7 @@ export function NotificationSettings() {
                 />
               </Field>
               <div className="flex flex-wrap gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  disabled={testingEmail}
-                  onClick={() => void sendTestEmail()}
-                >
+                <Button type="button" variant="outline" disabled={testingEmail} onClick={() => void sendTestEmail()}>
                   {testingEmail ? <Spinner className="size-4" /> : <Send className="size-4" />}
                   {testingEmail ? "Sending…" : "Send test email"}
                 </Button>
@@ -547,9 +518,7 @@ export function NotificationSettings() {
                   </div>
                   <div>
                     <span className="text-muted-foreground">Status:</span>{" "}
-                    {testResult.delivered
-                      ? "Delivered via SMTP"
-                      : "Logged only (SMTP incomplete)"}
+                    {testResult.delivered ? "Delivered via SMTP" : "Logged only (SMTP incomplete)"}
                   </div>
                 </div>
               ) : null}
@@ -608,9 +577,7 @@ export function NotificationSettings() {
                     type="password"
                     value={hutchApiKey}
                     onChange={(e) => setHutchApiKey(e.target.value)}
-                    placeholder={
-                      hasHutchApiKey ? "•••••••• (leave blank to keep)" : "Hutch API key"
-                    }
+                    placeholder={hasHutchApiKey ? "•••••••• (leave blank to keep)" : "Hutch API key"}
                     autoComplete="new-password"
                   />
                 </Field>
@@ -642,9 +609,7 @@ export function NotificationSettings() {
                     type="password"
                     value={notifyApiKey}
                     onChange={(e) => setNotifyApiKey(e.target.value)}
-                    placeholder={
-                      hasNotifyApiKey ? "•••••••• (leave blank to keep)" : "Notify.lk API key"
-                    }
+                    placeholder={hasNotifyApiKey ? "•••••••• (leave blank to keep)" : "Notify.lk API key"}
                     autoComplete="new-password"
                   />
                 </Field>

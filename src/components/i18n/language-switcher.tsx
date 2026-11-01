@@ -34,9 +34,7 @@ export function LanguageSwitcher({
   className,
   showIcon = true,
 }: Props) {
-  const options = languages?.length
-    ? LOCALES.filter((l) => languages.includes(l.code))
-    : LOCALES;
+  const options = languages?.length ? LOCALES.filter((l) => languages.includes(l.code)) : LOCALES;
 
   if (options.length === 0) return null;
 
@@ -86,9 +84,7 @@ export function LanguageSwitcher({
               onClick={() => onChange(l.code)}
               className={cn("cursor-pointer gap-2", selected && "bg-accent")}
             >
-              <Check
-                className={cn("size-3.5 shrink-0", selected ? "opacity-100" : "opacity-0")}
-              />
+              <Check className={cn("size-3.5 shrink-0", selected ? "opacity-100" : "opacity-0")} />
               <span>{l.label}</span>
             </DropdownMenuItem>
           );

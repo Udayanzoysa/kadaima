@@ -10,13 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Spinner } from "@/components/ui/spinner";
 import { APP_CONFIG } from "@/config/app-config";
 import { getClientCookie } from "@/lib/cookie.client";
@@ -204,9 +198,7 @@ export function AdminRevenuePage() {
       });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) {
-        throw new Error(
-          Array.isArray(body.message) ? body.message.join(", ") : body.message || "Calculate failed",
-        );
+        throw new Error(Array.isArray(body.message) ? body.message.join(", ") : body.message || "Calculate failed");
       }
       toast.success("Period calculated");
       setSelectedId(body.id);
@@ -314,8 +306,8 @@ export function AdminRevenuePage() {
         <CardHeader className="pb-3">
           <CardTitle className="text-base">Calculate month</CardTitle>
           <CardDescription>
-            Sums paid subscriptions for the month, applies the billing split, and allocates the
-            teacher pool by attempt share.
+            Sums paid subscriptions for the month, applies the billing split, and allocates the teacher pool by attempt
+            share.
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-wrap items-end gap-3">
@@ -428,11 +420,7 @@ export function AdminRevenuePage() {
                       <Wallet className="mr-1.5 size-3.5" />
                       Settle payouts
                     </Button>
-                    <Button
-                      size="sm"
-                      disabled={busy || detail.status !== "Settled"}
-                      onClick={() => void markPaid()}
-                    >
+                    <Button size="sm" disabled={busy || detail.status !== "Settled"} onClick={() => void markPaid()}>
                       <CheckCircle2 className="mr-1.5 size-3.5" />
                       Mark paid
                     </Button>
@@ -449,9 +437,7 @@ export function AdminRevenuePage() {
               <Card>
                 <CardHeader className="pb-2">
                   <CardTitle className="text-base">Teacher shares</CardTitle>
-                  <CardDescription>
-                    (teacher attempts ÷ all attempts) × teacher pool
-                  </CardDescription>
+                  <CardDescription>(teacher attempts ÷ all attempts) × teacher pool</CardDescription>
                 </CardHeader>
                 <CardContent className="overflow-x-auto">
                   {detail.shares.length === 0 ? (
@@ -476,9 +462,7 @@ export function AdminRevenuePage() {
                               <div className="text-xs text-muted-foreground">{s.teacher.email}</div>
                             </td>
                             <td className="px-2 py-2.5">{s.attemptCount}</td>
-                            <td className="px-2 py-2.5">
-                              {(s.shareRatio * 100).toFixed(2)}%
-                            </td>
+                            <td className="px-2 py-2.5">{(s.shareRatio * 100).toFixed(2)}%</td>
                             <td className="px-2 py-2.5 font-medium">{formatLkr(s.amountLkr)}</td>
                           </tr>
                         ))}

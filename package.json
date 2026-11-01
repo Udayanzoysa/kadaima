@@ -12,12 +12,14 @@
     "check:fix": "biome check --write",
     "prepare": "husky",
     "generate:presets": "ts-node -P tsconfig.scripts.json src/scripts/generate-theme-presets.ts",
-    "whatsapp-bot": "node whatsapp-bot.js"
+    "whatsapp-bot": "node whatsapp-bot.js",
+    "facebook-bot": "node facebook-bot.js",
+    "facebook-bot:test": "node facebook-bot.js --test",
+    "facebook-bot:status": "node facebook-bot.js --status",
+    "facebook-bot:draft": "node facebook-bot.js --slot=morning"
   },
   "lint-staged": {
-    "*.{js,ts,jsx,tsx}": [
-      "biome check --write --no-errors-on-unmatched"
-    ]
+    "*.{js,ts,jsx,tsx}": ["biome check --write --no-errors-on-unmatched"]
   },
   "dependencies": {
     "@base-ui/react": "^1.6.0",

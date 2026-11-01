@@ -121,16 +121,16 @@ export default function LeadsPage() {
                     {leads.map((lead) => {
                       return (
                         <tr key={lead.id} className="hover:bg-slate-50/40 transition">
-                          <td className="whitespace-nowrap px-6 py-4 font-medium text-slate-900">
-                            {lead.name}
-                          </td>
+                          <td className="whitespace-nowrap px-6 py-4 font-medium text-slate-900">{lead.name}</td>
                           <td className="whitespace-nowrap px-6 py-4">
-                            <span className={cn(
-                              "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ring-1 ring-inset",
-                              lead.tag === "Quiz Attempt"
-                                ? "bg-purple-50 text-purple-700 ring-purple-700/10"
-                                : "bg-blue-50 text-blue-700 ring-blue-700/10"
-                            )}>
+                            <span
+                              className={cn(
+                                "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ring-1 ring-inset",
+                                lead.tag === "Quiz Attempt"
+                                  ? "bg-purple-50 text-purple-700 ring-purple-700/10"
+                                  : "bg-blue-50 text-blue-700 ring-blue-700/10",
+                              )}
+                            >
                               {lead.tag || "Chatbot"}
                             </span>
                           </td>
@@ -145,9 +145,7 @@ export default function LeadsPage() {
                           </td>
                           <td className="whitespace-nowrap px-6 py-4 text-slate-700">
                             {lead.tag === "Quiz Attempt" && lead.school ? (
-                              <span className="text-sm font-medium text-slate-700">
-                                {lead.school}
-                              </span>
+                              <span className="text-sm font-medium text-slate-700">{lead.school}</span>
                             ) : lead.age ? (
                               <span className="inline-flex items-center gap-1">
                                 <span className="font-semibold">{lead.age}</span> yrs
@@ -189,7 +187,7 @@ export default function LeadsPage() {
                   </tbody>
                 </table>
               </div>
-              
+
               <div className="flex items-center justify-between border-t border-slate-100 px-6 py-3">
                 <div className="flex items-center gap-2">
                   <span className="text-slate-500 text-xs">Rows per page:</span>
