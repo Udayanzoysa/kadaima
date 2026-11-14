@@ -9,20 +9,16 @@ import { APP_CONFIG } from "@/config/app-config";
 import { buildPageMetadata, jsonLdQuizPage, withSeoOverrides } from "@/lib/page-seo";
 import { type LocalizedText, localize, plainTextFromLocalized } from "@/types/quiz";
 
-import { PublicQuizDetail } from "./_components/public-quiz-detail";
+import { PublicQuizDetail, type PublicQuizDetailData } from "./_components/public-quiz-detail";
 
 type QuizPageProps = {
   params: Promise<{ id: string }>;
 };
 
-type PublishedQuizMeta = {
-  id: string;
-  title?: LocalizedText | string | null;
-  description?: LocalizedText | string | null;
+type PublishedQuizMeta = PublicQuizDetailData & {
   seoTitle?: string | null;
   seoDescription?: string | null;
   coverImageUrl?: string | null;
-  durationMinutes?: number | null;
 };
 
 async function fetchQuizMeta(id: string): Promise<PublishedQuizMeta | null> {
@@ -89,7 +85,7 @@ export default async function PublicQuizDetailPage({ params }: QuizPageProps) {
           </PublicQuizShell>
         }
       >
-        <PublicQuizDetail />
+        <PublicQuizDetail initialQuiz={quiz} />
       </Suspense>
     </>
   );

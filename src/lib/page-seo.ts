@@ -136,21 +136,71 @@ export function jsonLdWebSiteAndOrganization(input: { siteName: string; descript
       url: input.siteUrl,
       description: input.description,
       inLanguage: ["en", "si", "ta"],
+      potentialAction: {
+        "@type": "SearchAction",
+        target: `${input.siteUrl}/quiz?q={search_term_string}`,
+        "query-input": "required name=search_term_string",
+      },
       publisher: {
-        "@type": "Organization",
+        "@type": "EducationalOrganization",
         name: input.siteName,
         url: input.siteUrl,
       },
     },
     {
       "@context": "https://schema.org",
-      "@type": "Organization",
+      "@type": "EducationalOrganization",
       name: input.siteName,
       url: input.siteUrl,
+      description: input.description,
       logo: absoluteUrl("/brand/kadaima-mark.png"),
       areaServed: {
         "@type": "Country",
         name: "Sri Lanka",
+      },
+    },
+  ];
+}
+
+export function jsonLdFaqPage(items: Array<{ question: string; answer: string }>) {
+  return {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    mainEntity: items.map((item) => ({
+      "@type": "Question",
+      name: item.question,
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: item.answer,
+      },
+    })),
+  };
+}
+
+export function jsonLdLmsPage(input: { siteName: string; description: string }) {
+  return [
+    jsonLdBreadcrumbList([
+      { name: "Home", path: "/" },
+      { name: "Classroom LMS", path: "/lms" },
+    ]),
+    {
+      "@context": "https://schema.org",
+      "@type": "SoftwareApplication",
+      name: `${input.siteName} Classroom LMS`,
+      applicationCategory: "EducationalApplication",
+      operatingSystem: "Web",
+      url: absoluteUrl("/lms"),
+      description: input.description,
+      inLanguage: ["en", "si", "ta"],
+      offers: {
+        "@type": "Offer",
+        price: "0",
+        priceCurrency: "LKR",
+      },
+      provider: {
+        "@type": "EducationalOrganization",
+        name: input.siteName,
+        url: absoluteUrl("/"),
       },
     },
   ];
@@ -182,7 +232,7 @@ export function jsonLdQuizPage(input: {
       isAccessibleForFree: true,
       provider: {
         "@type": "Organization",
-        name: input.siteName || APP_CONFIG.name,
+        name: input.siteName && input.siteName.trim().length > 0 ? input.siteName : APP_CONFIG.name,
         url: absoluteUrl("/"),
       },
       ...(input.image ? { image: input.image } : {}),

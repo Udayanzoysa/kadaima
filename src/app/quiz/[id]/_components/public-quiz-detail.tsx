@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import dynamic from "next/dynamic";
 import Link from "next/link";
@@ -10,12 +10,12 @@ import { Clock3, Lock, Play, UserRound } from "lucide-react";
 import { toast } from "sonner";
 
 import { GoogleButton } from "@/app/(main)/auth/_components/social-auth/google-button";
+import { PublicContentSkeleton } from "@/components/site/public-content-skeleton";
+import { PublicCenteredError } from "@/components/site/public-feedback";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RichHtml } from "@/components/ui/rich-text-editor";
-import { PublicContentSkeleton } from "@/components/site/public-content-skeleton";
-import { PublicCenteredError } from "@/components/site/public-feedback";
 import { Spinner } from "@/components/ui/spinner";
 import { APP_CONFIG } from "@/config/app-config";
 import { useI18n } from "@/hooks/use-i18n";
@@ -23,7 +23,7 @@ import { deleteClientCookie, getClientCookie } from "@/lib/cookie.client";
 import { clearGuestLead, ensureGuestSessionId, getOrCreateGuestLead, saveGuestLead } from "@/lib/guest-session";
 import { PUBLIC_HERO_GLOW_CLASS, PUBLIC_HERO_GRADIENT_CLASS } from "@/lib/public-brand";
 import { cn } from "@/lib/utils";
-import { localize, type LocalizedText } from "@/types/quiz";
+import { type LocalizedText, localize } from "@/types/quiz";
 
 import { PublicQuizShell } from "../../_components/public-quiz-shell";
 
@@ -31,7 +31,7 @@ const QuizUnlockModal = dynamic(() => import("../../_components/quiz-unlock-moda
   ssr: false,
 });
 
-interface PublicQuizDetailData {
+export interface PublicQuizDetailData {
   id: string;
   title: LocalizedText;
   description: LocalizedText | null;
@@ -56,15 +56,15 @@ interface AuthUser {
 
 const SL_MOBILE = /^07\d{8}$/;
 
-export function PublicQuizDetail() {
+export function PublicQuizDetail({ initialQuiz = null }: { initialQuiz?: PublicQuizDetailData | null } = {}) {
   const params = useParams<{ id: string }>();
   const quizId = params.id;
   const router = useRouter();
   const searchParams = useSearchParams();
   const { locale, t } = useI18n();
 
-  const [quiz, setQuiz] = useState<PublicQuizDetailData | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [quiz, setQuiz] = useState<PublicQuizDetailData | null>(initialQuiz);
+  const [loading, setLoading] = useState(!initialQuiz);
   const [authChecking, setAuthChecking] = useState(true);
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -76,17 +76,20 @@ export function PublicQuizDetail() {
   const [mobileNumber, setMobileNumber] = useState("");
   const [email, setEmail] = useState("");
 
-  const loadQuiz = async (userId?: string | null) => {
-    const guestSessionId = ensureGuestSessionId();
-    const userQ = userId ? `&userId=${encodeURIComponent(userId)}` : "";
-    const res = await fetch(
-      `${APP_CONFIG.apiUrl}/public/quizzes/${quizId}?guestSessionId=${encodeURIComponent(guestSessionId)}${userQ}`,
-    );
-    if (!res.ok) throw new Error("Quiz not found or not published.");
-    setQuiz(await res.json());
-  };
+  const loadQuiz = useCallback(
+    async (userId?: string | null) => {
+      const guestSessionId = ensureGuestSessionId();
+      const userQ = userId ? `&userId=${encodeURIComponent(userId)}` : "";
+      const res = await fetch(
+        `${APP_CONFIG.apiUrl}/public/quizzes/${quizId}?guestSessionId=${encodeURIComponent(guestSessionId)}${userQ}`,
+      );
+      if (!res.ok) throw new Error("Quiz not found or not published.");
+      setQuiz(await res.json());
+    },
+    [quizId],
+  );
 
-  const refreshAuthUser = async (): Promise<AuthUser | null> => {
+  const refreshAuthUser = useCallback(async (): Promise<AuthUser | null> => {
     const token = getClientCookie("session_token");
     if (!token) {
       setAuthUser(null);
@@ -119,15 +122,14 @@ export function PublicQuizDetail() {
       setAuthUser(null);
       return null;
     }
-  };
+  }, []);
 
   useEffect(() => {
-    (async () => {
+    void (async () => {
       await refreshAuthUser();
       setAuthChecking(false);
     })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [refreshAuthUser]);
 
   const handleGoogleSignedIn = async () => {
     const me = await refreshAuthUser();
@@ -139,27 +141,36 @@ export function PublicQuizDetail() {
     toast.success(t("public.readyToStart"));
   };
 
+  const paymentParam = searchParams.get("payment");
+  const initialQuizId = initialQuiz?.id;
+
   useEffect(() => {
     if (authChecking) return;
-    (async () => {
+    const hasPersonalContext = Boolean(authUser?.id || getOrCreateGuestLead()?.guestSessionId || paymentParam);
+    if (initialQuizId && initialQuizId === quizId && !hasPersonalContext) {
+      setLoading(false);
+      return;
+    }
+
+    void (async () => {
       try {
         await loadQuiz(authUser?.id);
-        const payment = searchParams.get("payment");
-        if (payment === "return") {
+        if (paymentParam === "return") {
           toast.message("If you completed payment, unlock should update shortly.");
           await loadQuiz(authUser?.id);
         }
-        if (payment === "cancel") {
+        if (paymentParam === "cancel") {
           toast.message("Payment cancelled.");
         }
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Could not load quiz.");
+        if (!initialQuizId) {
+          setError(err instanceof Error ? err.message : "Could not load quiz.");
+        }
       } finally {
         setLoading(false);
       }
     })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [quizId, authChecking, authUser?.id]);
+  }, [quizId, authChecking, authUser?.id, initialQuizId, loadQuiz, paymentParam]);
 
   const locked = Boolean(quiz?.requiresUnlock) && quiz?.unlocked !== true;
 
@@ -256,7 +267,7 @@ export function PublicQuizDetail() {
     }
   };
 
-  if (loading || authChecking) {
+  if (loading) {
     return (
       <PublicQuizShell>
         <PublicContentSkeleton variant="detail" className="flex-1 py-8" />
@@ -309,7 +320,7 @@ export function PublicQuizDetail() {
               <Clock3 className="size-4" />
               {t("public.mins").replace("{count}", String(quiz.durationMinutes))}
             </span>
-            <span>{t("public.questionsCount").replace("{count}", String(quiz.questions.length))}</span>
+            <span>{t("public.questionsCount").replace("{count}", String(quiz.questions?.length ?? 0))}</span>
             <span>
               {(quiz.maxAttempts ?? 1) === 1
                 ? t("public.oneAttempt")

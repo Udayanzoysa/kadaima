@@ -15,7 +15,8 @@ export const DEFAULT_SITE_SEO: SiteSeo = {
   metaDescription: APP_CONFIG.meta.description,
   googleAnalyticsId: process.env.NEXT_PUBLIC_GA_ID?.trim() || "G-80G4MMHK8B",
   ogImageUrl: null,
-  keywords: "online exam, quiz portal, scholarship, O/L, A/L, Sri Lanka, Kadaima",
+  keywords:
+    "Kadaima LMS, Sri Lanka LMS, online tuition classes Sri Lanka, online exam portal, O/L past papers, A/L MCQ quizzes, Grade 5 scholarship, Sinhala Tamil English quizzes",
 };
 
 /** Fetch public SEO config (cached). Falls back to APP_CONFIG defaults. */

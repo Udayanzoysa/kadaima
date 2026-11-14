@@ -15,11 +15,11 @@ import {
   Flame,
   Globe,
   GraduationCap,
+  type LucideIcon,
   Play,
   School,
   Search,
   Star,
-  type LucideIcon,
 } from "lucide-react";
 
 import { PublicQuizCard } from "@/components/quiz/public-quiz-card";
@@ -33,16 +33,16 @@ import { getClientCookie } from "@/lib/cookie.client";
 import { ensureGuestSessionId, getOrCreateGuestLead } from "@/lib/guest-session";
 import { PUBLIC_HERO_GLOW_CLASS, PUBLIC_HERO_GRADIENT_CLASS } from "@/lib/public-brand";
 import {
+  type CourseKind,
   categoryRankFromKind,
   courseKindFromTitle,
   courseSectionSubtitleKey,
   plainFromHtml,
   shortCourseLabel,
-  type CourseKind,
 } from "@/lib/public-catalog";
 import type { CatalogQuiz, PublicHomepagePayload } from "@/lib/public-quizzes";
 import { cn } from "@/lib/utils";
-import { mediaUrl, type LocalizedText, localize } from "@/types/quiz";
+import { type LocalizedText, localize, mediaUrl } from "@/types/quiz";
 
 import { PublicQuizShell } from "./public-quiz-shell";
 import type { UnlockQuizTarget } from "./quiz-unlock-modal";
@@ -55,13 +55,7 @@ const QuizUnlockModal = dynamic(() => import("./quiz-unlock-modal").then((m) => 
 
 function QuizCatalogSkeleton({ label }: { label: string }) {
   return (
-    <div
-      role="status"
-      aria-live="polite"
-      aria-busy="true"
-      aria-label={label}
-      className="mt-6 space-y-6"
-    >
+    <div role="status" aria-live="polite" aria-busy="true" aria-label={label} className="mt-6 space-y-6">
       <div className="flex gap-2 overflow-hidden">
         {Array.from({ length: 6 }).map((_, i) => (
           <Skeleton key={i} className="h-9 w-32 rounded-full bg-slate-200/80" />
@@ -246,10 +240,13 @@ export function PublicQuizCatalog({
     };
 
     if (hasInitial) {
-      if (typeof window !== "undefined" && "requestIdleCallback" in window) {
-        idleId = window.requestIdleCallback(() => void refreshPersonalized(), { timeout: 2500 });
-      } else {
-        timer = setTimeout(() => void refreshPersonalized(), 400);
+      const hasPersonalSession = Boolean(getClientCookie("session_token")) || Boolean(getOrCreateGuestLead());
+      if (hasPersonalSession) {
+        if (typeof window !== "undefined" && "requestIdleCallback" in window) {
+          idleId = window.requestIdleCallback(() => void refreshPersonalized(), { timeout: 2500 });
+        } else {
+          timer = setTimeout(() => void refreshPersonalized(), 400);
+        }
       }
     } else {
       void (async () => {
@@ -412,8 +409,9 @@ export function PublicQuizCatalog({
     const olCount = byCourse.find((c) => c.kind === "ol")?.items.length ?? 86;
     const alCount = byCourse.find((c) => c.kind === "al")?.items.length ?? 64;
     const schoolCount =
-      byCourse.filter((c) => c.kind === "other" || c.kind === "scholarship").reduce((sum, c) => sum + c.items.length, 0) ||
-      48;
+      byCourse
+        .filter((c) => c.kind === "other" || c.kind === "scholarship")
+        .reduce((sum, c) => sum + c.items.length, 0) || 48;
     const popularCount = Math.min(20, quizzes.length || 20);
     const newCount = 8;
 
@@ -580,6 +578,7 @@ export function PublicQuizCatalog({
               </div>
               <Link
                 href={`/quiz/course/${group.courseId}`}
+                aria-label={`See all ${group.courseTitle} quizzes`}
                 className="inline-flex shrink-0 items-center gap-1 text-xs font-semibold text-[#1769D2] transition hover:text-[#1152AA] hover:underline sm:text-sm"
               >
                 <span>{t("public.seeAll") || "See All"}</span>
@@ -592,10 +591,9 @@ export function PublicQuizCatalog({
             ) : (
               <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
                 {quizzesForSection.map((quiz) => {
-                  const desc =
-                    plainFromHtml(localize(quiz.description, locale as "en" | "si" | "ta")) ||
-                    moduleLabel(quiz.module, locale) ||
-                    t("public.cardFallbackDesc");
+                  let desc = plainFromHtml(localize(quiz.description, locale as "en" | "si" | "ta"));
+                  if (!desc) desc = moduleLabel(quiz.module, locale) ?? "";
+                  if (!desc) desc = t("public.cardFallbackDesc");
                   return (
                     <PublicQuizCard
                       key={quiz.id}
@@ -608,6 +606,7 @@ export function PublicQuizCatalog({
                       locked={needsUnlock(quiz)}
                       languages={quiz.languages}
                       language={quiz.language}
+                      href={startHref(quiz)}
                       onPrimary={() => handlePrimary(quiz)}
                     />
                   );

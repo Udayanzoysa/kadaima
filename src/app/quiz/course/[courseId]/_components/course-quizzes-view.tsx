@@ -26,7 +26,7 @@ import {
 } from "@/lib/public-catalog";
 import type { CatalogQuiz } from "@/lib/public-quizzes";
 import { cn } from "@/lib/utils";
-import { mediaUrl, type LocalizedText, localize } from "@/types/quiz";
+import { type LocalizedText, localize, mediaUrl } from "@/types/quiz";
 
 const QuizUnlockModal = dynamic(
   () => import("@/app/quiz/_components/quiz-unlock-modal").then((m) => m.QuizUnlockModal),
@@ -164,6 +164,8 @@ export function CourseQuizzesView({ courseId, initialQuizzes }: { courseId: stri
   };
 
   const needsUnlock = (quiz: CatalogQuiz) => Boolean(quiz.requiresUnlock) && quiz.unlocked !== true;
+
+  const startHref = (quiz: CatalogQuiz) => (inProgressByQuiz[quiz.id] ? `/quiz/${quiz.id}/take` : `/quiz/${quiz.id}`);
 
   const handlePrimary = (quiz: CatalogQuiz) => {
     if (needsUnlock(quiz)) {
@@ -304,6 +306,7 @@ export function CourseQuizzesView({ courseId, initialQuizzes }: { courseId: stri
                       locked={needsUnlock(quiz)}
                       languages={quiz.languages}
                       language={quiz.language}
+                      href={startHref(quiz)}
                       onPrimary={() => handlePrimary(quiz)}
                     />
                   );

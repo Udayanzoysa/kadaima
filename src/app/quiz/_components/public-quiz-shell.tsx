@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -74,14 +75,7 @@ function DeferredSupportChat() {
   return <SupportChatWidget />;
 }
 
-export type PublicNavId =
-  | "quiz"
-  | "classes"
-  | "timetable"
-  | "leaderboard"
-  | "in-progress"
-  | "my-attempts"
-  | "payments";
+export type PublicNavId = "quiz" | "classes" | "timetable" | "leaderboard" | "in-progress" | "my-attempts" | "payments";
 
 export function PublicQuizShell({
   children,
@@ -126,6 +120,7 @@ export function PublicQuizShell({
 
   // Close mobile drawer on route change
   useEffect(() => {
+    void pathname;
     setMobileMenuOpen(false);
   }, [pathname]);
 
@@ -169,10 +164,7 @@ export function PublicQuizShell({
 
   // Active section detection
   const isExploreActive =
-    activeNav === "quiz" ||
-    pathname === "/" ||
-    pathname.startsWith("/quiz/course") ||
-    pathname.startsWith("/quiz/");
+    activeNav === "quiz" || pathname === "/" || pathname.startsWith("/quiz/course") || pathname.startsWith("/quiz/");
   const isLearningActive =
     activeNav === "classes" ||
     activeNav === "timetable" ||
@@ -184,8 +176,7 @@ export function PublicQuizShell({
     pathname.startsWith("/quiz/in-progress") ||
     pathname.startsWith("/quiz/my-attempts") ||
     pathname.startsWith("/payments");
-  const isCommunityActive =
-    activeNav === "leaderboard" || pathname.startsWith("/leaderboard");
+  const isCommunityActive = activeNav === "leaderboard" || pathname.startsWith("/leaderboard");
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -216,9 +207,7 @@ export function PublicQuizShell({
           {/* Left: Brand Logo & Main Nav */}
           <div className="flex items-center gap-3 lg:gap-6">
             {brandSlot ? (
-              <div className="flex min-w-0 shrink-0 items-center">
-                {brandSlot}
-              </div>
+              <div className="flex min-w-0 shrink-0 items-center">{brandSlot}</div>
             ) : (
               <Link href="/" className="flex min-w-0 shrink-0 items-center">
                 <BrandLogo className="h-7 w-auto sm:h-8 md:h-9" priority />
@@ -241,10 +230,7 @@ export function PublicQuizShell({
                   >
                     <span>{t("public.nav.explore") || "Explore"}</span>
                     <ChevronDown
-                      className={cn(
-                        "size-3.5 transition-transform duration-200",
-                        exploreMenuOpen && "rotate-180",
-                      )}
+                      className={cn("size-3.5 transition-transform duration-200", exploreMenuOpen && "rotate-180")}
                     />
                   </button>
                 </DropdownMenuTrigger>
@@ -318,10 +304,7 @@ export function PublicQuizShell({
                   >
                     <span>{t("public.nav.myLearning") || "My Learning"}</span>
                     <ChevronDown
-                      className={cn(
-                        "size-3.5 transition-transform duration-200",
-                        learningMenuOpen && "rotate-180",
-                      )}
+                      className={cn("size-3.5 transition-transform duration-200", learningMenuOpen && "rotate-180")}
                     />
                   </button>
                 </DropdownMenuTrigger>
@@ -392,10 +375,7 @@ export function PublicQuizShell({
                   >
                     <span>{t("public.nav.community") || "Community"}</span>
                     <ChevronDown
-                      className={cn(
-                        "size-3.5 transition-transform duration-200",
-                        communityMenuOpen && "rotate-180",
-                      )}
+                      className={cn("size-3.5 transition-transform duration-200", communityMenuOpen && "rotate-180")}
                     />
                   </button>
                 </DropdownMenuTrigger>
@@ -430,26 +410,24 @@ export function PublicQuizShell({
           {/* Center-Right: Search Input + Right Action Items */}
           <div className="flex items-center gap-2 sm:gap-3">
             {/* Global Search Input (Desktop) */}
-            <form
-              onSubmit={handleSearchSubmit}
-              className="relative hidden items-center md:flex"
-              role="search"
-            >
-              <div className="relative flex h-9.5 w-48 items-center rounded-full bg-[#F1F4F9] px-3.5 text-xs text-slate-700 transition-all focus-within:w-64 focus-within:bg-white focus-within:ring-2 focus-within:ring-[#1769D2]/30 lg:w-60 lg:focus-within:w-72">
-                <Search className="mr-2 size-4 shrink-0 text-slate-400" />
-                <input
-                  ref={searchInputRef}
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder={t("public.nav.searchPlaceholder") || "Search quizzes, classes..."}
-                  className="w-full bg-transparent text-xs text-slate-800 placeholder:text-slate-400 outline-none sm:text-sm"
-                />
-                <kbd className="hidden select-none items-center rounded border border-slate-200 bg-white px-1.5 py-0.5 font-mono text-[10px] text-slate-400 shadow-2xs sm:inline-flex">
-                  Ctrl K
-                </kbd>
-              </div>
-            </form>
+            <search className="hidden md:block">
+              <form onSubmit={handleSearchSubmit} className="relative flex items-center">
+                <div className="relative flex h-9.5 w-48 items-center rounded-full bg-[#F1F4F9] px-3.5 text-xs text-slate-700 transition-all focus-within:w-64 focus-within:bg-white focus-within:ring-2 focus-within:ring-[#1769D2]/30 lg:w-60 lg:focus-within:w-72">
+                  <Search className="mr-2 size-4 shrink-0 text-slate-400" />
+                  <input
+                    ref={searchInputRef}
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder={t("public.nav.searchPlaceholder") || "Search quizzes, classes..."}
+                    className="w-full bg-transparent text-xs text-slate-800 placeholder:text-slate-400 outline-none sm:text-sm"
+                  />
+                  <kbd className="hidden select-none items-center rounded border border-slate-200 bg-white px-1.5 py-0.5 font-mono text-[10px] text-slate-400 shadow-2xs sm:inline-flex">
+                    Ctrl K
+                  </kbd>
+                </div>
+              </form>
+            </search>
 
             {/* Desktop Only: Language Switcher, Notifications, User / Guest Auth */}
             <div className="hidden items-center gap-2 sm:gap-3 md:flex">
@@ -473,12 +451,7 @@ export function PublicQuizShell({
 
               {/* User Profile Pill or Guest Auth */}
               {authUser === undefined ? (
-                <div
-                  className="flex items-center gap-1.5"
-                  role="status"
-                  aria-busy="true"
-                  aria-label="Loading account"
-                >
+                <div className="flex items-center gap-1.5" role="status" aria-busy="true" aria-label="Loading account">
                   <span className="inline-block size-8 animate-pulse rounded-full bg-slate-200" />
                   <span className="hidden h-4 w-16 animate-pulse rounded-full bg-slate-200 sm:inline-block" />
                 </div>
@@ -518,28 +491,24 @@ export function PublicQuizShell({
       {/* Mobile Navigation Drawer / Sheet */}
       {mobileMenuOpen && (
         <div
-          className="fixed inset-0 z-50 flex justify-end bg-black/40 backdrop-blur-xs transition-opacity duration-200 md:hidden"
-          onClick={() => setMobileMenuOpen(false)}
+          className="fixed inset-0 z-50 flex justify-end md:hidden"
           role="dialog"
           aria-modal="true"
           aria-label="Mobile Navigation Drawer"
         >
-          <div
-            className="flex h-full w-full max-w-[340px] flex-col justify-between bg-white p-5 shadow-2xl animate-in slide-in-from-right duration-250"
-            onClick={(e) => e.stopPropagation()}
-          >
+          <button
+            type="button"
+            aria-label="Close navigation menu"
+            onClick={() => setMobileMenuOpen(false)}
+            className="fixed inset-0 cursor-default bg-black/40 backdrop-blur-xs transition-opacity duration-200"
+          />
+          <div className="relative z-10 flex h-full w-full max-w-[340px] flex-col justify-between bg-white p-5 shadow-2xl animate-in slide-in-from-right duration-250">
             {/* Top Bar of Drawer: Brand Logo + Close Button */}
             <div className="flex items-center justify-between pb-3">
               {brandSlot ? (
-                <div className="flex items-center" onClick={() => setMobileMenuOpen(false)}>
-                  {brandSlot}
-                </div>
+                <div className="flex items-center">{brandSlot}</div>
               ) : (
-                <Link
-                  href="/"
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="flex items-center"
-                >
+                <Link href="/" onClick={() => setMobileMenuOpen(false)} className="flex items-center">
                   <BrandLogo className="h-7 w-auto" priority />
                 </Link>
               )}
@@ -718,9 +687,7 @@ export function PublicQuizShell({
               <div className="flex items-center justify-between py-2">
                 <div className="flex items-center gap-3">
                   <Globe className="size-5 text-slate-500" />
-                  <span className="text-sm font-medium text-slate-900">
-                    {t("public.nav.language") || "Language"}
-                  </span>
+                  <span className="text-sm font-medium text-slate-900">{t("public.nav.language") || "Language"}</span>
                 </div>
                 <LanguageSwitcher
                   value={locale}
@@ -755,9 +722,7 @@ export function PublicQuizShell({
                     <span className="flex size-7 items-center justify-center rounded-full bg-slate-100 text-slate-600">
                       <User className="size-4" />
                     </span>
-                    <span className="text-sm font-medium text-slate-900 truncate max-w-[170px]">
-                      {authUser.name}
-                    </span>
+                    <span className="text-sm font-medium text-slate-900 truncate max-w-[170px]">{authUser.name}</span>
                   </div>
                   <ChevronRight className="size-4 text-slate-400" />
                 </Link>
@@ -819,16 +784,18 @@ export function PublicQuizShell({
         poweredByBefore={t("public.footer.poweredBy")}
         poweredByAfter={t("public.footer.techwingSolutions")}
         links={[
+          { href: "/lms", label: "Classroom LMS" },
+          { href: "/teachers", label: "Teachers" },
           { href: "/about", label: t("public.footer.about") },
           { href: "/contact", label: t("public.footer.contact") },
           { href: "/privacy-policy", label: t("public.footer.privacy") },
           { href: "/terms", label: t("public.footer.terms") },
         ]}
         exploreLinks={[
-          { href: "/faq", label: t("public.footer.howToUse") || "How to use" },
+          { href: "/quiz", label: t("public.footer.exploreQuizzes") || "Explore Quizzes" },
           { href: "/faq", label: t("public.footer.faqs") || "FAQ" },
-          { href: "/#quizzes-by-course", label: t("public.footer.exploreQuizzes") || "Explore Quizzes" },
           { href: "/leaderboard", label: t("public.footer.leaderboard") || "Leaderboard" },
+          { href: "/partner", label: "Partner With Us" },
         ]}
       />
 

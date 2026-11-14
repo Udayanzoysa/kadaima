@@ -21,8 +21,8 @@ export const APP_CONFIG = {
     ? `https://wa.me/${whatsappNumber}?text=${encodeURIComponent("Hi Kadaima Expert!")}`
     : null,
   meta: {
-    title: "Kadaima | Sri Lanka’s Leading Online Exam & Quiz Portal",
+    title: "Kadaima LMS | Online Classes, Quizzes & Past Papers Sri Lanka",
     description:
-      "Master your exams with Kadaima. Access a wide range of online practice tests, quizzes, and assessments tailored for Sri Lankan students. Start learning today!",
+      "Sri Lanka’s online LMS, tuition classes, and exam quiz portal for Grade 5 Scholarship, G.C.E. O/L, and A/L students. Practice past papers and track progress.",
   },
 };

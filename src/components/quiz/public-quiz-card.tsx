@@ -1,7 +1,10 @@
 "use client";
 
 import { useState } from "react";
+
 import Image from "next/image";
+import Link from "next/link";
+
 import { BarChart2, BookOpen, Clock, HelpCircle, Lock, Play } from "lucide-react";
 
 import { useI18n } from "@/hooks/use-i18n";
@@ -29,6 +32,7 @@ export function PublicQuizCard({
   languages,
   language,
   className,
+  href,
   onPrimary,
   primaryLabel,
 }: {
@@ -42,6 +46,7 @@ export function PublicQuizCard({
   languages?: Array<SupportedLocale | string> | null;
   language?: SupportedLocale | string | null;
   className?: string;
+  href?: string;
   onPrimary: () => void;
   isNew?: boolean;
   iconIndex?: number;
@@ -94,11 +99,15 @@ export function PublicQuizCard({
       {/* Card Body */}
       <div className="flex flex-1 flex-col p-4">
         <h3 className="font-[family-name:var(--font-outfit)] text-sm font-bold leading-snug text-[#12243E] transition group-hover:text-[#1769D2] line-clamp-1">
-          {title}
+          {href ? (
+            <Link href={href} className="hover:underline focus-visible:outline-hidden focus-visible:underline">
+              {title}
+            </Link>
+          ) : (
+            title
+          )}
         </h3>
-        <p className="mt-1 min-h-[2rem] text-xs leading-relaxed text-[#607089] line-clamp-2">
-          {description}
-        </p>
+        <p className="mt-1 min-h-[2rem] text-xs leading-relaxed text-[#475569] line-clamp-2">{description}</p>
 
         {/* Language badges (if trilingual/bilingual) */}
         {availableLanguages.length > 1 ? (
@@ -128,14 +137,33 @@ export function PublicQuizCard({
 
         {/* Action Button: Full-width Start Quiz (as in Image 3) */}
         <div className="mt-3 pt-1">
-          <button
-            type="button"
-            onClick={onPrimary}
-            className="inline-flex h-9 w-full items-center justify-center gap-1.5 rounded-xl bg-[#1769D2] px-4 text-xs font-semibold text-white shadow-xs transition hover:bg-[#1152AA] active:scale-[0.98] focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-[#1769D2]/50 cursor-pointer"
-          >
-            <Play className="size-3 fill-current" />
-            <span>{primaryLabel || t("public.startQuiz") || "Start Quiz"}</span>
-          </button>
+          {(() => {
+            const fallbackLabel = t("public.startQuiz");
+            const ctaLabel =
+              primaryLabel && primaryLabel.length > 0
+                ? primaryLabel
+                : fallbackLabel.length > 0
+                  ? fallbackLabel
+                  : "Start Quiz";
+            return href && !locked ? (
+              <Link
+                href={href}
+                className="inline-flex h-9 w-full items-center justify-center gap-1.5 rounded-xl bg-[#1769D2] px-4 text-xs font-semibold text-white shadow-xs transition hover:bg-[#1152AA] active:scale-[0.98] focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-[#1769D2]/50"
+              >
+                <Play className="size-3 fill-current" />
+                <span>{ctaLabel}</span>
+              </Link>
+            ) : (
+              <button
+                type="button"
+                onClick={onPrimary}
+                className="inline-flex h-9 w-full items-center justify-center gap-1.5 rounded-xl bg-[#1769D2] px-4 text-xs font-semibold text-white shadow-xs transition hover:bg-[#1152AA] active:scale-[0.98] focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-[#1769D2]/50 cursor-pointer"
+              >
+                <Play className="size-3 fill-current" />
+                <span>{ctaLabel}</span>
+              </button>
+            );
+          })()}
         </div>
       </div>
     </div>

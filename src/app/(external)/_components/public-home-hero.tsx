@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
+
 import { BarChart3, Play, Sparkles } from "lucide-react";
 
 import { useI18n } from "@/hooks/use-i18n";
@@ -77,9 +78,7 @@ export function PublicHomeHero({
             )}
           </h1>
 
-          <p className="max-w-xl text-sm leading-relaxed text-[#607089] sm:text-base">
-            {description}
-          </p>
+          <p className="max-w-xl text-sm leading-relaxed text-[#475569] sm:text-base">{description}</p>
 
           <div className="flex flex-col gap-3 pt-2 sm:flex-row sm:items-center">
             <a
@@ -113,10 +112,11 @@ export function PublicHomeHero({
             <div className="relative z-10 mx-auto flex items-end justify-center overflow-hidden rounded-2xl">
               <Image
                 src="/media/hero/kadaima-student.webp"
-                alt=""
+                alt="Sri Lankan student learning on Kadaima online LMS and quiz portal"
                 width={454}
                 height={504}
                 priority
+                fetchPriority="high"
                 className="h-auto w-full max-h-[300px] sm:max-h-[340px] md:max-h-[360px] object-contain object-bottom select-none transition-transform duration-300 hover:scale-[1.02]"
                 sizes="(max-width: 640px) 280px, (max-width: 768px) 340px, (max-width: 1024px) 320px, 420px"
               />

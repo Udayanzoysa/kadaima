@@ -1,11 +1,13 @@
 import type { MetadataRoute } from "next";
 
 import { APP_CONFIG } from "@/config/app-config";
+import { fetchFeaturedTeachers } from "@/lib/public-teachers";
 import { absoluteUrl } from "@/lib/site-url";
 
 type PublishedQuizRow = {
   id: string;
-  course?: { id?: string | null } | null;
+  updatedAt?: string | null;
+  course?: { id?: string | null; updatedAt?: string | null } | null;
   createdBy?: {
     teacherProfile?: { slug?: string | null } | null;
   } | null;
@@ -17,7 +19,9 @@ const STATIC_PATHS: Array<{
   priority: number;
 }> = [
   { path: "/", changeFrequency: "daily", priority: 1 },
+  { path: "/lms", changeFrequency: "weekly", priority: 0.95 },
   { path: "/quiz", changeFrequency: "daily", priority: 0.9 },
+  { path: "/teachers", changeFrequency: "weekly", priority: 0.85 },
   { path: "/about", changeFrequency: "monthly", priority: 0.7 },
   { path: "/contact", changeFrequency: "monthly", priority: 0.7 },
   { path: "/partner", changeFrequency: "monthly", priority: 0.6 },
@@ -26,6 +30,12 @@ const STATIC_PATHS: Array<{
   { path: "/terms", changeFrequency: "yearly", priority: 0.3 },
   { path: "/privacy-policy", changeFrequency: "yearly", priority: 0.3 },
 ];
+
+function parseDateOrNow(value: string | null | undefined, fallback: Date): Date {
+  if (!value) return fallback;
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? fallback : parsed;
+}
 
 async function fetchPublishedQuizzes(): Promise<PublishedQuizRow[]> {
   try {
@@ -50,12 +60,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: entry.priority,
   }));
 
-  const quizzes = await fetchPublishedQuizzes();
+  const [quizzes, featuredTeachers] = await Promise.all([fetchPublishedQuizzes(), fetchFeaturedTeachers()]);
+
   const quizEntries: MetadataRoute.Sitemap = quizzes
     .filter((q) => typeof q.id === "string" && q.id.length > 0)
     .map((q) => ({
       url: absoluteUrl(`/quiz/${q.id}`),
-      lastModified: now,
+      lastModified: parseDateOrNow(q.updatedAt, now),
       changeFrequency: "weekly" as const,
       priority: 0.8,
     }));
@@ -78,12 +89,16 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     const slug = q.createdBy?.teacherProfile?.slug?.trim().toLowerCase();
     if (slug) teacherSlugs.add(slug);
   }
+  for (const teacher of featuredTeachers) {
+    const slug = teacher.slug?.trim().toLowerCase();
+    if (slug) teacherSlugs.add(slug);
+  }
 
   const teacherEntries: MetadataRoute.Sitemap = [...teacherSlugs].map((slug) => ({
     url: absoluteUrl(`/t/${slug}`),
     lastModified: now,
     changeFrequency: "weekly" as const,
-    priority: 0.7,
+    priority: 0.75,
   }));
 
   return [...staticEntries, ...courseEntries, ...quizEntries, ...teacherEntries];
