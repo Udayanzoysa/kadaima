@@ -93,7 +93,7 @@ const config = {
   ai: {
     apiKey: resolveAiApiKey(),
     primaryModel: process.env.AI_MODEL || "gemini-flash-lite-latest",
-    fallbackModels: (process.env.AI_MODEL_FALLBACKS || "gemini-2.5-flash-lite,gemini-flash-latest")
+    fallbackModels: (process.env.AI_MODEL_FALLBACKS || "gemini-3.5-flash-lite,gemini-3.8-flash,gemini-flash-latest")
       .split(",")
       .map((s) => s.trim())
       .filter(Boolean),

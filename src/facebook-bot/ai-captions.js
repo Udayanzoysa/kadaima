@@ -45,10 +45,11 @@ class AiCaptionGenerator {
     this.apiKey = config.ai.apiKey;
     const configured = [
       "gemini-flash-lite-latest",
-      "gemini-2.5-flash-lite",
+      "gemini-3.5-flash-lite",
+      "gemini-3.8-flash",
       config.ai.primaryModel,
       ...(config.ai.fallbackModels || []),
-    ].filter((m) => Boolean(m) && m !== "gemini-2.5-flash");
+    ].filter((m) => Boolean(m) && m !== "gemini-2.5-flash" && m !== "gemini-2.5-flash-lite");
     this.models = [...new Set(configured)];
   }
 
