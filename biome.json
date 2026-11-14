@@ -107,6 +107,22 @@
       "tailwindDirectives": true
     }
   },
+  "overrides": [
+    {
+      "includes": ["facebook-bot.js", "whatsapp-bot.js", "src/facebook-bot/**/*.js"],
+      "linter": {
+        "rules": {
+          "correctness": {
+            "noUndeclaredDependencies": "off"
+          },
+          "style": {
+            "noCommonJs": "off",
+            "useNodejsImportProtocol": "off"
+          }
+        }
+      }
+    }
+  ],
   "javascript": {
     "formatter": {
       "jsxQuoteStyle": "double",

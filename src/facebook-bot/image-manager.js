@@ -23,10 +23,7 @@ class ImageManager {
    * Search candidate directories for an asset matching the logical ID.
    */
   resolveAssetFile(assetId) {
-    const candidateDirs = [
-      config.paths.publicImagesDir,
-      config.paths.fallbackImagesDir,
-    ];
+    const candidateDirs = [config.paths.publicImagesDir, config.paths.fallbackImagesDir];
 
     for (const dir of candidateDirs) {
       if (!fs.existsSync(dir)) continue;

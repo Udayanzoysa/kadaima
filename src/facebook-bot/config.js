@@ -92,8 +92,8 @@ const config = {
   // AI Configuration (Gemini)
   ai: {
     apiKey: resolveAiApiKey(),
-    primaryModel: process.env.AI_MODEL || "gemini-flash-latest",
-    fallbackModels: (process.env.AI_MODEL_FALLBACKS || "gemini-flash-lite-latest,gemini-2.5-flash")
+    primaryModel: process.env.AI_MODEL || "gemini-flash-lite-latest",
+    fallbackModels: (process.env.AI_MODEL_FALLBACKS || "gemini-2.5-flash-lite,gemini-flash-latest")
       .split(",")
       .map((s) => s.trim())
       .filter(Boolean),
@@ -111,4 +111,3 @@ const config = {
 };
 
 module.exports = config;
-

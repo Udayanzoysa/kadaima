@@ -18,9 +18,8 @@ require("dotenv").config();
 
 const config = require("./src/facebook-bot/config");
 const storage = require("./src/facebook-bot/storage");
+const topics = require("./src/facebook-bot/topics");
 const imageManager = require("./src/facebook-bot/image-manager");
-const aiCaptions = require("./src/facebook-bot/ai-captions");
-const validator = require("./src/facebook-bot/validator");
 const metaPublisher = require("./src/facebook-bot/meta-publisher");
 const scheduler = require("./src/facebook-bot/scheduler");
 
@@ -32,7 +31,9 @@ async function printStatus() {
   console.log(`Draft-Only Mode:    ${config.draftOnly}`);
   console.log(`Auto-Publish:       ${config.autoPublish}`);
   console.log(`Timezone:           ${config.timezone}`);
-  console.log(`Slots:              Morning ${config.slots.morning} | Midday ${config.slots.midday} | Evening ${config.slots.evening}`);
+  console.log(
+    `Slots:              Morning ${config.slots.morning} | Midday ${config.slots.midday} | Evening ${config.slots.evening}`,
+  );
   console.log(`AI Primary Model:   ${config.ai.primaryModel}`);
   console.log(`AI API Key Set:     ${Boolean(config.ai.apiKey)}`);
   console.log(`Facebook Page ID:   ${config.facebook.pageId || "(Not configured yet)"}`);
@@ -51,9 +52,17 @@ async function printStatus() {
   const state = storage.getState();
   const nextIdx = storage.peekNextImageIndex();
   console.log("\n--- Rotation State ---");
-  console.log(`Last Successful Index: ${state.lastSuccessfulImageIndex} (${config.staticImages[state.lastSuccessfulImageIndex] || "None yet"})`);
+  console.log(
+    `Last Successful Index: ${state.lastSuccessfulImageIndex} (${config.staticImages[state.lastSuccessfulImageIndex] || "None yet"})`,
+  );
   console.log(`Next Image In Queue:   ${nextIdx} (${config.staticImages[nextIdx]})`);
   console.log(`Last Slot Run:         ${state.lastSlot || "None"} (${state.lastSlotDate || "Never"})`);
+
+  console.log("\n--- Next Rotating Topics ---");
+  for (const s of ["morning", "midday", "evening"]) {
+    const nextTopic = topics.selectNextTopic(s, storage);
+    console.log(`  - ${s.padEnd(8)} => [${nextTopic.id}] ${nextTopic.title}`);
+  }
 
   const drafts = storage.getDrafts();
   console.log(`\n--- Pending Drafts (${drafts.length}) ---`);
@@ -61,7 +70,9 @@ async function printStatus() {
     console.log("  No pending drafts.");
   } else {
     drafts.slice(0, 5).forEach((d) => {
-      console.log(`  - [${d.id}] Slot: ${d.slot.toUpperCase()} | Asset: ${d.assetId} | Status: ${d.status} | Created: ${d.createdAt.split("T")[0]}`);
+      console.log(
+        `  - [${d.id}] Slot: ${d.slot.toUpperCase()} | Asset: ${d.assetId} | Status: ${d.status} | Created: ${d.createdAt.split("T")[0]}`,
+      );
     });
   }
 
@@ -71,7 +82,9 @@ async function printStatus() {
     console.log("  No published posts yet.");
   } else {
     history.slice(0, 3).forEach((h) => {
-      console.log(`  - [${h.id}] FB ID: ${h.facebookPostId} | Slot: ${h.slot} | Asset: ${h.assetId} | Date: ${h.publishedAt}`);
+      console.log(
+        `  - [${h.id}] FB ID: ${h.facebookPostId} | Slot: ${h.slot} | Asset: ${h.assetId} | Date: ${h.publishedAt}`,
+      );
     });
   }
   console.log("========================================================\n");
@@ -86,25 +99,27 @@ async function runPipelineTest() {
   console.log("\n[Step 1/5] Verifying 3 approved static images...");
   const images = imageManager.validateAllImages();
   console.log(`  ✓ All ${images.length} approved images are present, non-empty, and verified:`);
-  images.forEach((img, i) => console.log(`    - ${img.assetId} (${img.fileName})`));
+  for (const img of images) {
+    console.log(`    - ${img.assetId} (${img.fileName})`);
+  }
 
-  // 2. Test Morning Slot
+  // 2. Test Morning Slot (dryRun=true so live page is never accidentally posted during --test)
   console.log("\n[Step 2/5] Testing Morning Slot (07:00 Puzzle)...");
-  const morningResult = await scheduler.runSlot("morning");
+  const morningResult = await scheduler.runSlot("morning", { dryRun: true });
   console.log(`  ✓ Morning caption generated and validated.`);
   console.log(`  ✓ Assigned Image: ${morningResult.assetId} (${morningResult.imageFile})`);
   console.log(`  ✓ Saved Draft ID: ${morningResult.draftId}`);
 
   // 3. Test Midday Slot
   console.log("\n[Step 3/5] Testing Midday Slot (12:30 Vocabulary)...");
-  const middayResult = await scheduler.runSlot("midday");
+  const middayResult = await scheduler.runSlot("midday", { dryRun: true });
   console.log(`  ✓ Midday caption generated and validated.`);
   console.log(`  ✓ Assigned Image: ${middayResult.assetId} (${middayResult.imageFile})`);
   console.log(`  ✓ Saved Draft ID: ${middayResult.draftId}`);
 
   // 4. Test Evening Slot
   console.log("\n[Step 4/5] Testing Evening Slot (19:00 Math Trick)...");
-  const eveningResult = await scheduler.runSlot("evening");
+  const eveningResult = await scheduler.runSlot("evening", { dryRun: true });
   console.log(`  ✓ Evening caption generated and validated.`);
   console.log(`  ✓ Assigned Image: ${eveningResult.assetId} (${eveningResult.imageFile})`);
   console.log(`  ✓ Saved Draft ID: ${eveningResult.draftId}`);
@@ -142,8 +157,9 @@ async function main() {
       process.exit(1);
     }
     const forcePublish = args.includes("--publish");
-    console.log(`Executing manual trigger for slot: ${slot} (forcePublish: ${forcePublish})`);
-    await scheduler.runSlot(slot, { forcePublish });
+    const dryRun = args.includes("--dry-run");
+    console.log(`Executing manual trigger for slot: ${slot} (forcePublish: ${forcePublish}, dryRun: ${dryRun})`);
+    await scheduler.runSlot(slot, { forcePublish, dryRun });
     return;
   }
 
@@ -170,4 +186,3 @@ main().catch((err) => {
   console.error("\n[FB Bot Fatal Error]:", err.message || err);
   process.exit(1);
 });
-

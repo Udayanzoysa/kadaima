@@ -56,26 +56,32 @@ class BotScheduler {
    * 4. Assign next rotated static image
    * 5. Save draft or publish to Meta Graph API
    */
-  async runSlot(slot, { forcePublish = false } = {}) {
+  async runSlot(slot, { forcePublish = false, dryRun = false } = {}) {
     console.log(`\n[FB Bot Scheduler] >>> Starting pipeline for slot: ${slot.toUpperCase()} <<<`);
 
     // Step 1: Validate images
     imageManager.validateAllImages();
 
-    // Step 2: Generate caption
+    // Step 2: Generate & validate caption with rotating topic + auto-retry
     console.log(`[FB Bot Scheduler] Generating ${slot} caption with AI...`);
     const genResult = await aiCaptions.generateCaptionForSlot(slot);
 
-    // Step 3: Validate caption & check duplicates
-    const valResult = validator.validate(genResult.caption, slot);
-    console.log(`[FB Bot Scheduler] Caption validated: ${valResult.charCount} chars, ${valResult.wordCount} words.`);
+    // Step 3: Log validation summary
+    const valResult = genResult.validation || validator.validate(genResult.caption, slot);
+    console.log(
+      `[FB Bot Scheduler] Caption validated (${genResult.topicId || "default"}): ${valResult.charCount} chars, ${valResult.wordCount} words.`,
+    );
 
     // Step 4: Publish or save draft
     const publishResult = await metaPublisher.publishOrDraft({
       slot,
       caption: genResult.caption,
       solution: genResult.solution,
+      topicId: genResult.topicId,
+      topicTitle: genResult.topicTitle,
+      topicIndex: genResult.topicIndex,
       forcePublish,
+      dryRun,
     });
 
     return publishResult;
@@ -129,7 +135,7 @@ class BotScheduler {
     }, 30000);
 
     // Initial check
-    this.checkAndTrigger().catch(() => {});
+    this.checkAndTrigger().catch((e) => console.error("[FB Bot Initial Check Error]", e));
   }
 
   stop() {
@@ -143,4 +149,3 @@ class BotScheduler {
 }
 
 module.exports = new BotScheduler();
-

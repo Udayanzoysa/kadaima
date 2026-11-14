@@ -46,6 +46,7 @@ class BotStorage {
       lastSlot: null,
       lastSlotDate: null,
       lastPublishedAt: null,
+      slotTopics: {},
       updatedAt: new Date().toISOString(),
     };
     return safeReadJson(config.paths.stateFile, defaultState);
@@ -56,6 +57,33 @@ class BotStorage {
       ...state,
       updatedAt: new Date().toISOString(),
     });
+  }
+
+  getSlotTopicState(slot) {
+    const state = this.getState();
+    const slotTopics = state.slotTopics || {};
+    return slotTopics[slot] || { lastTopicIndex: -1, recentTopicIds: [] };
+  }
+
+  recordTopicUsed(slot, topicId, topicIndex, maxRecent = 18) {
+    if (!slot || !topicId) return;
+    const state = this.getState();
+    const slotTopics = state.slotTopics || {};
+    const prev = slotTopics[slot] || { lastTopicIndex: -1, recentTopicIds: [] };
+    const filteredRecent = (Array.isArray(prev.recentTopicIds) ? prev.recentTopicIds : []).filter(
+      (id) => id !== topicId,
+    );
+    const updatedRecent = [topicId, ...filteredRecent].slice(0, maxRecent);
+
+    slotTopics[slot] = {
+      lastTopicIndex: typeof topicIndex === "number" ? topicIndex : prev.lastTopicIndex,
+      recentTopicIds: updatedRecent,
+      lastTopicId: topicId,
+      updatedAt: new Date().toISOString(),
+    };
+
+    state.slotTopics = slotTopics;
+    this.saveState(state);
   }
 
   /**
@@ -126,6 +154,8 @@ class BotStorage {
       id: record.id || `post_${Date.now()}`,
       facebookPostId: record.facebookPostId,
       slot: record.slot,
+      topicId: record.topicId || null,
+      topicTitle: record.topicTitle || null,
       assetId: record.assetId,
       imageFile: record.imageFile,
       caption: record.caption,
@@ -150,7 +180,67 @@ class BotStorage {
     const history = this.getHistory();
     return history.slice(0, limit).map((h) => h.caption);
   }
+
+  /**
+   * Returns deduplicated recent captions for a specific slot across both published history and drafts.
+   */
+  getRecentCaptionsForSlot(slot, limit = 15) {
+    const history = this.getHistory().filter((h) => h.slot === slot);
+    const drafts = this.getDrafts().filter((d) => d.slot === slot && d.status !== "FAILED");
+
+    const seen = new Set();
+    const results = [];
+
+    for (const item of [...history, ...drafts]) {
+      const cap = typeof item?.caption === "string" ? item.caption.trim() : "";
+      if (!cap || seen.has(cap)) continue;
+      seen.add(cap);
+      results.push(cap);
+      if (results.length >= limit) break;
+    }
+
+    return results;
+  }
+
+  /**
+   * Returns deduplicated recent captions across all slots (published + non-failed drafts).
+   */
+  getAllRecentCaptions(limit = 30) {
+    const history = this.getHistory();
+    const drafts = this.getDrafts().filter((d) => d.status !== "FAILED");
+
+    const seen = new Set();
+    const results = [];
+
+    for (const item of [...history, ...drafts]) {
+      const cap = typeof item?.caption === "string" ? item.caption.trim() : "";
+      if (!cap || seen.has(cap)) continue;
+      seen.add(cap);
+      results.push(cap);
+      if (results.length >= limit) break;
+    }
+
+    return results;
+  }
+
+  /**
+   * Returns recent topic IDs recorded on history/draft items for a given slot.
+   */
+  getRecentTopicIdsForSlot(slot, limit = 15) {
+    const history = this.getHistory().filter((h) => h.slot === slot && h.topicId);
+    const drafts = this.getDrafts().filter((d) => d.slot === slot && d.status !== "FAILED" && d.topicId);
+
+    const seen = new Set();
+    const ids = [];
+    for (const item of [...history, ...drafts]) {
+      if (!seen.has(item.topicId)) {
+        seen.add(item.topicId);
+        ids.push(item.topicId);
+        if (ids.length >= limit) break;
+      }
+    }
+    return ids;
+  }
 }
 
 module.exports = new BotStorage();
-

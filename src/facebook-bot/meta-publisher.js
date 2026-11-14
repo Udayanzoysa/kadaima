@@ -18,7 +18,16 @@ class MetaFacebookPublisher {
   /**
    * Publishes or creates a draft for a slot post.
    */
-  async publishOrDraft({ slot, caption, solution, forcePublish = false }) {
+  async publishOrDraft({
+    slot,
+    caption,
+    solution,
+    topicId = null,
+    topicTitle = null,
+    topicIndex = null,
+    forcePublish = false,
+    dryRun = false,
+  }) {
     // 1. Resolve next static image in deterministic rotation
     const imageInfo = imageManager.getNextRotatedImage(slot);
 
@@ -26,6 +35,9 @@ class MetaFacebookPublisher {
     const draftRecord = {
       id: draftId,
       slot,
+      topicId,
+      topicTitle,
+      topicIndex,
       caption,
       solution: solution || null,
       assetId: imageInfo.assetId,
@@ -40,14 +52,22 @@ class MetaFacebookPublisher {
     storage.saveDraft(draftRecord);
 
     // 2. Check if we should stop at draft stage
-    const shouldPublish = forcePublish || (config.enabled && config.autoPublish && !config.draftOnly);
+    const shouldPublish = !dryRun && (forcePublish || (config.enabled && config.autoPublish && !config.draftOnly));
 
     if (!shouldPublish) {
+      if (topicId) {
+        storage.recordTopicUsed(slot, topicId, topicIndex);
+      }
       console.log(`\n[FB Bot] ========================================`);
       console.log(`[FB Bot] DRAFT CREATED (${slot.toUpperCase()} SLOT)`);
-      console.log(`[FB Bot] Assigned Image: ${imageInfo.assetId} (${imageInfo.fileName}) [Index ${imageInfo.rotationIndex}]`);
+      if (topicId) {
+        console.log(`[FB Bot] Topic: [${topicId}] ${topicTitle}`);
+      }
+      console.log(
+        `[FB Bot] Assigned Image: ${imageInfo.assetId} (${imageInfo.fileName}) [Index ${imageInfo.rotationIndex}]`,
+      );
       console.log(`[FB Bot] Draft ID: ${draftId}`);
-      console.log(`[FB Bot] Draft Mode Active: Auto-publishing is OFF.`);
+      console.log(`[FB Bot] Draft Mode Active: Auto-publishing is OFF${dryRun ? " (DRY RUN)" : ""}.`);
       console.log(`[FB Bot] Preview:\n${caption}\n`);
       if (solution) {
         console.log(`[FB Bot] Private Solution: ${solution}`);
@@ -59,6 +79,8 @@ class MetaFacebookPublisher {
         mode: "DRAFT",
         draftId,
         slot,
+        topicId,
+        topicTitle,
         assetId: imageInfo.assetId,
         imageFile: imageInfo.fileName,
         caption,
@@ -71,6 +93,9 @@ class MetaFacebookPublisher {
     return this.postToFacebookPage({
       draftId,
       slot,
+      topicId,
+      topicTitle,
+      topicIndex,
       caption,
       solution,
       imageInfo,
@@ -80,7 +105,16 @@ class MetaFacebookPublisher {
   /**
    * Direct Meta Graph API Photo upload.
    */
-  async postToFacebookPage({ draftId, slot, caption, solution, imageInfo }) {
+  async postToFacebookPage({
+    draftId,
+    slot,
+    topicId = null,
+    topicTitle = null,
+    topicIndex = null,
+    caption,
+    solution,
+    imageInfo,
+  }) {
     if (!this.token) {
       const errMsg = "Missing FACEBOOK_PAGE_ACCESS_TOKEN. Cannot publish to Facebook.";
       console.error(`[FB Publisher] ${errMsg}`);
@@ -126,14 +160,19 @@ class MetaFacebookPublisher {
       const facebookPostId = data.id || data.post_id;
       console.log(`[FB Publisher] SUCCESS! Published post to Facebook. Post ID: ${facebookPostId}`);
 
-      // Advance rotation index ONLY after confirmed successful publish!
+      // Advance rotation index & topic rotation ONLY after confirmed successful publish!
       storage.advanceImageIndex(imageInfo.rotationIndex);
+      if (topicId) {
+        storage.recordTopicUsed(slot, topicId, topicIndex);
+      }
 
       // Record in history log
       const historyEntry = storage.recordSuccessfulPublish({
         id: draftId,
         facebookPostId,
         slot,
+        topicId,
+        topicTitle,
         assetId: imageInfo.assetId,
         imageFile: imageInfo.fileName,
         caption,
@@ -181,6 +220,9 @@ class MetaFacebookPublisher {
     return this.postToFacebookPage({
       draftId: draft.id,
       slot: draft.slot,
+      topicId: draft.topicId || null,
+      topicTitle: draft.topicTitle || null,
+      topicIndex: draft.topicIndex ?? null,
       caption: draft.caption,
       solution: draft.solution,
       imageInfo,
